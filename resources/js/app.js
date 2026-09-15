@@ -126,6 +126,11 @@ window.posApp = function (produits, panierInitial = [], libelleInitial = '', cli
         produits,
         taxes,
         panier: panierInitial,
+        // Facture (par défaut) ou bon de livraison (livré automatiquement,
+        // voir CLAUDE.md) — sélecteur visible uniquement avec la permission
+        // vente.bon_livraison (voir ventes/create.blade.php), sinon toujours
+        // 'facture' (revérifié aussi côté serveur, ValideRemises::bloquerTypeSansPermission).
+        type: 'facture',
         remiseTotaleType: '',
         remiseTotaleValeur: null,
         paiements: [{ moyen_paiement_id: '', montant: null }],
@@ -513,15 +518,19 @@ window.posApp = function (produits, panierInitial = [], libelleInitial = '', cli
             return sousTotal - this.calculerRemise(ligne.remise_type, ligne.remise_valeur, sousTotal);
         },
 
-        // Jamais plus cher que le prix catalogue (une remise ne peut pas être
-        // négative) — plafonné ici plutôt que dans l'input pour rester
+        // Un prix personnalisé peut aussi bien être inférieur (remise) que
+        // supérieur (majoration) au prix catalogue — seul un prix négatif
+        // n'a pas de sens, plafonné ici plutôt que dans l'input pour rester
         // cohérent même si le champ affiche encore l'ancienne valeur tapée.
         prixPersonnaliseClamp(ligne) {
             const prix = Number(ligne.prixSaisi) || 0;
-            return Math.max(0, Math.min(prix, ligne.prixUnitaire));
+            return Math.max(0, prix);
         },
 
-        // Remise "montant" équivalente au prix personnalisé, recalculée à
+        // Remise "montant" équivalente au prix personnalisé (négative si le
+        // prix saisi majore le catalogue — voir Remise::resoudre() et
+        // ValideRemises::remiseValeurMin() côté serveur, qui l'autorisent
+        // explicitement pour une ligne prix_personnalise), recalculée à
         // chaque appel (donc toujours à jour si la quantité change) — envoyée
         // au serveur exactement comme une remise classique (voir
         // ventes/create.blade.php, hidden inputs remise_type/remise_valeur).

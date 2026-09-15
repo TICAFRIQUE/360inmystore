@@ -83,6 +83,11 @@ jour tout seul au prochain démarrage, ou immédiatement via
 
 - Poste caisse affiche « Serveur injoignable » → vérifier que Laragon tourne
   sur le poste serveur et que les deux postes sont sur le même réseau.
+- Sauvegarde/restauration (Paramètres) échoue avec « mysqldump/mysql
+  introuvable » → auto-détecté normalement sur une installation Laragon
+  standard (`C:\laragon\bin\mysql\*\bin\`) ; sinon renseigner `MYSQLDUMP_PATH`
+  et `MYSQL_PATH` dans le `.env` du poste serveur avec le chemin complet vers
+  ces deux exécutables.
 - Problèmes classiques d'installation (MySQL, virtual host, superadmin,
   tâche planifiée) → voir `INSTALLATION-LOCALE.md` §7 (tableau de
   dépannage).

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\VenteType;
 use App\Exceptions\LimiteCreditDepasseeException;
 use App\Exceptions\SessionNonOuverteException;
 use App\Exceptions\StockInsuffisantException;
@@ -124,6 +125,7 @@ class VenteEnAttenteController extends Controller
         ]);
         $this->bloquerRemiseSansPermission($request);
         $this->bloquerCreditSansPermission($request);
+        $this->bloquerTypeSansPermission($request);
 
         $donnees = $request->validate([
             'lignes' => ['required', 'array', 'min:1'],
@@ -133,7 +135,7 @@ class VenteEnAttenteController extends Controller
             'lignes.*.magasin_source_id' => ['required', 'exists:magasins,id'],
             'lignes.*.quantite' => ['required', 'numeric', 'min:0.001'],
             'lignes.*.remise_type' => ['nullable', 'in:montant,pourcentage'],
-            'lignes.*.remise_valeur' => ['nullable', 'integer', 'min:0', $this->remisePourcentageMax()],
+            'lignes.*.remise_valeur' => ['nullable', 'integer', $this->remiseValeurMin(), $this->remisePourcentageMax()],
             'lignes.*.prix_personnalise' => ['nullable', 'boolean'],
             'remise_totale_type' => ['nullable', 'in:montant,pourcentage'],
             'remise_totale_valeur' => ['nullable', 'integer', 'min:0', $this->remisePourcentageMax()],
@@ -142,6 +144,7 @@ class VenteEnAttenteController extends Controller
             'paiements.*.montant' => ['required', 'integer', 'min:1'],
             'montant_recu' => ['nullable', 'integer', 'min:0'],
             'client_id' => ['nullable', 'exists:clients,id'],
+            'type' => ['nullable', 'in:facture,bon_livraison'],
         ]);
 
         $client = ! empty($donnees['client_id']) ? Client::findOrFail($donnees['client_id']) : null;
@@ -156,6 +159,7 @@ class VenteEnAttenteController extends Controller
                 $donnees['montant_recu'] ?? null,
                 client: $client,
                 autoriserDepassementLimite: $request->user()->can('client.depasser_limite'),
+                type: VenteType::tryFrom($donnees['type'] ?? '') ?? VenteType::Facture,
             );
         } catch (StockInsuffisantException|SessionNonOuverteException|RuntimeException|InvalidArgumentException|LimiteCreditDepasseeException $e) {
             return back()->withInput()->with('erreur', $e->getMessage());

@@ -110,15 +110,11 @@ class BonLivraisonController extends Controller
         $bonLivraison->load(['vente.client', 'vente.magasin', 'vente.caissier', 'lignes.produit', 'lignes.magasin', 'auteur']);
 
         $parametre = Parametre::actuel();
-        $logo = $parametre->getFirstMedia('logo');
-        $logoDataUri = ($logo && is_file($logo->getPath()))
-            ? 'data:'.$logo->mime_type.';base64,'.base64_encode(file_get_contents($logo->getPath()))
-            : null;
 
         return [
             'bonLivraison' => $bonLivraison,
             'parametre' => $parametre,
-            'logoDataUri' => $logoDataUri,
+            'logoDataUri' => $parametre->logoDataUri(),
         ];
     }
 }

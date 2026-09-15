@@ -74,9 +74,9 @@
                         <div class="text-secondary small">Montant</div>
                         <div class="fs-4 fw-bold">{{ number_format($commande->totalTtcReel(), 0, ',', ' ') }} F</div>
                         <div class="small text-secondary">
-                            Indicatif : {{ number_format($commande->totalTtc(), 0, ',', ' ') }} F
-                            @if ($commande->ecartMontant() !== 0)
-                                · Écart : <span class="{{ $commande->ecartMontant() > 0 ? 'text-danger' : 'text-success' }}">{{ $commande->ecartMontant() > 0 ? '+' : '' }}{{ number_format($commande->ecartMontant(), 0, ',', ' ') }} F</span>
+                            Indicatif : {{ montantAchat($commande->totalTtc()) }}
+                            @if ($commande->ecartMontant() != 0)
+                                · Écart : <span class="{{ $commande->ecartMontant() > 0 ? 'text-danger' : 'text-success' }}">{{ $commande->ecartMontant() > 0 ? '+' : '' }}{{ montantAchat($commande->ecartMontant()) }}</span>
                             @endif
                         </div>
                     </div>
@@ -186,14 +186,14 @@
                                 @endif
                             </td>
                             <td>
-                                {{ montant($ligne->prix_achat) }}
+                                {{ montantAchat($ligne->prix_achat) }}
                                 @if ($ligne->uniteVente)
-                                    <div class="text-secondary small">soit {{ montant($ligne->prixAchatParPiece()) }} / {{ $ligne->produit->unite_base_libelle }}</div>
+                                    <div class="text-secondary small">soit {{ montantAchat($ligne->prixAchatParPiece()) }} / {{ $ligne->produit->unite_base_libelle }}</div>
                                 @endif
                             </td>
                             <td>{{ $ligne->taxe->nom ?? '—' }}</td>
-                            <td>{{ montant($ligne->montantHt()) }}</td>
-                            <td>{{ montant($ligne->montantTtc()) }}</td>
+                            <td>{{ montantAchat($ligne->montantHt()) }}</td>
+                            <td>{{ montantAchat($ligne->montantTtc()) }}</td>
                             @if ($commande->statut === 'validee')
                                 @php $ligneDejaRecu = (float) ($dejaRecuParLigne[$ligne->id] ?? 0); @endphp
                                 <td>
@@ -208,9 +208,9 @@
                 <tfoot>
                     <tr>
                         <th colspan="6" class="text-end">Total</th>
-                        <th>{{ montant($commande->totalTaxes()) }}</th>
-                        <th>{{ montant($commande->totalHt()) }}</th>
-                        <th>{{ montant($commande->totalTtc()) }}</th>
+                        <th>{{ montantAchat($commande->totalTaxes()) }}</th>
+                        <th>{{ montantAchat($commande->totalHt()) }}</th>
+                        <th>{{ montantAchat($commande->totalTtc()) }}</th>
                         @if ($commande->statut === 'validee')
                             <th></th>
                         @endif
@@ -341,7 +341,7 @@
                         <div class="modal-body">
                             <p class="small text-secondary mb-0">
                                 Confirme la commande (envoyée au fournisseur, prête à être réceptionnée) — total
-                                indicatif : <strong>{{ montant($commande->totalTtc()) }}</strong>. Le stock et le
+                                indicatif : <strong>{{ montantAchat($commande->totalTtc()) }}</strong>. Le stock et le
                                 paiement se font plus tard, à chaque réception.
                             </p>
                         </div>
@@ -439,7 +439,10 @@
                         groupes: {{ $lignesAReceptionner->mapWithKeys(fn ($l) => [$l->id => [[
                             'magasin_id' => $l->magasin_destination_id ?? '',
                             'quantite_pieces' => (float) $l->quantite_pieces - ($dejaRecuParLigne[$l->id] ?? 0),
-                            'prix_achat_reel' => $l->prixAchatParPiece(),
+                            // prix_achat_reel reste entier (réception réelle,
+                            // voir CLAUDE.md) même si le prix indicatif du
+                            // bon de commande, lui, peut porter des centimes.
+                            'prix_achat_reel' => (int) round($l->prixAchatParPiece()),
                         ]]])->toJson() }},
                         sommeGroupe(ligneId) {
                             return (this.groupes[ligneId] || []).reduce((s, r) => s + (Number(r.quantite_pieces) || 0), 0);

@@ -433,6 +433,7 @@ class RapportController extends Controller
         $totalEntrees = (int) $toutesLesLignes->where('type', 'entree')->sum('montant');
         $totalSorties = (int) $toutesLesLignes->where('type', 'sortie')->sum('montant');
         $totalVentes = (int) $toutesLesLignes->where('type', 'vente')->sum('montant');
+        $totalRetours = (int) $toutesLesLignes->where('type', 'retour')->sum('montant');
 
         return view('rapports.mouvements-caisse', [
             'mouvements' => $mouvements,
@@ -445,6 +446,7 @@ class RapportController extends Controller
             'totalEntrees' => $totalEntrees,
             'totalSorties' => $totalSorties,
             'totalVentes' => $totalVentes,
+            'totalRetours' => $totalRetours,
         ]);
     }
 
@@ -462,7 +464,7 @@ class RapportController extends Controller
                 $l->magasin_nom,
                 $this->decorerLigneJournal($l)->type_libelle,
                 $l->motif,
-                ($l->type === 'sortie' ? '− ' : '+ ').montant($l->montant),
+                ($l->type === 'retour' ? '' : ($l->type === 'sortie' ? '− ' : '+ ')).montant($l->montant),
                 $l->auteur_nom ?? 'Utilisateur supprimé',
             ]),
             'rapport-mouvements-caisse.pdf',
@@ -524,6 +526,9 @@ class RapportController extends Controller
             'Ventes en espèces' => montant((int) $toutesLesLignes->where('type', 'vente')->sum('montant')),
             'Total entrées' => montant((int) $toutesLesLignes->where('type', 'entree')->sum('montant')),
             'Total sorties' => montant((int) $toutesLesLignes->where('type', 'sortie')->sum('montant')),
+            // Jamais additionné aux lignes ci-dessus (règle 18, hors tiroir) —
+            // juste informatif, comme la carte KPI "Retours" à l'écran.
+            'Retours (avoir, hors tiroir)' => montant((int) $toutesLesLignes->where('type', 'retour')->sum('montant')),
         ];
     }
 

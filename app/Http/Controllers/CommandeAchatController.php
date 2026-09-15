@@ -15,6 +15,7 @@ use App\Models\Taxe;
 use App\Models\UniteVente;
 use App\Services\AchatService;
 use App\Services\ReceptionAchatService;
+use App\Support\Arrondi;
 use App\Support\Decimal;
 use App\Support\NumeroDocument;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -146,7 +147,11 @@ class CommandeAchatController extends Controller
             'lignes.*.taxe_id' => ['nullable', 'exists:taxes,id'],
             'lignes.*.magasin_destination_id' => [Rule::requiredIf($donnees['action'] === 'recevoir'), 'nullable', 'exists:magasins,id'],
             'lignes.*.quantite' => ['required', 'numeric', 'min:0.001'],
-            'lignes.*.prix_achat' => ['required', 'integer', 'min:0'],
+            // Prix indicatif, jamais arrondi à l'entier (voir CLAUDE.md) :
+            // 'decimal:0,2' borne à 2 décimales max, comme la colonne
+            // decimal(14,2) — le prix RÉELLEMENT facturé, capturé à la
+            // réception (prix_achat_reel), reste lui entier.
+            'lignes.*.prix_achat' => ['required', 'numeric', 'decimal:0,2', 'min:0'],
         ])['lignes'];
 
         $receptionnerImmediatement = $donnees['action'] === 'recevoir';
@@ -205,7 +210,10 @@ class CommandeAchatController extends Controller
                     'ligne_commande_achat_id' => $l->id,
                     'magasin_id' => $l->magasin_destination_id,
                     'quantite_pieces' => $l->quantite_pieces,
-                    'prix_achat_reel' => $l->prixAchatParPiece(),
+                    // prix_achat_reel reste entier (réception réelle, voir
+                    // CLAUDE.md) même si le prix indicatif de la ligne, lui,
+                    // peut désormais porter des centimes.
+                    'prix_achat_reel' => Arrondi::entier($l->prixAchatParPiece()),
                 ])->all();
 
                 $receptionService->receptionner($commande, $lignesReception, $request->user(), $paiements, numeroFactureFournisseur: $numeroFactureFournisseur, numeroBonLivraisonFournisseur: $numeroBonLivraisonFournisseur);
@@ -397,10 +405,16 @@ class CommandeAchatController extends Controller
             $feuille->setCellValue("B{$ligne}", $ligneAchat->uniteVente->unite->nom_avec_abbreviation ?? $ligneAchat->produit->unite_base_libelle);
             $feuille->setCellValue("C{$ligne}", $ligneAchat->magasinDestination->nom ?? '—');
             $feuille->setCellValue("D{$ligne}", (float) $ligneAchat->quantite);
-            $feuille->setCellValue("E{$ligne}", $ligneAchat->prix_achat);
+            $feuille->setCellValue("E{$ligne}", (float) $ligneAchat->prix_achat);
             $feuille->setCellValue("F{$ligne}", $ligneAchat->taxe->nom ?? '—');
             $feuille->setCellValue("G{$ligne}", $ligneAchat->montantHt());
             $feuille->setCellValue("H{$ligne}", $ligneAchat->montantTtc());
+            // Prix/montants indicatifs (E, G, H) : 2 décimales, jamais
+            // arrondis à l'entier — voir CLAUDE.md, contrairement au reste
+            // du classeur (Reçu, totaux réels…) qui reste entier XOF.
+            foreach (['E', 'G', 'H'] as $colonneIndicative) {
+                $feuille->getStyle("{$colonneIndicative}{$ligne}")->getNumberFormat()->setFormatCode('#,##0.##');
+            }
             if ($commandeAchat->statut === 'validee') {
                 $feuille->setCellValue("I{$ligne}", ($dejaRecuParLigne[$ligneAchat->id] ?? 0).'/'.(float) $ligneAchat->quantite_pieces);
             }
@@ -410,16 +424,19 @@ class CommandeAchatController extends Controller
         $ligne++;
         $feuille->setCellValue("F{$ligne}", 'Total HT');
         $feuille->setCellValue("G{$ligne}", $commandeAchat->totalHt());
+        $feuille->getStyle("G{$ligne}")->getNumberFormat()->setFormatCode('#,##0.##');
         $ligne++;
         $feuille->setCellValue("F{$ligne}", 'Total taxes');
         $feuille->setCellValue("G{$ligne}", $commandeAchat->totalTaxes());
+        $feuille->getStyle("G{$ligne}")->getNumberFormat()->setFormatCode('#,##0.##');
         $ligne++;
-        $feuille->setCellValue("F{$ligne}", $aDesReceptions ? 'Total TTC réel' : 'Total TTC');
+        $feuille->setCellValue("F{$ligne}", 'Total TTC');
         $feuille->setCellValue("G{$ligne}", $commandeAchat->totalTtcReel());
         $ligne++;
-        if ($aDesReceptions && $commandeAchat->ecartMontant() !== 0) {
+        if ($aDesReceptions && $commandeAchat->ecartMontant() != 0) {
             $feuille->setCellValue("F{$ligne}", 'Total TTC indicatif (commande)');
             $feuille->setCellValue("G{$ligne}", $commandeAchat->totalTtc());
+            $feuille->getStyle("G{$ligne}")->getNumberFormat()->setFormatCode('#,##0.##');
             $ligne++;
         }
         foreach ($commandeAchat->paiements as $paiement) {
@@ -478,28 +495,24 @@ class CommandeAchatController extends Controller
     }
 
     /**
-     * Logo encodé en data URI (comme pour la vente/le devis) : dompdf ne
-     * charge une image distante que si enable_remote est activé côté serveur.
+     * receptions.lignes.taxe (uniquement, pas produit/magasin/paiements) :
+     * suffisant pour totalTtcReel()/ecartMontant() (montant réel, voir
+     * CommandeAchat::totalTtcReel()) — ce document n'affiche plus le détail
+     * ligne par ligne des réceptions (retiré, voir facture.blade.php).
      */
     private function chargerDonneesFacture(CommandeAchat $commandeAchat): array
     {
         $commandeAchat->load([
             'fournisseur', 'lignes.produit', 'lignes.uniteVente.unite', 'lignes.taxe', 'lignes.magasinDestination',
-            'paiements.moyenPaiement', 'reglementsFournisseur', 'retours',
-            'receptions.lignes.taxe', 'receptions.lignes.produit', 'receptions.lignes.magasin', 'receptions.paiements.moyenPaiement', 'receptions.auteur',
+            'paiements.moyenPaiement', 'reglementsFournisseur', 'retours', 'receptions.lignes.taxe',
         ]);
 
         $parametre = Parametre::actuel();
-        $logo = $parametre->getFirstMedia('logo');
-        $logoDataUri = ($logo && is_file($logo->getPath()))
-            ? 'data:'.$logo->mime_type.';base64,'.base64_encode(file_get_contents($logo->getPath()))
-            : null;
 
         return [
             'commande' => $commandeAchat,
-            'dejaRecuParLigne' => $this->calculerDejaRecuParLigne($commandeAchat),
             'parametre' => $parametre,
-            'logoDataUri' => $logoDataUri,
+            'logoDataUri' => $parametre->logoDataUri(),
         ];
     }
 
@@ -578,6 +591,7 @@ class CommandeAchatController extends Controller
             $ligne['unite_vente_id'] = ($ligne['unite_vente_id'] ?? null) ?: null;
             $ligne['taxe_id'] = ($ligne['taxe_id'] ?? null) ?: null;
             $ligne['quantite'] = Decimal::normaliser($ligne['quantite'] ?? null);
+            $ligne['prix_achat'] = Decimal::normaliser($ligne['prix_achat'] ?? null);
 
             return $ligne;
         })->all();

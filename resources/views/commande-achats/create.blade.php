@@ -87,27 +87,37 @@
                                 const taxe = this.taxes.find((t) => String(t.id) === String(ligne.taxe_id || ''));
                                 return taxe ? taxe.taux : 0;
                             },
+                            // Arrondi à 2 décimales (jamais à l'entier) : le prix d'achat
+                            // indicatif d'un bon de commande peut porter des centimes
+                            // (voir CLAUDE.md, « Achat à crédit et comptes fournisseurs »)
+                            // — contrairement au reste de l'application (vente, caisse),
+                            // toujours entier. Le prix RÉELLEMENT facturé, capturé plus
+                            // tard à la réception, reste lui entier.
+                            arrondi2(valeur) {
+                                return Math.round((Number(valeur) + Number.EPSILON) * 100) / 100;
+                            },
+                            // La virgule n'apparaît que si le montant a réellement des
+                            // centimes (1250 → « 1 250 », 1250,5 → « 1 250,50 ») — miroir
+                            // JS de montantAchat() (app/helpers.php).
+                            fmtMontant(valeur) {
+                                const v = this.arrondi2(valeur);
+                                return v.toLocaleString('fr-FR', { minimumFractionDigits: Number.isInteger(v) ? 0 : 2, maximumFractionDigits: 2 });
+                            },
                             montantHtLigne(ligne) {
-                                // Arrondi immédiat : sans lui, une quantité/un prix saisi
-                                // en décimal (que step/min n'empêchent pas de taper, seule
-                                // la soumission le rejette) laisse un HT fractionnaire dans
-                                // totalHt alors que totalTtc est déjà arrondi ligne par
-                                // ligne (voir montantTtcLigne) — totalTaxes = totalTtc −
-                                // totalHt affichait alors un reste non nul même à taux 0%.
-                                return Math.round((Number(ligne.quantite) || 0) * (Number(ligne.prix_achat) || 0));
+                                return this.arrondi2((Number(ligne.quantite) || 0) * (Number(ligne.prix_achat) || 0));
                             },
                             montantTtcLigne(ligne) {
                                 const ht = this.montantHtLigne(ligne);
-                                return Math.round(ht + ht * this.tauxLigne(ligne) / 100);
+                                return this.arrondi2(ht + ht * this.tauxLigne(ligne) / 100);
                             },
                             get totalHt() {
-                                return this.lignes.reduce((total, l) => total + this.montantHtLigne(l), 0);
+                                return this.arrondi2(this.lignes.reduce((total, l) => total + this.montantHtLigne(l), 0));
                             },
                             get totalTtc() {
-                                return this.lignes.reduce((total, l) => total + this.montantTtcLigne(l), 0);
+                                return this.arrondi2(this.lignes.reduce((total, l) => total + this.montantTtcLigne(l), 0));
                             },
                             get totalTaxes() {
-                                return this.totalTtc - this.totalHt;
+                                return this.arrondi2(this.totalTtc - this.totalHt);
                             },
                             ajouterLigne() {
                                 this.lignes.push({ produit_id: '', unite_vente_id: '', taxe_id: '', magasin_destination_id: '', quantite: '', prix_achat: '', _cle: 'l' + this.lignes.length + '-' + Date.now() + '-' + Math.random() });
@@ -278,7 +288,7 @@
                                         </div>
                                         <div class="col-6 col-md-2">
                                             <label class="form-label small" x-text="'Prix d\'achat HT (' + uniteChoisie(ligne).libelle + ') *'"></label>
-                                            <input type="number" :name="'lignes['+index+'][prix_achat]'" x-model="ligne.prix_achat" class="form-control form-control-sm" min="0" step="1" required>
+                                            <input type="number" :name="'lignes['+index+'][prix_achat]'" x-model="ligne.prix_achat" class="form-control form-control-sm" min="0" step="0.01" required>
                                         </div>
                                         <div class="col-6 col-md-2">
                                             <label class="form-label small">Qté en pièces (stock)</label>
@@ -313,11 +323,11 @@
                                         </div>
                                         <div class="col-6 col-md-2">
                                             <label class="form-label small">Total HT</label>
-                                            <input type="text" class="form-control form-control-sm" :value="montantHtLigne(ligne).toLocaleString('fr-FR')" disabled>
+                                            <input type="text" class="form-control form-control-sm" :value="fmtMontant(montantHtLigne(ligne))" disabled>
                                         </div>
                                         <div class="col-6 col-md-3">
                                             <label class="form-label small">Total TTC</label>
-                                            <input type="text" class="form-control form-control-sm fw-semibold" :value="montantTtcLigne(ligne).toLocaleString('fr-FR') + ' ' + window.DEVISE_ABREVIATION" disabled>
+                                            <input type="text" class="form-control form-control-sm fw-semibold" :value="fmtMontant(montantTtcLigne(ligne)) + ' ' + window.DEVISE_ABREVIATION" disabled>
                                         </div>
                                     </div>
                                 </div>
@@ -341,9 +351,9 @@
 
                         <div class="d-flex justify-content-end mb-3">
                             <div class="text-end">
-                                <div class="text-secondary">Total HT : <span class="fw-semibold" x-text="totalHt.toLocaleString('fr-FR') + ' ' + window.DEVISE_ABREVIATION"></span></div>
-                                <div class="text-secondary">Total taxes : <span class="fw-semibold" x-text="totalTaxes.toLocaleString('fr-FR') + ' ' + window.DEVISE_ABREVIATION"></span></div>
-                                <div class="h5 mb-0">Total TTC : <span class="fw-bold" x-text="totalTtc.toLocaleString('fr-FR') + ' ' + window.DEVISE_ABREVIATION"></span></div>
+                                <div class="text-secondary">Total HT : <span class="fw-semibold" x-text="fmtMontant(totalHt) + ' ' + window.DEVISE_ABREVIATION"></span></div>
+                                <div class="text-secondary">Total taxes : <span class="fw-semibold" x-text="fmtMontant(totalTaxes) + ' ' + window.DEVISE_ABREVIATION"></span></div>
+                                <div class="h5 mb-0">Total TTC : <span class="fw-bold" x-text="fmtMontant(totalTtc) + ' ' + window.DEVISE_ABREVIATION"></span></div>
                             </div>
                         </div>
 
@@ -380,7 +390,7 @@
                                         <i class="bi bi-plus-lg"></i> Ajouter un paiement
                                     </button>
                                     <div class="mb-2 small text-secondary">
-                                        Reste dû au fournisseur après validation : <span class="fw-semibold" x-text="resteDu.toLocaleString('fr-FR') + ' ' + window.DEVISE_ABREVIATION"></span>
+                                        Reste dû au fournisseur après validation : <span class="fw-semibold" x-text="fmtMontant(resteDu) + ' ' + window.DEVISE_ABREVIATION"></span>
                                     </div>
                                 </div>
                             </div>

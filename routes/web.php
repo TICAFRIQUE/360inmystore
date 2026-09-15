@@ -110,7 +110,9 @@ Route::middleware(['auth', 'abonnement.actif'])->group(function () {
     Route::middleware('can:parametre.gerer')->group(function () {
         Route::get('parametres', [ParametreController::class, 'edit'])->name('parametres.edit');
         Route::put('parametres', [ParametreController::class, 'update'])->name('parametres.update');
+        Route::put('parametres/dossier-sauvegarde', [ParametreController::class, 'mettreAJourDossierSauvegarde'])->name('parametres.dossier-sauvegarde');
         Route::post('parametres/backup', [ParametreController::class, 'backup'])->name('parametres.backup');
+        Route::post('parametres/restaurer', [ParametreController::class, 'restaurer'])->name('parametres.restaurer');
     });
 
     Route::middleware('can:fournisseur.voir')->group(function () {
@@ -325,6 +327,10 @@ Route::middleware(['auth', 'abonnement.actif'])->group(function () {
     });
 
     Route::middleware('can:vente.retour')->group(function () {
+        // /retours avant /ventes/{vente}/retours : point d'entrée dédié pour
+        // rechercher la facture à retourner sans déjà la connaître, même
+        // principe que bons-livraison.index (liste globale).
+        Route::get('retours', [RetourVenteController::class, 'rechercher'])->name('retours.rechercher');
         Route::post('ventes/{vente}/retours', [RetourVenteController::class, 'store'])->name('ventes.retours.store');
     });
 
@@ -343,6 +349,9 @@ Route::middleware(['auth', 'abonnement.actif'])->group(function () {
     Route::middleware('can:client.reglement')->group(function () {
         Route::get('sessions/{session}/reglements/creer', [ReglementClientController::class, 'create'])->name('reglements.create');
         Route::post('sessions/{session}/reglements', [ReglementClientController::class, 'store'])->name('reglements.store');
+        // /remboursements-avoir avant /clients/{client}/... : liste centralisée
+        // des clients ayant un avoir, symétrique de reglements.create côté dette.
+        Route::get('remboursements-avoir', [RemboursementAvoirClientController::class, 'index'])->name('remboursements-avoir-client.index');
         Route::post('clients/{client}/remboursements-avoir', [RemboursementAvoirClientController::class, 'store'])->name('remboursements-avoir-client.store');
     });
 

@@ -136,7 +136,11 @@ class RetourAchatService
                     }
                     $magasin = $ligne->magasinDestination;
                     $quantiteRecue = (float) $ligne->quantite_pieces;
-                    $totalLigneTtcRef = $ligne->montantTtc();
+                    // Ancien modèle uniquement (aDesMouvementsStockDirects()) :
+                    // prix_achat de la ligne EST déjà le montant réellement
+                    // facturé (pas d'indicatif décimal distinct à cette
+                    // époque) — reste entier comme le reste de l'avoir.
+                    $totalLigneTtcRef = (int) round($ligne->montantTtc());
                 }
 
                 $quantiteAvant = (float) ($dejaRetourne[$clef] ?? 0);

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Concerns;
 
+use App\Models\RemboursementAvoirClient;
 use Carbon\Carbon;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\DB;
@@ -45,6 +46,12 @@ trait JournalCaisse
                 'mouvement_caisses.type',
                 'mouvement_caisses.montant',
                 'mouvement_caisses.motif',
+                // reference_type/id : distingue un remboursement d'avoir
+                // client (sortie générée automatiquement, voir
+                // RemboursementAvoirClientService) d'une sortie manuelle
+                // quelconque, voir decorerLigneJournal().
+                'mouvement_caisses.reference_type',
+                'mouvement_caisses.reference_id',
                 'session_caisses.caisse_id',
                 'caisses.nom as caisse_nom',
                 'caisses.magasin_id',
@@ -94,6 +101,8 @@ trait JournalCaisse
                 DB::raw("'vente' as type"),
                 DB::raw('SUM(paiements.montant) as montant'),
                 DB::raw("CONCAT('Vente ', ventes.numero) as motif"),
+                DB::raw('NULL as reference_type'),
+                DB::raw('NULL as reference_id'),
                 'session_caisses.caisse_id',
                 'caisses.nom as caisse_nom',
                 'caisses.magasin_id',
@@ -138,6 +147,8 @@ trait JournalCaisse
                 DB::raw("'reglement' as type"),
                 DB::raw('SUM(reglement_paiements.montant) as montant'),
                 DB::raw("CONCAT('Règlement ', clients.nom, IF(ventes.numero IS NOT NULL, CONCAT(' — ', ventes.numero), '')) as motif"),
+                DB::raw('NULL as reference_type'),
+                DB::raw('NULL as reference_id'),
                 'session_caisses.caisse_id',
                 'caisses.nom as caisse_nom',
                 'caisses.magasin_id',
@@ -146,10 +157,49 @@ trait JournalCaisse
                 'users.name as auteur_nom',
             ]);
 
-        // Filtre "type" qui exclut explicitement une des trois branches
-        // (entree/sortie/vente/reglement choisi) : ne pas unir les autres
-        // branches du tout plutôt que fabriquer un HAVING toujours faux.
-        if ($type && ! in_array($type, ['vente', 'reglement'], true)) {
+        // Un retour ne mouvemente jamais le tiroir (règle 18) : ligne
+        // purement informative (jamais sommée dans les KPI entrées/sorties/
+        // théorique), affichée sans signe +/− (voir decorerLigneJournal()).
+        // Rattaché à la caisse où il est réellement TRAITÉ
+        // (retour_ventes.session_caisse_id), pas forcément celle de la vente
+        // d'origine — un retour sans session (créé avant que cette colonne
+        // n'existe) disparaît donc de ce journal, jamais rattaché à tort à
+        // la caisse de la vente. Un avoir remboursé (RemboursementAvoirClient)
+        // n'apparaît lui jamais ici : il génère désormais un vrai
+        // MouvementCaisse (voir branche mouvements ci-dessus), pas une ligne
+        // à part.
+        $retours = DB::table('retour_ventes')
+            ->join('ventes', 'ventes.id', '=', 'retour_ventes.vente_id')
+            ->join('session_caisses', 'session_caisses.id', '=', 'retour_ventes.session_caisse_id')
+            ->join('caisses', 'caisses.id', '=', 'session_caisses.caisse_id')
+            ->join('magasins', 'magasins.id', '=', 'caisses.magasin_id')
+            ->join('users', 'users.id', '=', 'retour_ventes.created_by')
+            ->when($sessionCaisseId, fn ($q) => $q->where('retour_ventes.session_caisse_id', $sessionCaisseId))
+            ->when($magasinId, fn ($q) => $q->where('caisses.magasin_id', $magasinId))
+            ->when($caisseId, fn ($q) => $q->where('session_caisses.caisse_id', $caisseId))
+            ->when($caissierId, fn ($q) => $q->where('retour_ventes.created_by', $caissierId))
+            ->whereBetween('retour_ventes.created_at', [$debut, $fin])
+            ->select([
+                DB::raw("'retour' as source"),
+                'retour_ventes.id',
+                'retour_ventes.created_at',
+                DB::raw("'retour' as type"),
+                'retour_ventes.montant_total as montant',
+                DB::raw("CONCAT('Retour ', retour_ventes.numero, ' — ', ventes.numero) as motif"),
+                DB::raw('NULL as reference_type'),
+                DB::raw('NULL as reference_id'),
+                'session_caisses.caisse_id',
+                'caisses.nom as caisse_nom',
+                'caisses.magasin_id',
+                'magasins.nom as magasin_nom',
+                'retour_ventes.created_by as auteur_id',
+                'users.name as auteur_nom',
+            ]);
+
+        // Filtre "type" qui exclut explicitement une des branches (choisi) :
+        // ne pas unir les autres branches du tout plutôt que fabriquer un
+        // HAVING toujours faux.
+        if ($type && ! in_array($type, ['vente', 'reglement', 'retour'], true)) {
             return $mouvements->orderByDesc('created_at');
         }
         if ($type === 'vente') {
@@ -158,8 +208,11 @@ trait JournalCaisse
         if ($type === 'reglement') {
             return $reglements->orderByDesc('created_at');
         }
+        if ($type === 'retour') {
+            return $retours->orderByDesc('created_at');
+        }
 
-        return $mouvements->unionAll($ventes)->unionAll($reglements)->orderByDesc('created_at');
+        return $mouvements->unionAll($ventes)->unionAll($reglements)->unionAll($retours)->orderByDesc('created_at');
     }
 
     /**
@@ -173,14 +226,27 @@ trait JournalCaisse
             'sortie' => 'Sortie',
             'vente' => 'Vente / Facture',
             'reglement' => 'Règlement client',
+            'retour' => 'Retour (avoir)',
             default => $ligne->type,
         };
+        // Une sortie générée par un remboursement d'avoir client (voir
+        // RemboursementAvoirClientService) reste un vrai MouvementCaisse —
+        // juste un libellé distinct pour ne pas la confondre avec une sortie
+        // manuelle quelconque dans la colonne "Type".
+        if ($ligne->type === 'sortie' && ($ligne->reference_type ?? null) === RemboursementAvoirClient::class) {
+            $ligne->type_libelle = 'Remboursement avoir';
+        }
         $ligne->type_badge = match ($ligne->type) {
             'entree', 'vente', 'reglement' => 'text-bg-success',
             'sortie' => 'text-bg-danger',
+            'retour' => 'text-bg-warning-subtle text-warning-emphasis',
             default => 'text-bg-secondary',
         };
         $ligne->signe_positif = $ligne->type !== 'sortie';
+        // Un retour ne mouvemente jamais le tiroir (règle 18) : jamais de
+        // signe +/− en affichage, pour ne pas laisser croire à un encaissement
+        // ou une sortie d'espèces — c'est un avoir, hors comptage du tiroir.
+        $ligne->hors_tiroir = $ligne->type === 'retour';
 
         return $ligne;
     }

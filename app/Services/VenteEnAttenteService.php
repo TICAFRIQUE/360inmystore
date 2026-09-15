@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Enums\VenteType;
 use App\Exceptions\SessionNonOuverteException;
 use App\Models\Client;
 use App\Models\SessionCaisse;
@@ -85,10 +86,11 @@ class VenteEnAttenteService
         ?int $montantRecu = null,
         ?Client $client = null,
         bool $autoriserDepassementLimite = false,
+        VenteType $type = VenteType::Facture,
     ): Vente {
         $venteEnAttente->loadMissing(['sessionCaisse', 'caissier']);
 
-        return DB::transaction(function () use ($venteEnAttente, $lignes, $paiements, $remiseTotaleType, $remiseTotaleValeur, $montantRecu, $client, $autoriserDepassementLimite) {
+        return DB::transaction(function () use ($venteEnAttente, $lignes, $paiements, $remiseTotaleType, $remiseTotaleValeur, $montantRecu, $client, $autoriserDepassementLimite, $type) {
             $vente = $this->venteService->vendre(
                 session: $venteEnAttente->sessionCaisse,
                 caissier: $venteEnAttente->caissier,
@@ -99,6 +101,7 @@ class VenteEnAttenteService
                 montantRecu: $montantRecu,
                 client: $client,
                 autoriserDepassementLimite: $autoriserDepassementLimite,
+                type: $type,
             );
 
             $venteEnAttente->delete();

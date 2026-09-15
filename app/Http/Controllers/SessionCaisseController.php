@@ -12,6 +12,7 @@ use App\Http\Controllers\Concerns\ExporteListe;
 use App\Http\Controllers\Concerns\TrieListe;
 use App\Models\Caisse;
 use App\Models\MotifMouvement;
+use App\Models\MouvementCaisse;
 use App\Models\MoyenPaiement;
 use App\Models\Paiement;
 use App\Models\ReglementPaiement;
@@ -112,17 +113,18 @@ class SessionCaisseController extends Controller
             ->when(! $request->user()->can('caisse.gerer'), fn ($q) => $q->where('caissier_id', $request->user()->id))
             ->count();
 
-        $totalVentes = (int) $session->ventes()->sum('total_net');
         $paiementsParMoyen = $this->paiementsParMoyen($session);
 
-        // Décomposition du CA ci-dessus : sur TOUTE la session, pas
-        // seulement la page affichée par $ventes plus bas (paginée).
-        $totalDu = (int) $session->ventes()->with('paiements', 'reglementsClient', 'retours')->get()
-            ->sum(fn (Vente $v) => $v->soldeDuReel());
+        // Décomposition du solde du tiroir ci-dessus : sur TOUTE la session,
+        // pas seulement la page affichée par $ventes plus bas (paginée). Une
+        // seule requête groupée pour dû/retours, chacun dérivé de la même
+        // collection (zéro requête dupliquée).
+        $ventesSession = $session->ventes()->with('paiements', 'reglementsClient', 'retours')->get();
+        $totalVentes = (int) $ventesSession->sum('total_net');
+        $totalDu = (int) $ventesSession->sum(fn (Vente $v) => $v->soldeDuReel());
+        $totalRetours = (int) $ventesSession->sum(fn (Vente $v) => $v->retours->sum('montant_total'));
+        $nbRetours = $ventesSession->sum(fn (Vente $v) => $v->retours->count());
         $avoirApplique = (int) $session->ventes()->sum('avoir_applique');
-        $totalEspeces = (int) $paiementsParMoyen
-            ->filter(fn ($p) => $p->moyenPaiement->est_espece)
-            ->sum('total');
         $totalReglementsClient = (int) $session->reglementClients()->sum('montant');
 
         // paiements/reglementsClient : nécessaires à Vente::montantRegle()/
@@ -151,8 +153,9 @@ class SessionCaisseController extends Controller
             'session' => $session,
             'totalVentes' => $totalVentes,
             'totalDu' => $totalDu,
+            'totalRetours' => $totalRetours,
+            'nbRetours' => $nbRetours,
             'avoirApplique' => $avoirApplique,
-            'totalEspeces' => $totalEspeces,
             'totalReglementsClient' => $totalReglementsClient,
             'venteEnAttentesVisibles' => $venteEnAttentesVisibles,
             'paiementsParMoyen' => $paiementsParMoyen,
@@ -231,7 +234,14 @@ class SessionCaisseController extends Controller
             );
         }
 
-        $totalVentes = (int) $session->ventes()->sum('total_net');
+        // Même décomposition que sessions.show (Retour/avoir) — sert à donner
+        // la même "story" financière sur l'écran de clôture, pas seulement
+        // un théorique brut sans contexte.
+        $ventesSession = $session->ventes()->with('retours')->get();
+        $nbVentes = $ventesSession->count();
+        $totalVentes = (int) $ventesSession->sum('total_net');
+        $totalRetours = (int) $ventesSession->sum(fn (Vente $v) => $v->retours->sum('montant_total'));
+        $nbRetours = $ventesSession->sum(fn (Vente $v) => $v->retours->count());
         $detail = $caisseSessionService->calculerTheorique($session);
         $paiementsParMoyen = $this->paiementsParMoyen($session);
 
@@ -239,7 +249,10 @@ class SessionCaisseController extends Controller
             'session' => $session,
             'theorique' => $detail['theorique'],
             'detailTheorique' => $detail,
+            'nbVentes' => $nbVentes,
             'totalVentes' => $totalVentes,
+            'totalRetours' => $totalRetours,
+            'nbRetours' => $nbRetours,
             'paiementsParMoyen' => $paiementsParMoyen,
         ]);
     }
@@ -278,13 +291,19 @@ class SessionCaisseController extends Controller
     {
         $this->assurerMagasin($session->caisse->magasin_id);
 
-        $session->load(['caisse.magasin', 'caissier', 'clotureePar']);
+        $session->load(['caisse.magasin', 'caissier', 'clotureePar', 'mouvementCaisses.auteur']);
 
         return view('sessions.rapport', [
             'session' => $session,
-            'totalVentes' => (int) $session->ventes()->sum('total_net'),
-            'paiementsParMoyen' => $this->paiementsParMoyen($session),
-            'ventes' => $session->ventes()->orderBy('created_at')->get(),
+            'bilan' => $this->bilanRapportSession($session),
+            // Mêmes colonnes que sessions.show (règlement, avoir, livraison,
+            // retours) — un rapport n'est qu'une vue figée/imprimable de la
+            // même session, jamais une liste appauvrie par rapport à l'écran
+            // de travail du caissier.
+            'ventes' => $session->ventes()
+                ->with(['paiements', 'reglementsClient', 'retours', 'lignes', 'bonsLivraison.lignes'])
+                ->orderBy('created_at')
+                ->get(),
             // Liste détaillée en complément du total agrégé déjà affiché
             // (total_reglements_especes, voir bilanRapportSession()) — sans
             // ça, impossible de savoir depuis ce rapport quel client/quelle
@@ -300,12 +319,10 @@ class SessionCaisseController extends Controller
 
         return $this->pdfDepuisListe(
             "Rapport de caisse — {$session->caisse->nom}",
-            ['Numéro', 'Date et heure', 'Total net'],
-            $session->ventes()->orderBy('created_at')->get()->map(fn (Vente $v) => [
-                $v->numero,
-                $v->created_at->format('d/m/Y H:i'),
-                montant($v->total_net),
-            ]),
+            // Libellés abrégés : 8 colonnes sur une feuille imprimée, pas de
+            // place pour des en-têtes complets comme à l'écran.
+            ['N°', 'Date/heure', 'Montant dû', 'Réglé', 'Avoir', 'Reste', 'Livraison', 'Retours'],
+            $this->lignesVentesRapport($session),
             'rapport-caisse.pdf',
             'Caissier : '.$session->caissier->name.' — Ouverte le '.$session->date_ouverture->format('d/m/Y à H:i'),
             $this->bilanRapportSession($session),
@@ -319,15 +336,47 @@ class SessionCaisseController extends Controller
 
         return $this->excelDepuisListe(
             "Rapport de caisse — {$session->caisse->nom}",
-            ['Numéro', 'Date et heure', 'Total net'],
-            $session->ventes()->orderBy('created_at')->get()->map(fn (Vente $v) => [
-                $v->numero,
-                $v->created_at->format('d/m/Y H:i'),
-                $v->total_net,
-            ]),
+            // Excel n'a pas la contrainte de largeur d'une page imprimée
+            // (colonnes auto-dimensionnées) : en-têtes complets, pas abrégés.
+            ['Numéro', 'Date et heure', 'Montant dû', 'Déjà réglé', 'Avoir appliqué', 'Reste à payer', 'Livraison', 'Retours'],
+            $this->lignesVentesRapport($session, brut: true),
             'rapport-caisse.xlsx',
             $this->bilanRapportSession($session),
         );
+    }
+
+    /**
+     * Lignes de la liste des ventes du rapport de caisse (PDF/Excel) — mêmes
+     * colonnes que sessions/rapport.blade.php (voir rapport() ci-dessus),
+     * jamais une liste appauvrie par rapport à l'écran. $brut : montants en
+     * entier exploitable/calculable (Excel) plutôt qu'en texte formaté (PDF,
+     * lecture seule) — Retours reste toujours un résumé texte (nombre +
+     * montant), une seule cellule composite n'a pas besoin d'être sommable.
+     *
+     * @return iterable<int, array<int, string|int>>
+     */
+    private function lignesVentesRapport(SessionCaisse $session, bool $brut = false): iterable
+    {
+        $mont = fn (int $valeur) => $brut ? $valeur : montant($valeur);
+
+        return $session->ventes()
+            ->with(['lignes', 'bonsLivraison.lignes', 'retours'])
+            ->orderBy('created_at')
+            ->get()
+            ->map(fn (Vente $v) => [
+                $v->numero,
+                $v->created_at->format('d/m/Y H:i'),
+                $mont($v->total_net),
+                $mont($v->montantRegle()),
+                $v->avoir_applique > 0 ? $mont($v->avoir_applique) : ($brut ? 0 : '—'),
+                $mont($v->soldeDuReel()),
+                $v->livraisonEngagee()
+                    ? quantite($v->quantiteLivreePieces()).'/'.quantite($v->lignes->sum('quantite_pieces'))
+                    : '—',
+                $v->retours->isNotEmpty()
+                    ? $v->retours->count().' · '.montant($v->retours->sum('montant_total'))
+                    : '—',
+            ]);
     }
 
     /**
@@ -338,10 +387,18 @@ class SessionCaisseController extends Controller
      */
     private function bilanRapportSession(SessionCaisse $session): array
     {
+        // Même décomposition Retour/avoir que sessions.show/cloturer (voir
+        // CLAUDE.md — Mouvements de caisse) : jamais un nouveau calcul, la
+        // même "story" financière partout où une session est résumée.
+        $ventesSession = $session->ventes()->with('retours')->get();
+        $totalRetours = (int) $ventesSession->sum(fn (Vente $v) => $v->retours->sum('montant_total'));
+        $nbRetours = $ventesSession->sum(fn (Vente $v) => $v->retours->count());
+
         $bilan = [
             'Fond de caisse' => montant($session->fond_de_caisse),
-            'Nombre de ventes' => (string) $session->ventes()->count(),
-            'Total net' => montant((int) $session->ventes()->sum('total_net')),
+            'Total ventes' => (string) $ventesSession->count(),
+            'Montant vente' => montant((int) $ventesSession->sum('total_net')),
+            'Retour/avoir' => montant($totalRetours).($nbRetours > 0 ? " ({$nbRetours})" : ''),
         ];
 
         foreach ($this->paiementsParMoyen($session) as $paiement) {
@@ -352,17 +409,14 @@ class SessionCaisseController extends Controller
             $theorique = $session->fond_de_caisse + $session->total_ventes_especes + $session->total_reglements_especes
                 + $session->total_entrees_especes - $session->total_sorties_especes;
 
-            $bilan += [
-                'Théorique' => montant($theorique),
-            ];
-
             if ($session->total_reglements_especes > 0) {
                 $bilan['Règlements clients (espèces)'] = montant($session->total_reglements_especes);
             }
 
             $bilan += [
-                'Entrées de caisse' => montant($session->total_entrees_especes),
-                'Sorties de caisse' => montant($session->total_sorties_especes),
+                'Entrée' => montant($session->total_entrees_especes),
+                'Sortie' => montant($session->total_sorties_especes),
+                'Total en caisse' => montant($theorique),
                 'Compté' => montant($session->montant_compte),
                 'Écart' => ($session->ecart > 0 ? '+' : '').montant($session->ecart),
             ];
@@ -401,6 +455,20 @@ class SessionCaisseController extends Controller
             foreach ($source as $moyenId => $total) {
                 $totaux[$moyenId] = ($totaux[$moyenId] ?? 0) + $total;
             }
+        }
+
+        // Une sortie de caisse (manuelle ou remboursement d'avoir client,
+        // voir CaisseMouvementService) est toujours en espèces (règle 19) —
+        // déduite ici du total espèces pour que cette répartition raconte la
+        // même histoire que "Total en caisse"
+        // (CaisseSessionService::calculerTheorique()) : sans ça, "Espèces"
+        // pouvait afficher un montant qui n'est plus du tout dans le tiroir.
+        $especeId = MoyenPaiement::where('est_espece', true)->value('id');
+        if ($especeId && $totaux->has($especeId)) {
+            $sorties = (int) MouvementCaisse::where('session_caisse_id', $session->id)
+                ->where('type', MouvementCaisseType::Sortie)
+                ->sum('montant');
+            $totaux[$especeId] = max(0, $totaux[$especeId] - $sorties);
         }
 
         $moyens = MoyenPaiement::whereIn('id', $totaux->keys())->get()->keyBy('id');

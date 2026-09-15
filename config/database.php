@@ -21,6 +21,36 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Chemin de l'exécutable mysqldump (sauvegarde depuis Paramètres)
+    |--------------------------------------------------------------------------
+    |
+    | Laragon n'ajoute pas forcément mysqldump.exe au PATH global de Windows
+    | (seulement dans son propre terminal) : sur une installation cliente, le
+    | process lancé par le serveur web ne le trouve alors pas ("mysqldump
+    | introuvable"). Laisser vide tente un repli automatique sur le dossier
+    | Laragon standard (voir ParametreController::resoudreCheminMysqldump()) ;
+    | sinon, en dernier recours, sur le simple nom "mysqldump" (résolu via le
+    | PATH, si jamais il y est). Renseigner explicitement ici (chemin complet
+    | vers mysqldump.exe) si l'auto-détection ne suffit pas.
+    |
+    */
+
+    'mysqldump_path' => env('MYSQLDUMP_PATH'),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Chemin de l'exécutable mysql (restauration depuis Paramètres)
+    |--------------------------------------------------------------------------
+    |
+    | Même logique que mysqldump_path ci-dessus, pour l'import (restauration)
+    | plutôt que l'export.
+    |
+    */
+
+    'mysql_path' => env('MYSQL_PATH'),
+
+    /*
+    |--------------------------------------------------------------------------
     | Database Connections
     |--------------------------------------------------------------------------
     |

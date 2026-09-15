@@ -155,7 +155,7 @@ class ClientController extends Controller
             return response()->json(['errors' => $validateur->errors()], 422);
         }
 
-        $client = Client::create($validateur->validated() + ['actif' => true]);
+        $client = Client::create($validateur->validated() + ['actif' => true, 'code' => $this->genererCode()]);
 
         return response()->json([
             'id' => $client->id,
@@ -171,11 +171,14 @@ class ClientController extends Controller
         // Le "reste dû" par vente (bouton "Régler cette dette") a besoin de
         // soldeDuReel() sur la vente référencée : précharger ses
         // paiements/règlements/retours pour éviter un N+1 (voir Vente::soldeDuReel()).
+        // RetourVente::vente : la facture d'origine, jamais nulle même pour un
+        // retour crédité à ce client alors que la vente elle-même est restée
+        // comptant (voir clients/show.blade.php, lien "facture d'origine").
         $ecritures = $client->ecritures()
             ->with(['auteur', 'reference' => function ($morphTo) {
                 $morphTo->morphWith([
                     Vente::class => ['paiements', 'reglementsClient', 'retours'],
-                    RetourVente::class => ['lignes.produit'],
+                    RetourVente::class => ['lignes.produit', 'vente'],
                     RemboursementAvoirClient::class => ['paiements'],
                 ]);
             }])
@@ -184,10 +187,20 @@ class ClientController extends Controller
 
         // withTrashed() : une vente annulée reste visible dans l'historique
         // du client (avec badge), jamais masquée silencieusement — même
-        // logique que le ticket de vente.
-        $ventes = $client->ventes()
-            ->withTrashed()
-            ->with(['magasin', 'paiements', 'reglementsClient', 'lignes', 'retours', 'bonsLivraison.lignes'])
+        // logique que le ticket de vente. Inclut aussi les ventes d'un AUTRE
+        // client (souvent une vente comptant anonyme) dont un retour a été
+        // crédité à CE client précis (voir RetourVenteController::store()) :
+        // sans ça, la facture d'origine d'un avoir n'apparaissait nulle part
+        // dans "Ventes", seulement noyée dans "Historique du compte" plus
+        // bas — peu visible pour retrouver "quelle facture a généré cet
+        // avoir ?". Marquée d'un badge distinct dans la vue (pas un achat de
+        // ce client, juste un retour qui lui a été attribué).
+        $ventes = Vente::withTrashed()
+            ->where(function ($q) use ($client) {
+                $q->where('client_id', $client->id)
+                    ->orWhereHas('retours', fn ($q2) => $q2->where('client_id', $client->id));
+            })
+            ->with(['magasin', 'paiements', 'reglementsClient', 'lignes', 'retours', 'bonsLivraison.lignes', 'client'])
             ->latest('created_at')
             ->paginate(10, ['*'], 'ventes_page');
 
@@ -345,6 +358,11 @@ class ClientController extends Controller
 
     public function destroy(Client $client): RedirectResponse
     {
+        // Singleton (même principe que CompteTresorerie.type=caisse_generale) :
+        // sert de compte à créditer pour un retour sur une vente comptant,
+        // voir Client::comptantDefaut() / RetourVenteService.
+        abort_if($client->comptant_defaut, 403, 'Le client "Client comptant" ne peut pas être supprimé.');
+
         if ($client->ventes()->exists()) {
             return redirect()->route('clients.index')->with('erreur', 'Ce client a des ventes, il ne peut pas être supprimé.');
         }

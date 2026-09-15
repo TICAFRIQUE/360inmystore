@@ -39,7 +39,7 @@
         .bloc-client .label { font-size: 11px; text-transform: uppercase; color: #888; margin-bottom: 4px; }
         table.lignes { width: 100%; margin-top: 8px; }
         table.lignes th, table.lignes td { border: 1px solid #ccc; padding: 6px 8px; font-size: 12px; }
-        table.lignes th { background: #f0ece6; text-align: left; }
+        table.lignes th { background: #f0ece6; text-align: left; font-size: 10px; }
         table.totaux { width: 45%; margin-left: 55%; margin-top: 12px; }
         table.totaux td { padding: 5px 8px; }
         table.totaux .net td { font-weight: bold; font-size: 15px; border-top: 2px solid #241e19; }
@@ -135,6 +135,16 @@
     @php $aDesReceptions = $commande->receptions->isNotEmpty(); @endphp
 
     <table class="lignes">
+        <colgroup>
+            <col style="width: 26%;">
+            <col style="width: 7%;">
+            <col style="width: 13%;">
+            <col style="width: 7%;">
+            <col style="width: 12%;">
+            <col style="width: 10%;">
+            <col style="width: 12%;">
+            <col style="width: 13%;">
+        </colgroup>
         <thead>
             <tr>
                 <th>Désignation</th>
@@ -145,9 +155,6 @@
                 <th>Taxe</th>
                 <th class="text-end">Total HT</th>
                 <th class="text-end">Total TTC</th>
-                @if ($commande->statut === 'validee')
-                    <th class="text-end">Reçu</th>
-                @endif
             </tr>
         </thead>
         <tbody>
@@ -157,13 +164,10 @@
                     <td>{{ $ligne->uniteVente->unite->nom_avec_abbreviation ?? $ligne->produit->unite_base_libelle }}</td>
                     <td>{{ $ligne->magasinDestination->nom ?? '—' }}</td>
                     <td class="text-end">{{ quantite($ligne->quantite) }}</td>
-                    <td class="text-end">{{ montant($ligne->prix_achat) }}</td>
+                    <td class="text-end">{{ montantAchat($ligne->prix_achat) }}</td>
                     <td>{{ $ligne->taxe->nom ?? '—' }}</td>
-                    <td class="text-end">{{ montant($ligne->montantHt()) }}</td>
-                    <td class="text-end">{{ montant($ligne->montantTtc()) }}</td>
-                    @if ($commande->statut === 'validee')
-                        <td class="text-end">{{ quantite($dejaRecuParLigne[$ligne->id] ?? 0) }}/{{ quantite($ligne->quantite_pieces) }}</td>
-                    @endif
+                    <td class="text-end">{{ montantAchat($ligne->montantHt()) }}</td>
+                    <td class="text-end">{{ montantAchat($ligne->montantTtc()) }}</td>
                 </tr>
             @endforeach
         </tbody>
@@ -172,20 +176,20 @@
     <table class="totaux">
         <tr>
             <td>Total HT</td>
-            <td class="text-end">{{ montant($commande->totalHt()) }}</td>
+            <td class="text-end">{{ montantAchat($commande->totalHt()) }}</td>
         </tr>
         <tr>
             <td>Total taxes</td>
-            <td class="text-end">{{ montant($commande->totalTaxes()) }}</td>
+            <td class="text-end">{{ montantAchat($commande->totalTaxes()) }}</td>
         </tr>
         <tr class="net">
-            <td>{{ $aDesReceptions ? 'Total TTC réel' : 'Total TTC' }}</td>
+            <td>Total TTC</td>
             <td class="text-end">{{ montant($commande->totalTtcReel()) }}</td>
         </tr>
-        @if ($aDesReceptions && $commande->ecartMontant() !== 0)
+        @if ($aDesReceptions && $commande->ecartMontant() != 0)
             <tr>
                 <td>Total TTC indicatif (commande)</td>
-                <td class="text-end">{{ montant($commande->totalTtc()) }}</td>
+                <td class="text-end">{{ montantAchat($commande->totalTtc()) }}</td>
             </tr>
         @endif
         @foreach ($commande->paiements as $paiement)
@@ -207,46 +211,6 @@
             @endif
         @endif
     </table>
-
-    @if ($aDesReceptions)
-        <table class="lignes" style="margin-top: 24px;">
-            <thead>
-                <tr>
-                    <th colspan="5">Bons d'achat (réceptions)</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach ($commande->receptions as $reception)
-                    <tr>
-                        <td colspan="5" style="font-weight: bold; background: #f6f3ef;">
-                            Bon d'achat {{ $reception->numero }} — {{ $reception->created_at->format('d/m/Y H:i') }}
-                            @if ($reception->numero_bon_livraison_fournisseur) — BL n° {{ $reception->numero_bon_livraison_fournisseur }} @endif
-                            @if ($reception->numero_facture_fournisseur) — Facture n° {{ $reception->numero_facture_fournisseur }} @endif
-                            @if ($reception->motif) — {{ $reception->motif }} @endif
-                        </td>
-                    </tr>
-                    @foreach ($reception->lignes as $ligneReception)
-                        <tr>
-                            <td colspan="2">{{ $ligneReception->produit->libelle_affichage }}</td>
-                            <td>{{ $ligneReception->magasin->nom }}</td>
-                            <td class="text-end">{{ quantite($ligneReception->quantite_pieces) }}</td>
-                            <td class="text-end">{{ montant($ligneReception->prix_achat_reel) }} / pièce</td>
-                        </tr>
-                    @endforeach
-                    @forelse ($reception->paiements as $paiementReception)
-                        <tr>
-                            <td colspan="4">Payé — {{ $paiementReception->moyenPaiement->nom }}</td>
-                            <td class="text-end">{{ montant($paiementReception->montant) }}</td>
-                        </tr>
-                    @empty
-                        <tr>
-                            <td colspan="5">Rien payé à la réception — dette fournisseur intégrale pour ce lot.</td>
-                        </tr>
-                    @endforelse
-                @endforeach
-            </tbody>
-        </table>
-    @endif
 
     <div class="mention">
         @if ($parametre->slogan) {{ $parametre->slogan }} @endif

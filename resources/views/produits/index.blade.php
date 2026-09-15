@@ -40,6 +40,7 @@
                 </thead>
                 <tbody>
                     @forelse ($produits as $produit)
+                        @php($total = $produit->totalStock($magasinsActifs))
                         <tr>
                             <td style="width: 48px;">
                                 @if ($produit->getFirstMediaUrl('image'))
@@ -53,7 +54,12 @@
                             <td><code>{{ $produit->sku }}</code></td>
                             <td>{{ $produit->libelle_affichage }}</td>
                             <td>{{ $produit->categorie->nom }}</td>
-                            <td><x-stock-par-magasin :produit="$produit" :magasins="$magasinsActifs" /></td>
+                            <td class="{{ $total['sous_seuil'] ? 'text-danger' : '' }}">
+                                {{ quantite($total['quantite']) }} {{ $produit->unite_base_libelle_complet }}
+                                @if ($total['sous_seuil'])
+                                    <i class="bi bi-exclamation-triangle-fill ms-1" title="Sous le seuil d'alerte"></i>
+                                @endif
+                            </td>
                             <td>{{ montant($produit->prix_piece) }} / {{ $produit->unite_base_libelle }}</td>
                             <td>{{ $produit->seuil_alerte }}</td>
                             <td>

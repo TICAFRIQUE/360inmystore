@@ -25,4 +25,17 @@ class Arrondi
     {
         return round($valeur, 3);
     }
+
+    /**
+     * Exception scopée au prix d'achat INDICATIF d'un bon de commande
+     * (ligne_commande_achats.prix_achat, decimal(14,2)) : contrairement au
+     * reste de l'application, il n'est jamais arrondi à l'entier — seulement
+     * ramené à 2 décimales pour rester reproductible en base. Le prix
+     * RÉELLEMENT facturé à la réception (prix_achat_reel) reste lui entier,
+     * via entier() comme partout ailleurs.
+     */
+    public static function prixAchat(float $valeur): float
+    {
+        return round($valeur, 2);
+    }
 }

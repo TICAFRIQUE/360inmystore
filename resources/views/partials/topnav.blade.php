@@ -101,19 +101,22 @@
         </li>
     @endcanany
 
-    @canany(['caisse.ouvrir', 'client.voir', 'devis.voir', 'vente.livrer'])
+    @canany(['caisse.ouvrir', 'client.voir', 'devis.voir', 'vente.livrer', 'client.reglement'])
         <li class="nav-item dropdown">
             <a href="#"
-                class="nav-link dropdown-toggle {{ request()->routeIs('sessions.*', 'ventes.*', 'ventes-en-attente.*', 'reglements.*', 'devis.*', 'clients.*', 'bons-livraison.*') ? 'active' : '' }}"
+                class="nav-link dropdown-toggle {{ request()->routeIs('sessions.*', 'ventes.*', 'ventes-en-attente.*', 'reglements.*', 'devis.*', 'clients.*', 'bons-livraison.*', 'remboursements-avoir-client.*') ? 'active' : '' }}"
                 data-bs-toggle="dropdown" aria-expanded="false">
                 <i class="bi bi-cart3 me-1"></i>Vente
             </a>
             <ul class="dropdown-menu">
                 @can('caisse.ouvrir')
                     <li>
-                        <a href="{{ route('sessions.index') }}"
+                        {{-- Session déjà ouverte par ce caissier : y aller directement
+                             plutôt que de repasser par la sélection de caisse (règle 7,
+                             voir AppServiceProvider — sessionCaissierOuverteMenu). --}}
+                        <a href="{{ $sessionCaissierOuverteMenu ? route('sessions.show', $sessionCaissierOuverteMenu) : route('sessions.index') }}"
                             class="dropdown-item {{ request()->routeIs('sessions.*', 'ventes.*', 'ventes-en-attente.*', 'reglements.*') ? 'active' : '' }}">
-                            <i class="bi bi-cash-stack me-2"></i>Facture
+                            <i class="bi bi-cash-stack me-2"></i>Facture/BL
                         </a>
                     </li>
                 @endcan
@@ -133,11 +136,14 @@
                         </a>
                     </li>
                 @endcan
-                @can('vente.livrer')
+                {{-- Onglet "Bon de livraison" retiré du menu pour le moment (demande
+                     utilisateur) — route/contrôleur/permission vente.livrer inchangés,
+                     seule l'entrée de menu est masquée. --}}
+                @can('client.reglement')
                     <li>
-                        <a href="{{ route('bons-livraison.index') }}"
-                            class="dropdown-item {{ request()->routeIs('bons-livraison.*') ? 'active' : '' }}">
-                            <i class="bi bi-truck me-2"></i>Bon de livraison
+                        <a href="{{ route('remboursements-avoir-client.index') }}"
+                            class="dropdown-item {{ request()->routeIs('remboursements-avoir-client.*') ? 'active' : '' }}">
+                            <i class="bi bi-piggy-bank me-2"></i>Avoirs clients
                         </a>
                     </li>
                 @endcan

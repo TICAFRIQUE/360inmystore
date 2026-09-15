@@ -53,9 +53,8 @@ class ProduitController extends Controller
 
         return view('produits.index', [
             'produits' => $produits,
-            // Tous les magasins/dépôts actifs : la colonne "Stock" liste
-            // chacun d'eux (0 si le produit n'y a jamais été mouvementé),
-            // voir Produit::stockParMagasin().
+            // Tous les magasins/dépôts actifs : la colonne "Stock" affiche
+            // leur total (voir Produit::totalStock()).
             'magasinsActifs' => Magasin::where('actif', true)->orderBy('nom')->get(),
         ]);
     }
@@ -105,9 +104,7 @@ class ProduitController extends Controller
                 $p->sku,
                 $p->libelle_affichage,
                 $p->categorie->nom,
-                collect($p->stockParMagasin($magasinsActifs))
-                    ->map(fn (array $l) => $l['magasin']->nom.' : '.quantite($l['quantite']))
-                    ->implode(' | '),
+                quantite($p->totalStock($magasinsActifs)['quantite']).' '.$p->unite_base_libelle_complet,
                 montant($p->prix_piece),
                 $p->actif ? 'Actif' : 'Inactif',
             ]);

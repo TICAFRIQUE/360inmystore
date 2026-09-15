@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Enums\EcritureCompteClientType;
 use App\Enums\MouvementStockType;
+use App\Enums\VenteType;
 use App\Exceptions\DevisNonTransformableException;
 use App\Exceptions\LimiteCreditDepasseeException;
 use App\Exceptions\SessionNonOuverteException;
@@ -187,20 +188,11 @@ class VenteController extends Controller
             default => collect(),
         };
 
-        // Un caissier ne voit (et ne finalise) que ses propres ventes en
-        // attente : le badge doit refléter ce même périmètre, pas le total
-        // de la session (qui peut inclure des paniers d'un autre caissier
-        // ou du gérant sur la même caisse).
-        $venteEnAttentesCount = $session->venteEnAttentes()
-            ->when(! request()->user()->can('caisse.gerer'), fn ($q) => $q->where('caissier_id', request()->user()->id))
-            ->count();
-
         return view('ventes.create', [
             'session' => $session,
             'produits' => $produits,
             'taxes' => Taxe::where('actif', true)->orderBy('nom')->get(),
             'moyensPaiement' => MoyenPaiement::actifs(),
-            'venteEnAttentesCount' => $venteEnAttentesCount,
             'venteEnAttente' => $venteEnAttente,
             'devisTransformation' => $devisTransformation,
             'panierInitial' => $panierInitial,
@@ -238,7 +230,7 @@ class VenteController extends Controller
             'lignes.*.magasin_source_id' => ['required', 'exists:magasins,id'],
             'lignes.*.quantite' => ['required', 'numeric', 'min:0.001'],
             'lignes.*.remise_type' => ['nullable', 'in:montant,pourcentage'],
-            'lignes.*.remise_valeur' => ['nullable', 'integer', 'min:0', $this->remisePourcentageMax()],
+            'lignes.*.remise_valeur' => ['nullable', 'integer', $this->remiseValeurMin(), $this->remisePourcentageMax()],
             'lignes.*.prix_personnalise' => ['nullable', 'boolean'],
             'remise_totale_type' => ['nullable', 'in:montant,pourcentage'],
             'remise_totale_valeur' => ['nullable', 'integer', 'min:0', $this->remisePourcentageMax()],
@@ -283,6 +275,7 @@ class VenteController extends Controller
         $this->nettoyerChampsOptionnels($request);
         $this->bloquerRemiseSansPermission($request);
         $this->bloquerCreditSansPermission($request);
+        $this->bloquerTypeSansPermission($request);
 
         $donnees = $request->validate([
             'lignes' => ['required', 'array', 'min:1'],
@@ -292,7 +285,7 @@ class VenteController extends Controller
             'lignes.*.magasin_source_id' => ['required', 'exists:magasins,id'],
             'lignes.*.quantite' => ['required', 'numeric', 'min:0.001'],
             'lignes.*.remise_type' => ['nullable', 'in:montant,pourcentage'],
-            'lignes.*.remise_valeur' => ['nullable', 'integer', 'min:0', $this->remisePourcentageMax()],
+            'lignes.*.remise_valeur' => ['nullable', 'integer', $this->remiseValeurMin(), $this->remisePourcentageMax()],
             'lignes.*.prix_personnalise' => ['nullable', 'boolean'],
             'remise_totale_type' => ['nullable', 'in:montant,pourcentage'],
             'remise_totale_valeur' => ['nullable', 'integer', 'min:0', $this->remisePourcentageMax()],
@@ -305,6 +298,7 @@ class VenteController extends Controller
             'paiements.*.montant' => ['required', 'integer', 'min:1'],
             'montant_recu' => ['nullable', 'integer', 'min:0'],
             'client_id' => ['nullable', 'exists:clients,id'],
+            'type' => ['nullable', 'in:facture,bon_livraison'],
         ]);
 
         $client = ! empty($donnees['client_id']) ? Client::findOrFail($donnees['client_id']) : null;
@@ -320,6 +314,7 @@ class VenteController extends Controller
                 montantRecu: $donnees['montant_recu'] ?? null,
                 client: $client,
                 autoriserDepassementLimite: $request->user()->can('client.depasser_limite'),
+                type: VenteType::tryFrom($donnees['type'] ?? '') ?? VenteType::Facture,
             );
         } catch (StockInsuffisantException|SessionNonOuverteException|InvalidArgumentException|LimiteCreditDepasseeException $e) {
             return back()->withInput()->with('erreur', $e->getMessage());
@@ -340,7 +335,7 @@ class VenteController extends Controller
         $vente->load([
             'lignes.produit', 'lignes.uniteVente', 'lignes.taxe', 'lignes.magasinSource', 'paiements.moyenPaiement',
             'reglementsClient.paiements.moyenPaiement', 'reglementsClient.caissier',
-            'retours.lignes.produit', 'retours.auteur',
+            'retours.lignes.produit', 'retours.auteur', 'retours.client',
             'bonsLivraison' => fn ($q) => $q->withTrashed(),
             'bonsLivraison.lignes.produit', 'bonsLivraison.lignes.magasin',
             'bonsLivraison.auteur', 'bonsLivraison.annulateur',
@@ -382,10 +377,7 @@ class VenteController extends Controller
         // #factureImprimable) plutôt que de rediriger vers ventes.facture —
         // mêmes données que chargerDonneesFacture() pour un rendu identique.
         $parametre = Parametre::actuel();
-        $logo = $parametre->getFirstMedia('logo');
-        $logoDataUri = ($logo && is_file($logo->getPath()))
-            ? 'data:'.$logo->mime_type.';base64,'.base64_encode(file_get_contents($logo->getPath()))
-            : null;
+        $logoDataUri = $parametre->logoDataUri();
 
         return view('ventes.ticket', [
             'vente' => $vente,
@@ -393,10 +385,16 @@ class VenteController extends Controller
             'sessionOuverte' => $sessionOuverte,
             'peutRegler' => request()->user()->can('client.reglement'),
             'peutRetourner' => request()->user()->can('vente.retour'),
+            'peutRembourserAvoir' => request()->user()->can('client.reglement'),
             'peutLivrer' => request()->user()->can('vente.livrer'),
             'dejaRetourneParLigne' => $dejaRetourneParLigne,
             'dejaLivreParLigne' => $dejaLivreParLigne,
             'moyensPaiement' => MoyenPaiement::actifs(),
+            // Pour le sélecteur "Client à créditer" du retour, uniquement
+            // utile si la vente est comptant (voir ventes/ticket.blade.php) —
+            // chargés inconditionnellement, coût négligeable (référentiels).
+            'clientsPourRetour' => $vente->client_id === null ? Client::orderBy('nom')->get(['id', 'nom', 'telephone', 'comptant_defaut']) : null,
+            'typesClient' => $vente->client_id === null ? TypeClient::where('actif', true)->orderBy('nom')->get() : null,
             'parametre' => $parametre,
             'logoDataUri' => $logoDataUri,
         ]);
@@ -428,13 +426,7 @@ class VenteController extends Controller
     {
         $this->assurerMagasin($vente->magasin_id);
 
-        $vente->load(['client', 'magasin', 'lignes.produit', 'lignes.uniteVente', 'lignes.taxe', 'paiements.moyenPaiement', 'reglementsClient', 'retours', 'bonsLivraison.lignes']);
-
-        $dejaLivreParLigne = $vente->bonsLivraison
-            ->flatMap(fn ($bonLivraison) => $bonLivraison->lignes)
-            ->groupBy('ligne_vente_id')
-            ->map(fn ($lignes) => $lignes->sum('quantite_pieces'));
-        $livraisonEngagee = $vente->bonsLivraison->isNotEmpty();
+        $vente->load(['client', 'magasin', 'lignes.produit', 'lignes.uniteVente', 'lignes.taxe', 'paiements.moyenPaiement', 'reglementsClient', 'retours']);
 
         $spreadsheet = new Spreadsheet();
         $feuille = $spreadsheet->getActiveSheet();
@@ -445,7 +437,7 @@ class VenteController extends Controller
         $feuille->setCellValue('A2', $parametre->adresse);
         $feuille->setCellValue('A3', $parametre->numero ? 'Tél : '.$parametre->numero : '');
 
-        $feuille->setCellValue('D1', 'FACTURE');
+        $feuille->setCellValue('D1', mb_strtoupper($vente->type->libelle()));
         $feuille->setCellValue('D2', 'N° '.$vente->numero);
         $feuille->setCellValue('D3', 'Date : '.$vente->created_at->format('d/m/Y H:i'));
         $feuille->setCellValue('D4', 'Magasin : '.$vente->magasin->nom);
@@ -456,10 +448,7 @@ class VenteController extends Controller
         $feuille->setCellValue('A9', $vente->client->adresse ?? '');
 
         $ligneEnTete = 11;
-        $entetes = ['A' => 'Désignation', 'B' => 'Unité', 'C' => 'Quantité', 'D' => 'Prix unitaire', 'E' => 'Remise', 'F' => 'Taxe', 'G' => 'Total'];
-        if ($livraisonEngagee) {
-            $entetes['H'] = 'Livré';
-        }
+        $entetes = ['A' => 'Désignation', 'B' => 'Unité', 'C' => 'Quantité', 'D' => 'P.u', 'E' => 'Remise', 'F' => 'Taxe', 'G' => 'Total'];
         foreach ($entetes as $colonne => $libelle) {
             $feuille->setCellValue("{$colonne}{$ligneEnTete}", $libelle);
         }
@@ -473,9 +462,6 @@ class VenteController extends Controller
             $feuille->setCellValue("E{$ligne}", $ligneVente->prix_personnalise ? 0 : $ligneVente->remise_ligne_montant);
             $feuille->setCellValue("F{$ligne}", $ligneVente->taxe->nom ?? '—');
             $feuille->setCellValue("G{$ligne}", $ligneVente->total_ligne);
-            if ($livraisonEngagee) {
-                $feuille->setCellValue("H{$ligne}", ($dejaLivreParLigne[$ligneVente->id] ?? 0).'/'.$ligneVente->quantite_pieces);
-            }
             $ligne++;
         }
 
@@ -509,6 +495,12 @@ class VenteController extends Controller
         if ($vente->soldeDuReel() > 0) {
             $feuille->setCellValue("F{$ligne}", 'Solde à crédit');
             $feuille->setCellValue("G{$ligne}", $vente->soldeDuReel());
+            $ligne++;
+        }
+
+        if ($vente->estBonLivraison()) {
+            $ligne++;
+            $feuille->setCellValue("A{$ligne}", 'Facture à suivre');
         }
 
         foreach (array_keys($entetes) as $colonne) {
@@ -529,27 +521,18 @@ class VenteController extends Controller
      */
     private function chargerDonneesFacture(Vente $vente): array
     {
+        // bonsLivraison.lignes reste nécessaire : le badge de statut de
+        // livraison en haut du document (livraisonEngagee()/entierementLivree(),
+        // voir ventes/facture.blade.php) en dépend, même si le détail par
+        // ligne n'est plus affiché dans le tableau.
         $vente->load(['client', 'magasin', 'caissier', 'sessionCaisse.caisse', 'lignes.produit', 'lignes.uniteVente', 'lignes.taxe', 'paiements.moyenPaiement', 'reglementsClient', 'retours', 'bonsLivraison.lignes']);
 
-        // bonsLivraison exclut déjà les BL annulés (scope global SoftDeletes) :
-        // pas de filtre deleted_at à refaire ici, contrairement à ticket() qui
-        // les charge withTrashed() pour les afficher grisés dans l'historique.
-        $dejaLivreParLigne = $vente->bonsLivraison
-            ->flatMap(fn ($bonLivraison) => $bonLivraison->lignes)
-            ->groupBy('ligne_vente_id')
-            ->map(fn ($lignes) => $lignes->sum('quantite_pieces'));
-
         $parametre = Parametre::actuel();
-        $logo = $parametre->getFirstMedia('logo');
-        $logoDataUri = ($logo && is_file($logo->getPath()))
-            ? 'data:'.$logo->mime_type.';base64,'.base64_encode(file_get_contents($logo->getPath()))
-            : null;
 
         return [
             'vente' => $vente,
-            'dejaLivreParLigne' => $dejaLivreParLigne,
             'parametre' => $parametre,
-            'logoDataUri' => $logoDataUri,
+            'logoDataUri' => $parametre->logoDataUri(),
         ];
     }
 

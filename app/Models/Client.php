@@ -23,6 +23,7 @@ class Client extends Model
         return [
             'limite_credit' => 'integer',
             'actif' => 'boolean',
+            'comptant_defaut' => 'boolean',
         ];
     }
 
@@ -67,6 +68,19 @@ class Client extends Model
     }
 
     /**
+     * Client singleton "Client comptant" (même principe que
+     * CompteTresorerie::type=caisse_generale) — seedé une fois
+     * (ClientComptantDefautSeeder), jamais supprimable. Sert de compte à
+     * créditer pour un retour sur une vente comptant (sans client
+     * identifié) : la vente reste anonyme, seul le retour est rattaché à ce
+     * compte générique. Voir RetourVenteService::retourner().
+     */
+    public static function comptantDefaut(): self
+    {
+        return static::where('comptant_defaut', true)->firstOrFail();
+    }
+
+    /**
      * Solde dérivé, jamais stocké (règle 12) : somme des écritures du
      * compte. Positif = le client doit de l'argent.
      */
@@ -76,15 +90,28 @@ class Client extends Model
     }
 
     /**
-     * Total NET des ventes réalisées avec ce client : total des ventes (non
-     * annulées) moins les retours déjà enregistrés, tous documents confondus
-     * — un volume de business réel, pas juste la somme brute des factures
-     * émises (qui ne dit rien de ce qui a ensuite été retourné). KPI fiche
-     * client ("Total ventes net").
+     * Total NET des ventes réalisées avec ce client : total de SES ventes
+     * (non annulées) moins les retours déjà enregistrés dessus — un volume
+     * de business réel, pas juste la somme brute des factures émises (qui
+     * ne dit rien de ce qui a ensuite été retourné). KPI fiche client
+     * ("Total ventes net").
+     *
+     * Ne compte QUE les retours rattachés à une vente DE CE CLIENT
+     * (`retours.vente.client_id`), pas tous les retours crédités à son
+     * compte (`retours()` au sens large) : un client peut recevoir un avoir
+     * sur la vente comptant anonyme de quelqu'un d'autre (voir
+     * RetourVenteService), ce qui n'a rien à voir avec SON propre volume
+     * d'achat — sans cette distinction, un client sans aucun achat mais
+     * ayant reçu un tel avoir affichait un "Total ventes net" négatif.
+     * max(0, ...) en filet de sécurité, jamais un chiffre d'affaires négatif.
      */
     public function totalVentes(): int
     {
-        return $this->ventes()->sum('total_net') - $this->retours()->sum('montant_total');
+        $retoursSurSesVentes = $this->retours()
+            ->whereHas('vente', fn ($q) => $q->where('client_id', $this->id))
+            ->sum('montant_total');
+
+        return max(0, $this->ventes()->sum('total_net') - $retoursSurSesVentes);
     }
 
     /**
@@ -113,6 +140,24 @@ class Client extends Model
             ->where('actif', true)
             ->withSum('ecritures as solde', 'montant')
             ->having('solde', '>', 0)
+            ->orderBy('nom')
+            ->get();
+    }
+
+    /**
+     * Symétrique de actifsAvecDette() : clients avec un avoir disponible
+     * (solde négatif, voir CLAUDE.md règle 20) — pour l'écran de
+     * remboursement centralisé (RemboursementAvoirClientController::index()),
+     * même principe de solde groupé en une seule requête.
+     *
+     * @return \Illuminate\Database\Eloquent\Collection<int, self>
+     */
+    public static function actifsAvecAvoir(): \Illuminate\Database\Eloquent\Collection
+    {
+        return static::query()
+            ->where('actif', true)
+            ->withSum('ecritures as solde', 'montant')
+            ->having('solde', '<', 0)
             ->orderBy('nom')
             ->get();
     }

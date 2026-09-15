@@ -23,7 +23,10 @@ class LigneCommandeAchat extends Model
         return [
             'quantite' => 'decimal:3',
             'quantite_pieces' => 'decimal:3',
-            'prix_achat' => 'integer',
+            // Prix indicatif, jamais arrondi à l'entier (voir Arrondi::prixAchat()) —
+            // contrairement au prix RÉELLEMENT facturé à la réception
+            // (LigneReceptionAchat::prix_achat_reel), resté entier.
+            'prix_achat' => 'decimal:2',
         ];
     }
 
@@ -97,28 +100,32 @@ class LigneCommandeAchat extends Model
 
     /**
      * prix_achat porte sur l'unité d'achat saisie (le groupe entier le cas
-     * échéant) : ramené au prix par pièce pour alimenter le CMP.
+     * échéant) : ramené au prix par pièce, indicatif comme prix_achat
+     * lui-même (voir Arrondi::prixAchat()) — arrondi à l'entier seulement là
+     * où le résultat alimente réellement une réception (prix_achat_reel),
+     * jamais ici.
      */
-    public function prixAchatParPiece(): int
+    public function prixAchatParPiece(): float
     {
         $facteur = $this->facteurPieces();
 
-        return $facteur > 1 ? Arrondi::entier($this->prix_achat / $facteur) : $this->prix_achat;
+        return $facteur > 1 ? Arrondi::prixAchat((float) $this->prix_achat / $facteur) : (float) $this->prix_achat;
     }
 
     /**
      * prix_achat est HT (voir CLAUDE.md) : total HT de la ligne = prix
      * unitaire de l'unité d'achat choisie × quantité de cette unité.
+     * Indicatif, jamais arrondi à l'entier (voir Arrondi::prixAchat()).
      */
-    public function montantHt(): int
+    public function montantHt(): float
     {
-        return Arrondi::entier($this->prix_achat * (float) $this->quantite);
+        return Arrondi::prixAchat((float) $this->prix_achat * (float) $this->quantite);
     }
 
-    public function montantTtc(): int
+    public function montantTtc(): float
     {
         $ht = $this->montantHt();
 
-        return $ht + Arrondi::entier($ht * ($this->taxe?->taux ?? 0) / 100);
+        return Arrondi::prixAchat($ht + $ht * ($this->taxe?->taux ?? 0) / 100);
     }
 }

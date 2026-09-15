@@ -13,29 +13,33 @@
         </div>
     </div>
 
+    {{-- Présentation "fiche" — même esprit que le PDF exporté
+         (resources/views/exports/liste.blade.php) : titre en accent, une
+         liste de ventes, puis un bilan sous forme de tableau bordé, jamais
+         de nouveau calcul (voir SessionCaisseController::bilanRapportSession(),
+         réutilisée telle quelle par le PDF/Excel). --}}
     <div class="card">
         <div class="card-body">
             <div class="mb-3">
-                <div class="fw-bold fs-5">{{ $session->caisse->nom }} — {{ $session->caisse->magasin->nom }}</div>
-                <div class="text-secondary small">Caissier : {{ $session->caissier->name }}</div>
-                <div class="text-secondary small">Ouverte le {{ $session->date_ouverture->format('d/m/Y à H:i') }}</div>
-                @if ($session->date_cloture)
-                    <div class="text-secondary small">
-                        Clôturée le {{ $session->date_cloture->format('d/m/Y à H:i') }}
+                <div class="fw-bold fs-4 text-primary">{{ $session->caisse->nom }} — {{ $session->caisse->magasin->nom }}</div>
+                <div class="text-secondary small">
+                    Caissier : {{ $session->caissier->name }} — Ouverte le {{ $session->date_ouverture->format('d/m/Y à H:i') }}
+                    @if ($session->date_cloture)
+                        — Clôturée le {{ $session->date_cloture->format('d/m/Y à H:i') }}
                         @if ($session->clotureePar)
                             par {{ $session->clotureePar->name }}
                         @endif
-                    </div>
-                @else
-                    <span class="badge text-bg-success">Session en cours</span>
-                @endif
+                    @else
+                        <span class="badge text-bg-success ms-1">Session en cours</span>
+                    @endif
+                </div>
             </div>
 
             <hr>
 
             @if ($reglements->isNotEmpty())
                 <h3 class="h6">Règlements clients</h3>
-                <div class="table-responsive mb-3">
+                <div class="table-responsive mb-4">
                     <table class="table table-sm align-middle mb-0">
                         <thead>
                             <tr>
@@ -65,17 +69,21 @@
                         </tbody>
                     </table>
                 </div>
-                <hr>
             @endif
 
             <h3 class="h6">Liste des ventes</h3>
-            <div class="table-responsive">
+            <div class="table-responsive mb-4">
                 <table class="table table-sm align-middle mb-0">
                     <thead>
                         <tr>
                             <th>Numéro</th>
                             <th>Date et heure</th>
-                            <th class="text-end">Total net</th>
+                            <th class="text-end">Montant dû</th>
+                            <th class="text-end">Déjà réglé</th>
+                            <th class="text-end">Avoir appliqué</th>
+                            <th class="text-end">Reste à payer</th>
+                            <th>Livraison</th>
+                            <th>Retours</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -84,91 +92,80 @@
                                 <td><code>{{ $vente->numero }}</code></td>
                                 <td>{{ $vente->created_at->format('d/m/Y H:i') }}</td>
                                 <td class="text-end">{{ montant($vente->total_net) }}</td>
+                                <td class="text-end text-success">{{ montant($vente->montantRegle()) }}</td>
+                                <td class="text-end text-secondary">{{ $vente->avoir_applique > 0 ? montant($vente->avoir_applique) : '—' }}</td>
+                                <td class="text-end {{ $vente->soldeDuReel() > 0 ? 'text-danger fw-medium' : 'text-secondary' }}">{{ montant($vente->soldeDuReel()) }}</td>
+                                <td>
+                                    @if ($vente->livraisonEngagee())
+                                        <span class="badge {{ $vente->entierementLivree() ? 'text-bg-success-subtle text-success-emphasis' : 'text-bg-warning-subtle text-warning-emphasis' }}">
+                                            {{ quantite($vente->quantiteLivreePieces()) }}/{{ quantite($vente->lignes->sum('quantite_pieces')) }}
+                                        </span>
+                                    @else
+                                        <span class="text-secondary">—</span>
+                                    @endif
+                                </td>
+                                <td>
+                                    @if ($vente->retours->isNotEmpty())
+                                        <span class="badge text-bg-warning-subtle text-warning-emphasis">
+                                            {{ $vente->retours->count() }} · {{ montant($vente->retours->sum('montant_total')) }}
+                                        </span>
+                                    @else
+                                        <span class="text-secondary">—</span>
+                                    @endif
+                                </td>
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="3" class="text-center text-secondary py-3">Aucune vente pour l'instant.</td>
+                                <td colspan="8" class="text-center text-secondary py-3">Aucune vente pour l'instant.</td>
                             </tr>
                         @endforelse
                     </tbody>
                 </table>
             </div>
 
-            {{-- Petits tableaux récap sous la liste des ventes, plutôt que --}}
-            {{-- de gros blocs de chiffres en haut de page — chaque carte a --}}
-            {{-- son propre accent de couleur (bordure gauche) pour se --}}
-            {{-- distinguer d'un coup d'œil, la carte Clôture reprenant la --}}
-            {{-- couleur de l'écart (neutre/positif/négatif). --}}
-            <div class="row g-3 mt-1">
-                <div class="col-md-6">
-                    <div class="card h-100 shadow-sm border-0 border-start border-4 border-primary">
-                        <div class="card-header bg-white border-0 pb-0">
-                            <h4 class="h6 mb-0"><i class="bi bi-receipt me-1 text-primary"></i>Résumé</h4>
-                        </div>
-                        <div class="card-body pt-2">
-                            <div class="d-flex justify-content-between align-items-center bg-light rounded px-3 py-2 mb-2">
-                                <span>Fond de caisse</span>
-                                <span>{{ montant($session->fond_de_caisse) }}</span>
-                            </div>
-                            <div class="d-flex justify-content-between align-items-center bg-light rounded px-3 py-2 mb-2">
-                                <span>Nombre de ventes</span>
-                                <span>{{ $ventes->count() }}</span>
-                            </div>
-                            <div class="d-flex justify-content-between align-items-center bg-light rounded px-3 py-2 mb-2 fw-semibold">
-                                <span>Total net</span>
-                                <span>{{ montant($totalVentes) }}</span>
-                            </div>
-                            @foreach ($paiementsParMoyen as $paiement)
-                                <div class="d-flex justify-content-between align-items-center bg-light rounded px-3 py-2 mb-2">
-                                    <span>{{ $paiement->moyenPaiement->nom }}</span>
-                                    <span>{{ montant($paiement->total) }}</span>
-                                </div>
+            @if ($session->mouvementCaisses->isNotEmpty())
+                <h3 class="h6">Historique des mouvements de caisse</h3>
+                <div class="table-responsive mb-4">
+                    <table class="table table-sm align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th>Type</th>
+                                <th>Motif</th>
+                                <th>Auteur</th>
+                                <th>Date</th>
+                                <th class="text-end">Montant</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach ($session->mouvementCaisses as $mouvement)
+                                <tr>
+                                    <td>
+                                        <span class="badge {{ $mouvement->type->classeBadge() }}">
+                                            {{ $mouvement->reference_type === \App\Models\RemboursementAvoirClient::class ? 'Remboursement avoir' : $mouvement->type->libelle() }}
+                                        </span>
+                                    </td>
+                                    <td>{{ $mouvement->motif }}</td>
+                                    <td>{{ $mouvement->auteur->name ?? 'utilisateur supprimé' }}</td>
+                                    <td>{{ $mouvement->created_at->format('d/m/Y H:i') }}</td>
+                                    <td class="text-end fw-medium">{{ $mouvement->type->value === 'entree' ? '+ ' : '− ' }}{{ montant($mouvement->montant) }}</td>
+                                </tr>
                             @endforeach
-                        </div>
-                    </div>
+                        </tbody>
+                    </table>
                 </div>
+            @endif
 
-                @if ($session->date_cloture)
-                    @php
-                        $couleurEcart = $session->ecart === 0 ? 'secondary' : ($session->ecart > 0 ? 'success' : 'danger');
-                    @endphp
-                    <div class="col-md-6">
-                        <div class="card h-100 shadow-sm border-0 border-start border-4 border-{{ $couleurEcart }}">
-                            <div class="card-header bg-white border-0 pb-0">
-                                <h4 class="h6 mb-0"><i class="bi bi-safe2 me-1 text-{{ $couleurEcart }}"></i>Clôture</h4>
-                            </div>
-                            <div class="card-body pt-2">
-                                <div class="d-flex justify-content-between align-items-center bg-light rounded px-3 py-2 mb-2">
-                                    <span>Théorique</span>
-                                    <span>{{ montant($session->fond_de_caisse + $session->total_ventes_especes + $session->total_reglements_especes + $session->total_entrees_especes - $session->total_sorties_especes) }}</span>
-                                </div>
-                                @if ($session->total_reglements_especes > 0)
-                                    <div class="d-flex justify-content-between align-items-center bg-light rounded px-3 py-2 mb-2">
-                                        <span>Règlements clients (espèces)</span>
-                                        <span>{{ montant($session->total_reglements_especes) }}</span>
-                                    </div>
-                                @endif
-                                <div class="d-flex justify-content-between align-items-center bg-light rounded px-3 py-2 mb-2">
-                                    <span>Entrées de caisse</span>
-                                    <span class="text-success">{{ montant($session->total_entrees_especes) }}</span>
-                                </div>
-                                <div class="d-flex justify-content-between align-items-center bg-light rounded px-3 py-2 mb-2">
-                                    <span>Sorties de caisse</span>
-                                    <span class="text-danger">{{ montant($session->total_sorties_especes) }}</span>
-                                </div>
-                                <div class="d-flex justify-content-between align-items-center bg-light rounded px-3 py-2 mb-2 fw-semibold">
-                                    <span>Compté</span>
-                                    <span>{{ montant($session->montant_compte) }}</span>
-                                </div>
-                                <div class="d-flex justify-content-between align-items-center bg-light rounded px-3 py-2 mb-2 fw-bold text-{{ $couleurEcart }}">
-                                    <span>Écart</span>
-                                    <span>{{ $session->ecart > 0 ? '+' : '' }}{{ montant($session->ecart) }}</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                @endif
-            </div>
+            <h3 class="h6">Bilan</h3>
+            <table class="table table-sm table-bordered mb-0 ms-md-auto" style="max-width: 360px;">
+                <tbody>
+                    @foreach ($bilan as $label => $valeur)
+                        <tr class="{{ $label === 'Total en caisse' ? 'table-success' : '' }}">
+                            <td class="{{ $label === 'Total en caisse' ? 'fw-semibold' : 'text-secondary' }}">{{ $label }}</td>
+                            <td class="text-end fw-semibold">{{ $valeur }}</td>
+                        </tr>
+                    @endforeach
+                </tbody>
+            </table>
         </div>
     </div>
 @endsection

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\VenteType;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -13,7 +14,7 @@ use Spatie\Activitylog\LogOptions;
 use Spatie\Activitylog\Traits\LogsActivity;
 
 #[Fillable([
-    'numero', 'magasin_id', 'session_caisse_id', 'caissier_id', 'client_id', 'sous_total',
+    'numero', 'type', 'magasin_id', 'session_caisse_id', 'caissier_id', 'client_id', 'sous_total',
     'remise_totale_type', 'remise_totale_valeur', 'remise_totale_montant', 'total_net',
     'montant_recu', 'monnaie_rendue', 'avoir_applique', 'motif_annulation', 'annulee_par',
 ])]
@@ -32,6 +33,7 @@ class Vente extends Model
     protected function casts(): array
     {
         return [
+            'type' => VenteType::class,
             'sous_total' => 'integer',
             'remise_totale_valeur' => 'integer',
             'remise_totale_montant' => 'integer',
@@ -158,6 +160,17 @@ class Vente extends Model
     }
 
     /**
+     * true pour une vente enregistrée directement comme bon de livraison
+     * (voir CLAUDE.md, VenteService::vendre()) — livrée automatiquement et
+     * entièrement dès sa création, distincte d'une facture classique qui
+     * peut ensuite être livrée séparément via BonLivraisonService.
+     */
+    public function estBonLivraison(): bool
+    {
+        return $this->type === VenteType::BonLivraison;
+    }
+
+    /**
      * true si au moins un bon de livraison actif a été enregistré sur cette
      * vente — sert à savoir si un statut de livraison doit être affiché du
      * tout : une vente comptoir classique, jamais suivie via un bon de
@@ -206,5 +219,27 @@ class Vente extends Model
             .' inner join bon_livraisons bl on bl.id = lbl.bon_livraison_id'
             .' where bl.vente_id = ventes.id and bl.deleted_at is null)'
         );
+    }
+
+    /**
+     * Vendu > déjà retourné (au moins une ligne encore retournable) ET
+     * datée d'aujourd'hui — un retour n'est possible que le jour même de la
+     * vente (voir RetourVenteService::retourner()), donc une facture d'un
+     * jour précédent ne doit plus apparaître ici même si elle a
+     * techniquement des lignes non retournées. Même principe SQL direct que
+     * scopeLivraisonIncomplete() ci-dessus, pour l'écran de recherche de
+     * facture à retourner (RetourVenteController::rechercher()).
+     */
+    public function scopeRetournable(Builder $query): Builder
+    {
+        return $query->whereNull('ventes.deleted_at')
+            ->whereDate('ventes.created_at', today())
+            ->whereRaw(
+                '(select coalesce(sum(lv.quantite_pieces), 0) from ligne_ventes lv where lv.vente_id = ventes.id)'
+                .' > '
+                .'(select coalesce(sum(lrv.quantite_pieces), 0) from ligne_retour_ventes lrv'
+                .' inner join ligne_ventes lv2 on lv2.id = lrv.ligne_vente_id'
+                .' where lv2.vente_id = ventes.id)'
+            );
     }
 }

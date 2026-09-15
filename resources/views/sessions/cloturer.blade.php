@@ -8,22 +8,42 @@
         <h2 class="h4 mb-0">Clôturer la session — {{ $session->caisse->nom }}</h2>
     </div>
 
-    <div class="row g-3 mb-3" style="max-width: 720px;">
-        <div class="col-6 col-md-3">
-            <div class="card h-100">
-                <div class="card-body">
-                    <div class="text-secondary small">Fond de caisse</div>
-                    <div class="fs-5 fw-medium">{{ montant($session->fond_de_caisse) }}</div>
-                </div>
-            </div>
+    {{-- Même "story" financière que sessions.show : ce qui a été vendu (tous
+         moyens de paiement confondus) → ce qui est reparti en retour/avoir →
+         entrées/sorties manuelles → ce qu'il reste réellement dans le tiroir
+         (espèces uniquement, règle 10 — c'est ce chiffre, et lui seul, qui
+         est comparé au comptage physique plus bas). --}}
+    <div class="row g-2 mb-3">
+        <div class="col-6 col-md">
+            <x-kpi-card compact label="Fond de caisse" icon="bi-cash-stack" color="primary"
+                :value="montant($session->fond_de_caisse)" />
         </div>
-        <div class="col-6 col-md-3">
-            <div class="card h-100">
-                <div class="card-body">
-                    <div class="text-secondary small">Total de tous</div>
-                    <div class="fs-5 fw-medium">{{ montant($totalVentes) }}</div>
-                </div>
-            </div>
+        <div class="col-6 col-md">
+            <x-kpi-card compact label="Total ventes" icon="bi-receipt" color="info"
+                :value="$nbVentes" />
+        </div>
+        <div class="col-6 col-md">
+            <x-kpi-card compact label="Montant vente" icon="bi-graph-up-arrow" color="success"
+                :value="montant($totalVentes)" />
+        </div>
+        <div class="col-6 col-md position-relative">
+            <x-kpi-card compact label="Retour/avoir" icon="bi-arrow-return-left" :color="$totalRetours > 0 ? 'warning' : 'secondary'"
+                :value="montant($totalRetours)" />
+            @if ($nbRetours > 0)
+                <span class="badge rounded-pill text-bg-warning position-absolute top-0 end-0 mt-n1 me-1">{{ $nbRetours }}</span>
+            @endif
+        </div>
+        <div class="col-6 col-md">
+            <x-kpi-card compact label="Entrée" icon="bi-box-arrow-in-down" color="primary"
+                :value="montant($detailTheorique['entrees'])" />
+        </div>
+        <div class="col-6 col-md">
+            <x-kpi-card compact label="Sortie" icon="bi-box-arrow-up" color="secondary"
+                :value="montant($detailTheorique['sorties'])" />
+        </div>
+        <div class="col-6 col-md">
+            <x-kpi-card compact solid label="Total en caisse" icon="bi-wallet2" color="success"
+                :value="montant($theorique)" />
         </div>
     </div>
 

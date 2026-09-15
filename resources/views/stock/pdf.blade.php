@@ -28,6 +28,7 @@
         Édité le {{ now()->format('d/m/Y à H:i') }}
         @if ($filtres['magasin']) — Destination : {{ $filtres['magasin'] }} @endif
         @if ($filtres['produit']) — Produit : {{ $filtres['produit'] }} @endif
+        @if ($filtres['recherche'] ?? null) — Recherche : {{ $filtres['recherche'] }} @endif
         @if ($filtres['sousSeuil']) — Sous le seuil d'alerte uniquement @endif
     </div>
 
@@ -47,20 +48,12 @@
                 <tr>
                     <td>{{ $produit->libelle_affichage }}</td>
                     <td>{{ $produit->sku }}</td>
-                    <td>
-                        @foreach ($produit->stockParMagasin($magasinsAffiches) as $ligne)
-                            <div class="{{ $ligne['sous_seuil'] ? 'sous-seuil' : '' }}">
-                                {{ $ligne['magasin']->nom }} :
-                                {{ quantite($ligne['quantite']) }} {{ $produit->unite_base_libelle_complet }}
-                            </div>
-                        @endforeach
+                    @php($total = $produit->totalStock($magasinsAffiches))
+                    <td class="{{ $total['sous_seuil'] ? 'sous-seuil' : '' }}">
+                        {{ quantite($total['quantite']) }} {{ $produit->unite_base_libelle_complet }}
                     </td>
                     <td class="text-end">{{ $produit->seuil_alerte }}</td>
-                    <td class="text-end">
-                        @foreach ($produit->stockParMagasin($magasinsAffiches) as $ligne)
-                            <div>{{ $ligne['magasin']->nom }} : {{ montant($ligne['cout_moyen_pondere']) }}</div>
-                        @endforeach
-                    </td>
+                    <td class="text-end">{{ montant($produit->coutMoyenPondere()) }}</td>
                     <td class="text-end">{{ montant($produit->prix_piece) }}</td>
                 </tr>
             @empty

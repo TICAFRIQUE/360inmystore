@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\MouvementStockType;
+use App\Support\Arrondi;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -95,19 +96,25 @@ class CommandeAchat extends Model
      * Suppose `lignes` chargée (loadMissing en amont, voir
      * CommandeAchatController::show()).
      */
-    public function totalHt(): int
+    /**
+     * Indicatif, jamais arrondi à l'entier (voir Arrondi::prixAchat() /
+     * LigneCommandeAchat::montantHt()) — contrairement à totalTtcReel(), qui
+     * bascule sur le montant réellement facturé (entier) dès qu'une
+     * réception existe.
+     */
+    public function totalHt(): float
     {
-        return $this->lignes->sum(fn (LigneCommandeAchat $ligne) => $ligne->montantHt());
+        return Arrondi::prixAchat((float) $this->lignes->sum(fn (LigneCommandeAchat $ligne) => $ligne->montantHt()));
     }
 
-    public function totalTtc(): int
+    public function totalTtc(): float
     {
-        return $this->lignes->sum(fn (LigneCommandeAchat $ligne) => $ligne->montantTtc());
+        return Arrondi::prixAchat((float) $this->lignes->sum(fn (LigneCommandeAchat $ligne) => $ligne->montantTtc()));
     }
 
-    public function totalTaxes(): int
+    public function totalTaxes(): float
     {
-        return $this->totalTtc() - $this->totalHt();
+        return Arrondi::prixAchat($this->totalTtc() - $this->totalHt());
     }
 
     /**
@@ -117,12 +124,18 @@ class CommandeAchat extends Model
      * ce système, ou pas encore reçue) retombe sur l'indicatif totalTtc(),
      * qui EST le réel pour ces cas (tout reçu d'un coup à la validation dans
      * l'ancien modèle). Suppose `receptions.lignes.taxe` et `lignes` chargées.
+     *
+     * Toujours entier, contrairement à totalTtc() : c'est cette valeur (via
+     * resteDu()) qui plafonne un vrai règlement fournisseur
+     * (ReglementFournisseurService), lequel reste strictement entier XOF —
+     * le fallback sur l'indicatif décimal est donc arrondi ici, jamais
+     * transmis tel quel au circuit de règlement.
      */
     public function totalTtcReel(): int
     {
         return $this->receptions->isNotEmpty()
             ? $this->receptions->sum(fn (ReceptionAchat $r) => $r->totalTtc())
-            : $this->totalTtc();
+            : Arrondi::entier($this->totalTtc());
     }
 
     /**
@@ -181,9 +194,9 @@ class CommandeAchat extends Model
      * de la commande — positif si le fournisseur a facturé plus cher que
      * prévu. Suppose `lignes`, `receptions.lignes.taxe` chargées.
      */
-    public function ecartMontant(): int
+    public function ecartMontant(): float
     {
-        return $this->totalTtcReel() - $this->totalTtc();
+        return Arrondi::prixAchat($this->totalTtcReel() - $this->totalTtc());
     }
 
     public function paiements(): HasMany

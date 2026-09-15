@@ -33,22 +33,47 @@
                     @endif
                 </p>
             </div>
-            <div class="d-flex flex-wrap gap-2">
-                @unless ($devisTransformation)
-                    @can('ventenattente.gerer')
-                        <a href="{{ route('ventes-en-attente.index', $session) }}" class="btn btn-outline-warning position-relative">
-                            <i class="bi bi-hourglass-split me-1"></i>Ventes en attente
-                            @if ($venteEnAttentesCount > 0)
-                                <span class="badge rounded-pill text-bg-warning ms-1">{{ $venteEnAttentesCount }}</span>
-                            @endif
-                        </a>
-                    @endcan
-                @endunless
-            </div>
         </div>
 
         <div class="row g-3 align-items-start">
             <div class="col-12 col-lg-9">
+                @unless ($devisTransformation)
+                    @can('vente.bon_livraison')
+                        <div class="card border-info-subtle mb-3">
+                            <div class="card-body py-2">
+                                <div class="fw-semibold small mb-2">
+                                    <i class="bi bi-question-circle me-1"></i>Quel type de document ?
+                                </div>
+                                <div class="row g-2" role="radiogroup" aria-label="Type de document">
+                                    <div class="col-6">
+                                        <input type="radio" class="btn-check" name="typeDocument" id="typeDocumentFacture" value="facture" x-model="type" autocomplete="off">
+                                        <label class="btn btn-outline-info w-100 h-100 py-2 text-start d-flex align-items-center gap-2" for="typeDocumentFacture">
+                                            <i class="bi bi-receipt fs-4 flex-shrink-0"></i>
+                                            <span>
+                                                <span class="d-block fw-semibold">Facture</span>
+                                                <span class="d-block small opacity-75">Livraison organisée plus tard</span>
+                                            </span>
+                                        </label>
+                                    </div>
+                                    <div class="col-6">
+                                        <input type="radio" class="btn-check" name="typeDocument" id="typeDocumentBonLivraison" value="bon_livraison" x-model="type" autocomplete="off">
+                                        <label class="btn btn-outline-info w-100 h-100 py-2 text-start d-flex align-items-center gap-2" for="typeDocumentBonLivraison">
+                                            <i class="bi bi-truck fs-4 flex-shrink-0"></i>
+                                            <span>
+                                                <span class="d-block fw-semibold">Bon de livraison</span>
+                                                <span class="d-block small opacity-75">Marchandise livrée tout de suite</span>
+                                            </span>
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="small text-secondary mt-2 mb-0" x-show="type === 'bon_livraison'" x-cloak>
+                                    <i class="bi bi-info-circle me-1"></i>Enregistrée comme un bon de livraison, cette vente sera automatiquement considérée comme entièrement livrée.
+                                </div>
+                            </div>
+                        </div>
+                    @endcan
+                @endunless
+
                 <div class="mb-3">
                     <select id="produit-picker" class="form-select" @change="ajouterDepuisSelect($event)">
                         <option value="">— Rechercher un produit à ajouter —</option>
@@ -97,7 +122,7 @@
                                                 <div x-text="ligne.produitLibelle + (stockDisponible(ligne) !== null ? ' (Stock : ' + stockDisponible(ligne) + ')' : '')"></div>
                                                 <select class="form-select form-select-sm mt-1"
                                                         :class="ligne.magasin_source_id === undefined ? 'is-invalid' : 'text-secondary'"
-                                                        style="min-width: 170px; font-size: .75rem;"
+                                                        style="min-width: 150px; font-size: .75rem;"
                                                         @focus="chargerSources(ligne)"
                                                         @change="choisirSource(ligne, $event.target.value)" required>
                                                     <option value="" :selected="ligne.magasin_source_id === undefined">— Choisir un lieu —</option>
@@ -120,7 +145,7 @@
                                                 </div>
                                             </td>
                                             <td>
-                                                <select class="form-select form-select-sm" style="min-width: 150px;"
+                                                <select class="form-select form-select-sm" style="min-width: 130px;"
                                                         :class="{ 'is-invalid': estDoublon(index) || ligne.unite_vente_id === undefined }"
                                                         @change="changerVarianteDepuisSelect(ligne, $event.target.value)" required>
                                                     <option value="" :selected="ligne.unite_vente_id === undefined">— Choisir —</option>
@@ -133,7 +158,7 @@
                                             </td>
                                             @can('vente.remise')
                                                 <td>
-                                                    <div class="d-flex flex-column gap-1" style="min-width: 150px;">
+                                                    <div class="d-flex flex-column gap-1" style="min-width: 110px;">
                                                         <select :value="ligne.prixPersonnalise ? 'prix' : ligne.remise_type"
                                                                 @change="choisirTypeRemise(ligne, $event.target.value)" class="form-select form-select-sm">
                                                             <option value="">Sans remise</option>
@@ -147,8 +172,7 @@
                                                         <template x-if="ligne.prixPersonnalise">
                                                             <div>
                                                                 <input type="number" x-model.number="ligne.prixSaisi"
-                                                                       @input="if (ligne.prixSaisi > ligne.prixUnitaire) ligne.prixSaisi = ligne.prixUnitaire"
-                                                                       min="0" :max="ligne.prixUnitaire" class="form-control form-control-sm" placeholder="Prix">
+                                                                       min="0" class="form-control form-control-sm" placeholder="Prix">
                                                                 <div class="text-secondary" style="font-size: .7rem;">
                                                                     Catalogue : <span x-text="ligne.prixUnitaire"></span> F
                                                                 </div>
@@ -366,6 +390,7 @@
                               action="{{ $devisTransformation ? route('devis.transformer', [$session, $devisTransformation]) : ($venteEnAttente ? route('ventes-en-attente.reprendre', $venteEnAttente) : route('ventes.store', $session)) }}"
                               class="flex-grow-1">
                             @csrf
+                            <input type="hidden" name="type" :value="type">
                             <template x-for="(ligne, index) in panier" :key="'v'+index">
                                 <span>
                                     <input type="hidden" :name="'lignes['+index+'][produit_id]'" :value="ligne.produit_id">

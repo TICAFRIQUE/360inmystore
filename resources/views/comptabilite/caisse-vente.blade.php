@@ -25,6 +25,8 @@
             request('type') ? 'Type : ' . match (request('type')) {
                 'sortie' => 'Sortie',
                 'vente' => 'Vente / Facture',
+                'reglement' => 'Règlement client',
+                'retour' => 'Retour (avoir)',
                 default => 'Entrée',
             } : null,
         ])->filter();
@@ -59,6 +61,8 @@
                 <option value="entree" @selected(request('type') === 'entree')>Entrée</option>
                 <option value="sortie" @selected(request('type') === 'sortie')>Sortie</option>
                 <option value="vente" @selected(request('type') === 'vente')>Vente / Facture</option>
+                <option value="reglement" @selected(request('type') === 'reglement')>Règlement client</option>
+                <option value="retour" @selected(request('type') === 'retour')>Retour (avoir)</option>
             </select>
         </div>
         <div class="col-auto">
@@ -88,6 +92,10 @@
             <x-kpi-card label="Total sorties" icon="bi-box-arrow-up" color="danger"
                 :value="montant($totalSorties)" />
         </div>
+        <div class="col-6 col-md-3">
+            <x-kpi-card label="Retours (avoir, hors tiroir)" icon="bi-arrow-return-left" color="warning"
+                :value="montant($totalRetours)" />
+        </div>
     </div>
 
     <div class="card">
@@ -109,7 +117,11 @@
                             <td><span class="badge {{ $mouvement->type_badge }}">{{ $mouvement->type_libelle }}</span></td>
                             <td>{{ $mouvement->motif }}</td>
                             <td class="text-end fw-medium">
-                                {{ $mouvement->signe_positif ? '+ ' : '− ' }}{{ montant($mouvement->montant) }}
+                                @if ($mouvement->hors_tiroir)
+                                    {{ montant($mouvement->montant) }}
+                                @else
+                                    {{ $mouvement->signe_positif ? '+ ' : '− ' }}{{ montant($mouvement->montant) }}
+                                @endif
                             </td>
                             <td>{{ $mouvement->auteur_nom ?? 'Utilisateur supprimé' }}</td>
                         </tr>

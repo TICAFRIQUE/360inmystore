@@ -17,11 +17,11 @@
         .text-end { text-align: right; }
         .titre { font-size: 20px; font-weight: bold; color: #e8590c; letter-spacing: 1px; margin-bottom: 4px; }
         .meta { font-size: 11px; color: #555; margin-bottom: 16px; }
-        table.lignes th, table.lignes td { border: 1px solid #ccc; padding: 5px 7px; font-size: 11px; }
+        table.lignes th, table.lignes td { border: 1px solid #ccc; padding: 3px 5px; font-size: 9px; }
         table.lignes th { background: #f0ece6; text-align: left; }
         table.bilan { width: 260px; margin-top: 18px; margin-left: auto; }
-        table.bilan th { background: #f0ece6; text-align: left; font-size: 12px; padding: 5px 7px; border: 1px solid #ccc; }
-        table.bilan td { border: 1px solid #ccc; padding: 4px 7px; font-size: 11px; }
+        table.bilan th { background: #f0ece6; text-align: left; font-size: 10px; padding: 4px 6px; border: 1px solid #ccc; }
+        table.bilan td { border: 1px solid #ccc; padding: 3px 6px; font-size: 9px; }
         table.bilan td:first-child { color: #555; }
         table.bilan td:last-child { text-align: right; font-weight: bold; }
     </style>

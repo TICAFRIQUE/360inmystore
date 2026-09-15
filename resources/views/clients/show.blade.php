@@ -86,37 +86,33 @@
                         <th>Numéro</th>
                         <th>Date</th>
                         <th>Magasin</th>
-                        <th>Statut</th>
-                        <th>Retours</th>
                         <th class="text-end">Total</th>
                         <th class="text-end">Réglé</th>
                         <th class="text-end">Reste dû</th>
+                        <th>Statut</th>
                         <th>Livraison</th>
+                        <th>Retourné</th>
                         <th class="text-end">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
                     @forelse ($ventes as $vente)
+                        @php
+                            $venduPieces = $vente->lignes->sum('quantite_pieces');
+                            $retournePieces = $vente->retours->flatMap->lignes->sum('quantite_pieces');
+                        @endphp
                         <tr>
-                            <td><code>{{ $vente->numero }}</code></td>
+                            <td>
+                                <code>{{ $vente->numero }}</code>
+                                @if ($vente->client_id !== $client->id)
+                                    <span class="badge text-bg-info-subtle text-info-emphasis ms-1"
+                                          title="Vente comptant ({{ $vente->client->nom ?? 'sans client' }}) — un retour dessus a été crédité à {{ $client->nom }}, ce n'est pas un achat de ce client.">
+                                        Retour attribué
+                                    </span>
+                                @endif
+                            </td>
                             <td>{{ $vente->created_at->format('d/m/Y H:i') }}</td>
                             <td>{{ $vente->magasin->nom }}</td>
-                            <td>
-                                @if ($vente->trashed())
-                                    <span class="badge text-bg-danger">Annulée</span>
-                                @else
-                                    <span class="badge text-bg-success">Validée</span>
-                                @endif
-                            </td>
-                            <td>
-                                @if ($vente->retours->isNotEmpty())
-                                    <span class="badge text-bg-warning-subtle text-warning-emphasis">
-                                        {{ $vente->retours->count() }} · {{ montant($vente->retours->sum('montant_total')) }}
-                                    </span>
-                                @else
-                                    <span class="text-secondary">—</span>
-                                @endif
-                            </td>
                             <td class="text-end">{{ montant($vente->total_net) }}</td>
                             @if (! $vente->trashed())
                                 <td class="text-end text-success">{{ montant($vente->montantRegle()) }}</td>
@@ -126,16 +122,28 @@
                                 <td class="text-end text-secondary">—</td>
                             @endif
                             <td>
+                                @if ($vente->trashed())
+                                    <span class="badge text-bg-danger">Annulée</span>
+                                @else
+                                    <span class="badge text-bg-success">Validée</span>
+                                @endif
+                            </td>
+                            <td>
                                 @if ($vente->livraisonEngagee())
-                                    @if ($vente->entierementLivree())
-                                        <span class="badge text-bg-success-subtle text-success-emphasis">Entièrement livrée</span>
-                                    @else
-                                        <span class="badge text-bg-warning-subtle text-warning-emphasis">
-                                            {{ quantite($vente->quantiteLivreePieces()) }}/{{ quantite($vente->lignes->sum('quantite_pieces')) }} pièce(s)
-                                        </span>
-                                    @endif
+                                    <span class="badge {{ $vente->entierementLivree() ? 'text-bg-success-subtle text-success-emphasis' : 'text-bg-warning-subtle text-warning-emphasis' }}">
+                                        {{ quantite($vente->quantiteLivreePieces()) }}/{{ quantite($vente->lignes->sum('quantite_pieces')) }} pièce(s)
+                                    </span>
                                 @else
                                     <span class="text-secondary">—</span>
+                                @endif
+                            </td>
+                            <td>
+                                @if ($retournePieces <= 0)
+                                    <span class="text-secondary">—</span>
+                                @else
+                                    <span class="badge {{ $retournePieces >= $venduPieces ? 'text-bg-danger-subtle text-danger-emphasis' : 'text-bg-warning-subtle text-warning-emphasis' }}">
+                                        {{ quantite($retournePieces) }}/{{ quantite($venduPieces) }} pièce(s)
+                                    </span>
                                 @endif
                             </td>
                             <td class="text-end">

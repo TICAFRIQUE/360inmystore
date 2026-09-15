@@ -147,7 +147,7 @@
                 @if ($parametre->numero) Tél : {{ $parametre->numero }} @endif
             </td>
             <td style="width: 45%;">
-                <div class="facture-titre">FACTURE</div>
+                <div class="facture-titre">{{ \Illuminate\Support\Str::upper($vente->type->libelle()) }}</div>
                 <div class="facture-meta">
                     N° {{ $vente->numero }}<br>
                     Date : {{ $vente->created_at->format('d/m/Y à H:i') }}<br>
@@ -168,20 +168,40 @@
 
     @php $venteTotalTaxes = $vente->totalTaxes(); @endphp
     <table class="lignes">
+        {{-- Largeurs explicites : Désignation doit rester la zone la plus large
+             (évite les retours à la ligne sur un nom de produit long) tandis
+             qu'Unité/Qté/Remise, au contenu toujours très court, restent
+             étroites — laissées à l'auto-layout, dompdf leur donnait sinon
+             une part de largeur bien supérieure à leur contenu réel. --}}
+        <colgroup>
+            @if ($venteTotalTaxes > 0)
+                <col style="width: 34%;">
+                <col style="width: 9%;">
+                <col style="width: 7%;">
+                <col style="width: 14%;">
+                <col style="width: 9%;">
+                <col style="width: 11%;">
+                <col style="width: 16%;">
+            @else
+                <col style="width: 38%;">
+                <col style="width: 10%;">
+                <col style="width: 8%;">
+                <col style="width: 16%;">
+                <col style="width: 10%;">
+                <col style="width: 18%;">
+            @endif
+        </colgroup>
         <thead>
             <tr>
                 <th>Désignation</th>
                 <th>Unité</th>
                 <th class="text-end">Qté</th>
-                <th class="text-end">Prix unitaire</th>
+                <th class="text-end">P.u</th>
                 <th class="text-end">Remise</th>
                 @if ($venteTotalTaxes > 0)
                     <th>Taxe</th>
                 @endif
                 <th class="text-end">Total</th>
-                @if ($livraisonEngagee)
-                    <th class="text-end">Livré</th>
-                @endif
             </tr>
         </thead>
         <tbody>
@@ -196,9 +216,6 @@
                         <td>{{ $ligne->taxe->nom ?? '—' }}</td>
                     @endif
                     <td class="text-end">{{ montant($ligne->total_ligne) }}</td>
-                    @if ($livraisonEngagee)
-                        <td class="text-end">{{ quantite($dejaLivreParLigne[$ligne->id] ?? 0) }}/{{ quantite($ligne->quantite_pieces) }}</td>
-                    @endif
                 </tr>
             @endforeach
         </tbody>
@@ -254,6 +271,10 @@
             </tr>
         @endif
     </table>
+
+    @if ($vente->estBonLivraison())
+        <div class="mention" style="font-weight: bold;">Facture à suivre</div>
+    @endif
 
     <div class="mention">
         Merci de votre confiance.

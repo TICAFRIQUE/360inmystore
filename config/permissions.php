@@ -42,6 +42,7 @@ return [
         'vente.annuler',
         'vente.retour',
         'vente.livrer',
+        'vente.bon_livraison',
         'ventenattente.gerer',
         'client.voir',
         'client.gerer',

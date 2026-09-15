@@ -52,6 +52,13 @@
                     <a href="{{ route('reglements.create', $session) }}" class="btn btn-outline-primary">
                         <i class="bi bi-credit-card me-1"></i>Encaisser un règlement
                     </a>
+                    {{-- Un remboursement d'avoir exige désormais une session ouverte
+                         (règle 20, tiroir de cette session) — visible seulement ici,
+                         pas sur une session clôturée où il serait de toute façon
+                         impossible à traiter. --}}
+                    <a href="{{ route('remboursements-avoir-client.index') }}" class="btn btn-outline-info">
+                        <i class="bi bi-piggy-bank me-1"></i>Avoirs clients
+                    </a>
                 @endcan
                 @can('caisse.cloturer')
                     @if ($session->vente_en_attentes_count > 0)
@@ -75,6 +82,12 @@
         </div>
     </div>
 
+    {{-- Ligne opérationnelle (fond, nombre de ventes, ventes en attente) suivie
+         de la "story" financière de la session, dans l'ordre : ce qui a été
+         vendu (brut) → ce qui est reparti en retour/avoir → ce qu'il reste
+         réellement dans le tiroir. Une seule ligne, colonnes flexibles
+         (col-md sans chiffre) : s'adapte à 6 cartes comme à n'importe quel
+         autre nombre. --}}
     <div class="row g-2 mb-2">
         <div class="col-6 col-md">
             <x-kpi-card compact label="Fond de caisse" icon="bi-cash-stack" color="primary"
@@ -89,56 +102,69 @@
                 :value="$venteEnAttentesVisibles" />
         </div>
         <div class="col-6 col-md">
-            <x-kpi-card compact label="Chiffre d'affaires" icon="bi-graph-up-arrow" color="success"
+            <x-kpi-card compact label="Total vendu" icon="bi-graph-up-arrow" color="success"
                 :value="montant($totalVentes)" />
+        </div>
+        <div class="col-6 col-md position-relative">
+            <x-kpi-card compact label="Retour/avoir" icon="bi-arrow-return-left" :color="$totalRetours > 0 ? 'warning' : 'secondary'"
+                :value="montant($totalRetours)" />
+            @if ($nbRetours > 0)
+                <span class="badge rounded-pill text-bg-warning position-absolute top-0 end-0 mt-n1 me-1">{{ $nbRetours }}</span>
+            @endif
         </div>
         @if ($soldeTheorique !== null)
             <div class="col-6 col-md">
-                <x-kpi-card compact label="Solde théorique du tiroir" icon="bi-wallet2" color="secondary"
+                {{-- Le seul chiffre "caisse" affiché : ce qu'il devrait réellement
+                     y avoir dans le tiroir maintenant (fond + espèces encaissées
+                     − sorties, remboursements d'avoir inclus) — celui utilisé à
+                     la clôture pour comparer avec le comptage réel. --}}
+                <x-kpi-card compact solid label="Total en caisse" icon="bi-wallet2" color="success"
                     :value="montant($soldeTheorique)" />
             </div>
         @endif
     </div>
 
-    {{-- Décompose le chiffre d'affaires ci-dessus : dû (crédit encore
-         ouvert), avoir (compensé, jamais encaissé) et espèces (réellement
-         dans le tiroir) — séparés pour ne jamais laisser croire que le CA
-         est de l'argent en caisse (règle 10). --}}
-    <p class="text-secondary small mb-1">Décomposition</p>
-    <div class="row g-2 mb-3">
-        <div class="col-6 col-md-3">
-            <x-kpi-card compact label="Total dû (crédit)" icon="bi-credit-card" :color="$totalDu > 0 ? 'warning' : 'secondary'"
-                :value="montant($totalDu)" />
-        </div>
-        <div class="col-6 col-md-3">
-            <x-kpi-card compact label="Avoirs appliqués" icon="bi-piggy-bank" color="info"
-                :value="montant($avoirApplique)" />
-        </div>
-        <div class="col-6 col-md-3">
-            <x-kpi-card compact label="Total en caisse" icon="bi-cash-stack" color="success"
-                :value="montant($totalEspeces)" />
-        </div>
-        <div class="col-6 col-md-3">
-            <x-kpi-card compact label="Règlements clients" icon="bi-cash-coin" color="primary"
-                :value="montant($totalReglementsClient)" />
-        </div>
-    </div>
-
-    @if ($paiementsParMoyen->isNotEmpty())
-        <div class="card mb-2">
-            <div class="card-body p-2 px-3">
-                <div class="text-secondary small mb-1">Répartition par moyen de paiement</div>
-                <div class="d-flex flex-wrap column-gap-4 row-gap-1">
-                    @foreach ($paiementsParMoyen as $paiement)
-                        <div>
-                            <div class="text-secondary" style="font-size: .75rem;">{{ $paiement->moyenPaiement->nom }}</div>
-                            <div class="fw-medium" style="font-size: 1.05rem;">{{ montant($paiement->total) }}</div>
-                        </div>
-                    @endforeach
+    {{-- Décomposition (à gauche, cartes réduites) et Répartition par moyen de
+         paiement (à droite) sur la même ligne — la décomposition explique
+         "Total vendu" ci-dessus (dû, avoir compensé, règlements clients,
+         jamais des espèces dans le tiroir, règle 10), la répartition montre
+         comment les clients ont réellement payé. --}}
+    <div class="row g-2 mb-3 align-items-start">
+        <div class="col-md-8">
+            <p class="text-secondary small mb-1">Décomposition</p>
+            <div class="row g-2">
+                <div class="col-4">
+                    <x-kpi-card compact label="Total dû (crédit)" icon="bi-credit-card" :color="$totalDu > 0 ? 'warning' : 'secondary'"
+                        :value="montant($totalDu)" />
+                </div>
+                <div class="col-4">
+                    <x-kpi-card compact label="Avoirs appliqués" icon="bi-piggy-bank" color="info"
+                        :value="montant($avoirApplique)" />
+                </div>
+                <div class="col-4">
+                    <x-kpi-card compact label="Règlements clients" icon="bi-cash-coin" color="primary"
+                        :value="montant($totalReglementsClient)" />
                 </div>
             </div>
         </div>
-    @endif
+        @if ($paiementsParMoyen->isNotEmpty())
+            <div class="col-md-4">
+                <p class="text-secondary small mb-1">Répartition par moyen de paiement</p>
+                <div class="card">
+                    <div class="card-body p-2 px-3">
+                        <div class="d-flex flex-wrap column-gap-4 row-gap-1">
+                            @foreach ($paiementsParMoyen as $paiement)
+                                <div>
+                                    <div class="text-secondary" style="font-size: .75rem;">{{ $paiement->moyenPaiement->nom }}</div>
+                                    <div class="fw-medium" style="font-size: 1.05rem;">{{ montant($paiement->total) }}</div>
+                                </div>
+                            @endforeach
+                        </div>
+                    </div>
+                </div>
+            </div>
+        @endif
+    </div>
 
     @if ($session->date_cloture)
         <div class="card mb-2">
@@ -246,24 +272,6 @@
         </div>
     @endif
 
-    @if ($session->mouvementCaisses->isNotEmpty())
-        <div class="card mb-2">
-            <div class="card-body p-2 px-3">
-                <div class="text-secondary small mb-1">Historique des mouvements de caisse</div>
-                @foreach ($session->mouvementCaisses as $mouvement)
-                    <div class="d-flex justify-content-between small border-bottom py-1">
-                        <span>
-                            <span class="badge {{ $mouvement->type->classeBadge() }} me-1">{{ $mouvement->type->libelle() }}</span>
-                            {{ $mouvement->motif }}
-                            <span class="text-secondary">— {{ $mouvement->auteur->name ?? 'utilisateur supprimé' }}, {{ $mouvement->created_at->format('d/m/Y H:i') }}</span>
-                        </span>
-                        <span class="fw-medium">{{ $mouvement->type->value === 'entree' ? '+ ' : '− ' }}{{ montant($mouvement->montant) }}</span>
-                    </div>
-                @endforeach
-            </div>
-        </div>
-    @endif
-
     <x-recherche-form :action="route('sessions.show', $session)" placeholder="Numéro de vente…" />
 
     <div class="card">
@@ -272,6 +280,7 @@
                 <thead>
                     <tr>
                         <x-th-tri champ="numero" label="Numéro" />
+                        <th>Type</th>
                         <x-th-tri champ="created_at" label="Date et heure" />
                         <x-th-tri champ="total_net" label="Montant dû" />
                         <th class="text-end">Déjà réglé</th>
@@ -279,6 +288,7 @@
                         <th class="text-end">Reste à payer</th>
                         <th>Statut</th>
                         <th>Livraison</th>
+                        <th>Retours</th>
                         <th class="text-end">Actions</th>
                     </tr>
                 </thead>
@@ -286,6 +296,7 @@
                     @forelse ($ventes as $vente)
                         <tr>
                             <td><code>{{ $vente->numero }}</code></td>
+                            <td><span class="badge {{ $vente->type->classeBadge() }}">{{ $vente->type->libelle() }}</span></td>
                             <td>{{ $vente->created_at->format('d/m/Y H:i') }}</td>
                             <td>{{ montant($vente->total_net) }}</td>
                             <td class="text-end text-success">{{ montant($vente->montantRegle()) }}</td>
@@ -294,13 +305,18 @@
                             <td><span class="badge text-bg-success">Validée</span></td>
                             <td>
                                 @if ($vente->livraisonEngagee())
-                                    @if ($vente->entierementLivree())
-                                        <span class="badge text-bg-success-subtle text-success-emphasis">Entièrement livrée</span>
-                                    @else
-                                        <span class="badge text-bg-warning-subtle text-warning-emphasis">
-                                            {{ quantite($vente->quantiteLivreePieces()) }}/{{ quantite($vente->lignes->sum('quantite_pieces')) }} pièce(s)
-                                        </span>
-                                    @endif
+                                    <span class="badge {{ $vente->entierementLivree() ? 'text-bg-success-subtle text-success-emphasis' : 'text-bg-warning-subtle text-warning-emphasis' }}">
+                                        {{ quantite($vente->quantiteLivreePieces()) }}/{{ quantite($vente->lignes->sum('quantite_pieces')) }}
+                                    </span>
+                                @else
+                                    <span class="text-secondary">—</span>
+                                @endif
+                            </td>
+                            <td>
+                                @if ($vente->retours->isNotEmpty())
+                                    <span class="badge text-bg-warning-subtle text-warning-emphasis">
+                                        {{ $vente->retours->count() }} · {{ montant($vente->retours->sum('montant_total')) }}
+                                    </span>
                                 @else
                                     <span class="text-secondary">—</span>
                                 @endif
@@ -314,7 +330,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="9" class="text-center text-secondary py-4">Aucune vente pour l'instant.</td>
+                            <td colspan="11" class="text-center text-secondary py-4">Aucune vente pour l'instant.</td>
                         </tr>
                     @endforelse
                 </tbody>
@@ -322,8 +338,48 @@
         </div>
     </div>
 
-    <div class="mt-3 d-flex justify-content-between align-items-center">
-        <a href="{{ route('sessions.index') }}" class="btn btn-link ps-0">Retour aux caisses</a>
+    <div class="mt-3">
         {{ $ventes->links() }}
+    </div>
+
+    {{-- Tableau distinct de la liste des ventes ci-dessus : mouvements
+         manuels (entrée/sortie) ET remboursements d'avoir client générés
+         depuis un retour (règle 20) — jamais mélangés aux ventes. --}}
+    @if ($session->mouvementCaisses->isNotEmpty())
+        <p class="fw-semibold mb-2 mt-4">Historique des mouvements de caisse</p>
+        <div class="card">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th>Type</th>
+                            <th>Motif</th>
+                            <th>Auteur</th>
+                            <th>Date</th>
+                            <th class="text-end">Montant</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach ($session->mouvementCaisses as $mouvement)
+                            <tr>
+                                <td>
+                                    <span class="badge {{ $mouvement->type->classeBadge() }}">
+                                        {{ $mouvement->reference_type === \App\Models\RemboursementAvoirClient::class ? 'Remboursement avoir' : $mouvement->type->libelle() }}
+                                    </span>
+                                </td>
+                                <td>{{ $mouvement->motif }}</td>
+                                <td>{{ $mouvement->auteur->name ?? 'utilisateur supprimé' }}</td>
+                                <td>{{ $mouvement->created_at->format('d/m/Y H:i') }}</td>
+                                <td class="text-end fw-medium">{{ $mouvement->type->value === 'entree' ? '+ ' : '− ' }}{{ montant($mouvement->montant) }}</td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    @endif
+
+    <div class="mt-3">
+        <a href="{{ route('sessions.index') }}" class="btn btn-link ps-0">Retour aux caisses</a>
     </div>
 @endsection

@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', "Ticket {$vente->numero}")
+@section('title', "{$vente->type->libelle()} {$vente->numero}")
 
 @section('content')
     <div class="d-flex justify-content-between align-items-center mb-3 d-print-none">
@@ -11,9 +11,14 @@
                      jamais pouvoir ouvrir sessions.show — le retour pointe
                      alors vers la liste des livraisons plutôt qu'un 403. --}}
                 <x-bouton-retour :route="request()->user()->can('caisse.ouvrir') ? route('sessions.show', $vente->sessionCaisse) : route('bons-livraison.index')" />
-                <h2 class="h4 mb-0">Détail de la facture</h2>
+                <h2 class="h4 mb-0">Détail {{ $vente->estBonLivraison() ? 'du bon de livraison' : 'de la facture' }}</h2>
             </div>
-            <div class="text-secondary small ms-5 ps-1"><code>{{ $vente->numero }}</code></div>
+            <div class="text-secondary small ms-5 ps-1">
+                <code>{{ $vente->numero }}</code>
+                @if ($vente->estBonLivraison())
+                    <span class="badge {{ $vente->type->classeBadge() }} ms-1">{{ $vente->type->libelle() }}</span>
+                @endif
+            </div>
         </div>
         @can('vente.creer')
             {{-- $sessionOuverte : la session ouverte de L'UTILISATEUR COURANT
@@ -45,6 +50,11 @@
         $lignesRetournables = $vente->lignes->filter(
             fn ($ligne) => $ligne->quantite_pieces - ($dejaRetourneParLigne[$ligne->id] ?? 0) > 0
         );
+        // Un retour n'est possible que le jour même de la vente, et
+        // uniquement avec une session de caisse ouverte (voir CLAUDE.md,
+        // Retours) — les deux conditions gèlent le bouton indépendamment,
+        // avec un message distinct pour chacune.
+        $retourMemeJour = $vente->created_at->isSameDay(now());
         $afficheLivrer = ! $vente->trashed() && $peutLivrer;
         $lignesLivrables = $vente->lignes->filter(
             fn ($ligne) => $ligne->quantite_pieces - ($dejaLivreParLigne[$ligne->id] ?? 0) > 0
@@ -164,8 +174,8 @@
 
             @if ($afficheRetourner)
                 <button type="button" class="btn btn-outline-info btn-sm" data-bs-toggle="modal" data-bs-target="#retourVenteModal"
-                        @disabled(! $vente->client_id || $lignesRetournables->isEmpty())
-                        title="{{ ! $vente->client_id ? 'Aucun client identifié sur cette vente' : ($lignesRetournables->isEmpty() ? 'Tous les articles ont déjà été retournés' : '') }}">
+                        @disabled($lignesRetournables->isEmpty() || ! $retourMemeJour || ! $sessionOuverte)
+                        title="{{ ! $retourMemeJour ? 'Retour possible uniquement le jour de la vente' : (! $sessionOuverte ? 'Ouvrez une session de caisse pour faire un retour' : ($lignesRetournables->isEmpty() ? 'Tous les articles ont déjà été retournés' : '')) }}">
                     <i class="bi bi-arrow-return-left me-1"></i>Retourner
                 </button>
             @endif
@@ -316,6 +326,12 @@
                             </span>
                             <span class="fw-medium">Avoir {{ montant($retour->montant_total) }}</span>
                         </div>
+                        @if ($retour->client_id !== $vente->client_id)
+                            <div class="ps-4">
+                                <i class="bi bi-person me-1"></i>Crédité à
+                                <a href="{{ route('clients.show', $retour->client) }}" class="text-warning-emphasis fw-medium">{{ $retour->client->nom }}</a>
+                            </div>
+                        @endif
                         @if ($retour->motif)
                             <div class="text-secondary ps-4 fst-italic">{{ $retour->motif }}</div>
                         @endif
@@ -563,7 +579,7 @@
                     @if ($parametre->numero) Tél : {{ $parametre->numero }} @endif
                 </td>
                 <td style="width: 45%;">
-                    <div class="facture-titre">FACTURE</div>
+                    <div class="facture-titre">{{ \Illuminate\Support\Str::upper($vente->type->libelle()) }}</div>
                     <div class="facture-meta">
                         N° {{ $vente->numero }}<br>
                         Date : {{ $vente->created_at->format('d/m/Y à H:i') }}<br>
@@ -583,12 +599,23 @@
         </div>
 
         <table class="lignes">
+            {{-- Mêmes largeurs que ventes/facture.blade.php (sans taxe, ce
+                 bloc n'en affiche jamais) : Désignation la plus large,
+                 Unité/Qté/Remise resserrées sur leur contenu réel. --}}
+            <colgroup>
+                <col style="width: 38%;">
+                <col style="width: 10%;">
+                <col style="width: 8%;">
+                <col style="width: 16%;">
+                <col style="width: 10%;">
+                <col style="width: 18%;">
+            </colgroup>
             <thead>
                 <tr>
                     <th>Désignation</th>
                     <th>Unité</th>
                     <th class="text-end">Qté</th>
-                    <th class="text-end">Prix unitaire</th>
+                    <th class="text-end">P.u</th>
                     <th class="text-end">Remise</th>
                     <th class="text-end">Total</th>
                 </tr>
@@ -651,6 +678,10 @@
                 </tr>
             @endif
         </table>
+
+        @if ($vente->estBonLivraison())
+            <div class="mention" style="font-weight: bold;">Facture à suivre</div>
+        @endif
 
         <div class="mention">
             Merci de votre confiance.
@@ -763,14 +794,46 @@
         </div>
     @endif
 
-    @if ($afficheRetourner && $vente->client_id && $lignesRetournables->isNotEmpty())
+    @if ($afficheRetourner && $lignesRetournables->isNotEmpty())
+        @php
+            // Client réellement crédité, connu à l'avance uniquement si la
+            // vente en a un — sinon choisi/créé dans le formulaire ci-dessous
+            // (jamais un repli silencieux sur "Client comptant" : plusieurs
+            // personnes différentes font des ventes comptant, voir CLAUDE.md
+            // Retours). Le solde estimé sert juste à préremplir le montant
+            // du remboursement immédiat ; le plafond réel est toujours revérifié
+            // côté serveur.
+            $clientACrediter = $vente->client;
+            $soldeActuelEstime = $clientACrediter?->solde() ?? 0;
+        @endphp
         <div class="modal fade d-print-none" id="retourVenteModal" tabindex="-1" aria-hidden="true">
             <div class="modal-dialog modal-lg">
                 <div class="modal-content"
                      x-data="{
                         lignes: {{ $lignesRetournables->mapWithKeys(fn ($l) => [$l->id => 0])->toJson() }},
                         max: {{ $lignesRetournables->mapWithKeys(fn ($l) => [$l->id => $l->quantite_pieces - ($dejaRetourneParLigne[$l->id] ?? 0)])->toJson() }},
+                        valeurPiece: {{ $lignesRetournables->mapWithKeys(fn ($l) => [$l->id => $l->quantite_pieces > 0 ? $l->total_ligne / $l->quantite_pieces : 0])->toJson() }},
+                        soldeActuel: {{ (int) $soldeActuelEstime }},
+                        // Rembourser maintenant par défaut (retour = même jour +
+                        // session ouverte désormais, le client est là) — mais reste
+                        // un choix, pas une obligation (tiroir court, client à
+                        // crédit qui préfère garder ça en avoir). Reste en mode avoir
+                        // si l'utilisateur n'a même pas la permission de rembourser
+                        // (les champs de paiement ne s'afficheraient pas).
+                        mode: '{{ $peutRembourserAvoir ? 'remboursement' : 'avoir' }}',
+                        // Espèces présélectionné (cas quasi systématique d'un
+                        // remboursement immédiat au comptoir) — évite une étape
+                        // de saisie en plus, modifiable si besoin.
+                        paiements: [{ moyen_paiement_id: {{ $moyensPaiement->firstWhere('est_espece', true)?->id ?? 'null' }}, montant: null }],
                         get total() { return Object.values(this.lignes).reduce((s, q) => s + (Number(q) || 0), 0); },
+                        get montantEstime() { return Object.entries(this.lignes).reduce((s, [id, q]) => s + (Number(q) || 0) * this.valeurPiece[id], 0); },
+                        get avoirDisponibleApres() { return Math.max(0, Math.round(this.montantEstime - this.soldeActuel)); },
+                        get totalPaiements() { return this.paiements.reduce((s, p) => s + (Number(p.montant) || 0), 0); },
+                        ajouterPaiement() { this.paiements.push({ moyen_paiement_id: '', montant: null }); },
+                        retirerPaiement(index) { if (this.paiements.length > 1) this.paiements.splice(index, 1); },
+                        activerRemboursement() {
+                            this.paiements = [{ moyen_paiement_id: this.paiements[0].moyen_paiement_id, montant: this.avoirDisponibleApres || null }];
+                        },
                      }">
                     <form method="POST" action="{{ route('ventes.retours.store', $vente) }}">
                         @csrf
@@ -781,7 +844,10 @@
                         <div class="modal-body">
                             <p class="small text-secondary">
                                 Quantité à retourner par article (unité de base — pièce). Le stock est remis à
-                                disposition et un avoir est crédité au compte du client, jamais un remboursement caisse.
+                                disposition.
+                                @if ($clientACrediter)
+                                    Un avoir est crédité au compte du client ({{ $clientACrediter->nom }}).
+                                @endif
                             </p>
                             <div class="table-responsive">
                                 <table class="table table-sm align-middle">
@@ -806,6 +872,8 @@
                                                 <td>
                                                     <input type="number" name="lignes[{{ $ligne->id }}][quantite_pieces]"
                                                            x-model.number="lignes[{{ $ligne->id }}]"
+                                                           @input="lignes[{{ $ligne->id }}] = Math.max(0, Math.min(Number($event.target.value) || 0, max[{{ $ligne->id }}]));
+                                                                   if (mode === 'remboursement') paiements[0].montant = avoirDisponibleApres || null"
                                                            min="0" step="0.001" max="{{ (float) $ligne->quantite_pieces - $dejaRetourne }}"
                                                            class="form-control form-control-sm text-end">
                                                 </td>
@@ -818,15 +886,105 @@
                                 <label for="retour-motif" class="form-label small">Motif (optionnel)</label>
                                 <textarea name="motif" id="retour-motif" class="form-control form-control-sm" rows="2"></textarea>
                             </div>
+
+                            <div class="border-top pt-2 mt-2">
+                                @if ($peutRembourserAvoir)
+                                    <label class="form-label small d-block">Que faire de l'avoir ?</label>
+                                    <div class="form-check form-check-inline">
+                                        <input class="form-check-input" type="radio" id="retour-mode-remboursement" value="remboursement" checked
+                                               x-model="mode" @change="activerRemboursement()">
+                                        <label class="form-check-label" for="retour-mode-remboursement">Rembourser maintenant</label>
+                                    </div>
+                                    <div class="form-check form-check-inline">
+                                        <input class="form-check-input" type="radio" id="retour-mode-avoir" value="avoir" x-model="mode">
+                                        <label class="form-check-label" for="retour-mode-avoir">Créer un avoir pour ce client</label>
+                                    </div>
+                                    <input type="hidden" name="rembourser_immediat" :value="mode === 'remboursement' ? 1 : 0">
+                                @endif
+
+                                @if (! $vente->client)
+                                    <div class="mt-2" x-show="mode === 'avoir'" x-cloak>
+                                        <label for="retour-client-picker" class="form-label small">
+                                            Client à créditer<span class="required-marker">*</span>
+                                        </label>
+                                        <div class="d-flex gap-1">
+                                            <select name="client_id_retour" id="retour-client-picker" class="form-select form-select-sm" :required="mode === 'avoir'">
+                                                <option value="">— Choisir —</option>
+                                                @foreach ($clientsPourRetour as $c)
+                                                    <option value="{{ $c->id }}" @selected($c->comptant_defaut)>
+                                                        {{ $c->nom }}{{ $c->telephone ? ' — '.$c->telephone : '' }}{{ $c->comptant_defaut ? ' (identité inconnue)' : '' }}
+                                                    </option>
+                                                @endforeach
+                                            </select>
+                                            @can('client.gerer')
+                                                <button type="button" class="btn btn-sm btn-outline-primary btn-icon flex-shrink-0" title="Nouveau client"
+                                                        onclick="window.ouvrirClientRapide('retour-client-picker')">
+                                                    <i class="bi bi-person-plus"></i>
+                                                    <span class="visually-hidden">Nouveau client</span>
+                                                </button>
+                                            @endcan
+                                        </div>
+                                        <div class="form-text small">
+                                            Vente comptant (aucun client rattaché à la facture) : indiquez qui reprend
+                                            l'article, pour ne pas mélanger son avoir avec celui d'autres clients de
+                                            passage. Choisissez "identité inconnue" seulement si le client ne se
+                                            présente vraiment pas.
+                                        </div>
+                                    </div>
+                                @endif
+
+                                @if ($peutRembourserAvoir)
+                                    <div x-show="mode === 'remboursement'" x-cloak class="mt-2">
+                                        <p class="small text-secondary mb-2">
+                                            Avoir disponible après ce retour (estimation) :
+                                            <strong x-text="avoirDisponibleApres + ' F'"></strong>
+                                        </p>
+                                        <template x-for="(paiement, index) in paiements" :key="index">
+                                            <div class="row g-1 align-items-center mb-2">
+                                                <div class="col-6">
+                                                    <select :name="'paiements['+index+'][moyen_paiement_id]'" x-model="paiement.moyen_paiement_id" class="form-select form-select-sm">
+                                                        <option value="">Moyen…</option>
+                                                        @foreach ($moyensPaiement as $moyen)
+                                                            <option value="{{ $moyen->id }}">{{ $moyen->nom }}</option>
+                                                        @endforeach
+                                                    </select>
+                                                </div>
+                                                <div class="col-4">
+                                                    <input type="number" :name="'paiements['+index+'][montant]'" x-model.number="paiement.montant" min="1" class="form-control form-control-sm" placeholder="Montant">
+                                                </div>
+                                                <div class="col-2">
+                                                    <button type="button" class="btn btn-sm btn-icon btn-outline-danger" @click="retirerPaiement(index)" x-show="paiements.length > 1">
+                                                        <i class="bi bi-x-lg"></i>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </template>
+                                        <button type="button" class="btn btn-sm btn-outline-primary" @click="ajouterPaiement()">
+                                            <i class="bi bi-plus-lg"></i> Ajouter un moyen de paiement
+                                        </button>
+                                        <div class="mt-2 small" :class="totalPaiements > avoirDisponibleApres ? 'text-danger' : 'text-secondary'">
+                                            Total remboursé : <span x-text="totalPaiements"></span> F
+                                            <span x-show="totalPaiements > avoirDisponibleApres">— dépasse l'avoir disponible estimé.</span>
+                                        </div>
+                                    </div>
+                                @endif
+                            </div>
                         </div>
                         <div class="modal-footer">
                             <button type="button" class="btn btn-link" data-bs-dismiss="modal">Fermer</button>
-                            <button type="submit" class="btn btn-info" :disabled="total <= 0">Enregistrer le retour</button>
+                            <button type="submit" class="btn btn-info"
+                                    :disabled="total <= 0 || (mode === 'remboursement' && (totalPaiements <= 0 || totalPaiements > avoirDisponibleApres))">
+                                Enregistrer le retour
+                            </button>
                         </div>
                     </form>
                 </div>
             </div>
         </div>
+
+        @if (! $vente->client)
+            @include('partials.client-rapide-modal')
+        @endif
     @endif
 
     @if ($afficheLivrer && $lignesLivrables->isNotEmpty())

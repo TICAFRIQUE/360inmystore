@@ -59,8 +59,9 @@
         </div>
     </div>
 
-    <form method="GET" action="{{ route('stock.index') }}" class="row g-2 mb-3 d-print-none">
-        <div class="col-auto">
+    <x-recherche-form :action="route('stock.index')" placeholder="Produit commençant par…"
+        :autres-params="['magasin_id', 'produit_id', 'sous_seuil']">
+        <div>
             <select name="magasin_id" class="form-select" onchange="this.form.submit()">
                 <option value="">Tous les magasins</option>
                 @foreach ($magasins as $magasin)
@@ -68,7 +69,7 @@
                 @endforeach
             </select>
         </div>
-        <div class="col-auto" style="min-width: 260px;">
+        <div style="min-width: 260px;">
             <select name="produit_id" id="produit_id_filtre" class="form-select" onchange="this.form.submit()">
                 <option value="">Tous les produits</option>
                 @foreach ($produitsFiltrables as $produit)
@@ -76,21 +77,14 @@
                 @endforeach
             </select>
         </div>
-        <div class="col-auto d-flex align-items-center">
-            <div class="form-check">
-                <input type="checkbox" name="sous_seuil" value="1" id="sous_seuil" class="form-check-input" onchange="this.form.submit()" @checked(request()->boolean('sous_seuil'))>
-                <label for="sous_seuil" class="form-check-label">Sous le seuil d'alerte uniquement</label>
-            </div>
+        <div class="form-check mb-2">
+            <input type="checkbox" name="sous_seuil" value="1" id="sous_seuil" class="form-check-input" onchange="this.form.submit()" @checked(request()->boolean('sous_seuil'))>
+            <label for="sous_seuil" class="form-check-label">Sous le seuil d'alerte uniquement</label>
         </div>
-        @if (request()->hasAny(['magasin_id', 'produit_id', 'sous_seuil', 'tri', 'direction']))
-            <div class="col-auto">
-                <x-bouton-reinitialiser :route="route('stock.index')" />
-            </div>
-        @endif
-        <div class="col-auto ms-auto">
+        <x-slot:export>
             <x-export-buttons :pdf-route="route('stock.pdf', request()->query())" :excel-route="route('stock.excel', request()->query())" :tout="true" />
-        </div>
-    </form>
+        </x-slot:export>
+    </x-recherche-form>
 
     <div class="card">
         <div class="table-responsive">
@@ -107,10 +101,16 @@
                 <tbody>
                     @forelse ($produits as $produit)
                         <tr>
+                            @php($total = $produit->totalStock($magasinsAffiches))
                             <td>{{ $produit->libelle_affichage }} <code class="small">{{ $produit->sku }}</code></td>
-                            <td><x-stock-par-magasin :produit="$produit" :magasins="$magasinsAffiches" /></td>
+                            <td class="{{ $total['sous_seuil'] ? 'text-danger' : '' }}">
+                                {{ quantite($total['quantite']) }} {{ $produit->unite_base_libelle_complet }}
+                                @if ($total['sous_seuil'])
+                                    <i class="bi bi-exclamation-triangle-fill ms-1" title="Sous le seuil d'alerte"></i>
+                                @endif
+                            </td>
                             <td>{{ $produit->seuil_alerte }}</td>
-                            <td><x-cmp-par-magasin :produit="$produit" :magasins="$magasinsAffiches" /></td>
+                            <td>{{ montant($produit->coutMoyenPondere()) }}</td>
                             <td>{{ montant($produit->prix_piece) }}</td>
                         </tr>
                     @empty

@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Enums\MouvementStockType;
+use App\Enums\VenteType;
 use App\Exceptions\SessionNonOuverteException;
 use App\Models\Caisse;
 use App\Models\Client;
@@ -32,6 +33,7 @@ class VenteService
     public function __construct(
         private readonly StockService $stockService,
         private readonly CompteClientService $compteClientService,
+        private readonly BonLivraisonService $bonLivraisonService,
     ) {}
 
     /**
@@ -48,6 +50,7 @@ class VenteService
         ?int $montantRecu = null,
         ?Client $client = null,
         bool $autoriserDepassementLimite = false,
+        VenteType $type = VenteType::Facture,
     ): Vente {
         if (empty($lignes)) {
             throw new InvalidArgumentException('Une vente doit comporter au moins une ligne.');
@@ -58,12 +61,17 @@ class VenteService
             throw new SessionNonOuverteException();
         }
 
-        return DB::transaction(function () use ($session, $caissier, $lignes, $paiements, $remiseTotaleType, $remiseTotaleValeur, $montantRecu, $client, $autoriserDepassementLimite) {
+        return DB::transaction(function () use ($session, $caissier, $lignes, $paiements, $remiseTotaleType, $remiseTotaleValeur, $montantRecu, $client, $autoriserDepassementLimite, $type) {
             $caisse = Caisse::whereKey($session->caisse_id)->lockForUpdate()->firstOrFail();
             $magasin = $caisse->magasin;
 
             $caisse->increment('sequence_ventes');
-            $numero = sprintf('M%d-C%02d-%06d', $magasin->id, $caisse->id, $caisse->sequence_ventes);
+            // Préfixe "BL-" pour un bon de livraison : distingue le numéro
+            // d'une facture classique au premier coup d'œil (ticket, liste
+            // des ventes, rapports) — même compteur de séquence que les
+            // factures de cette caisse (pas de série numérotée à part).
+            $prefixe = $type === VenteType::BonLivraison ? 'BL-' : '';
+            $numero = sprintf('%sM%d-C%02d-%06d', $prefixe, $magasin->id, $caisse->id, $caisse->sequence_ventes);
 
             [$lignesResolues, $sousTotal, $totalTaxes] = $this->resoudreLignes($lignes);
 
@@ -116,6 +124,7 @@ class VenteService
 
             $vente = Vente::create([
                 'numero' => $numero,
+                'type' => $type,
                 'magasin_id' => $magasin->id,
                 'session_caisse_id' => $session->id,
                 'caissier_id' => $caissier->id,
@@ -130,8 +139,9 @@ class VenteService
                 'avoir_applique' => $avoirApplique,
             ]);
 
+            $lignesLivraisonAuto = [];
             foreach ($lignesResolues as $l) {
-                $vente->lignes()->create([
+                $ligneVente = $vente->lignes()->create([
                     'produit_id' => $l['produit']->id,
                     'unite_vente_id' => $l['unite_vente']?->id,
                     'taxe_id' => $l['taxe']?->id,
@@ -155,6 +165,11 @@ class VenteService
                 $this->stockService->enregistrerMouvement(
                     $l['produit'], $l['magasin_source'], -$l['quantite_pieces'], MouvementStockType::Vente, $caissier, reference: $vente,
                 );
+
+                $lignesLivraisonAuto[] = [
+                    'ligne_vente_id' => $ligneVente->id,
+                    'quantite_pieces' => $l['quantite_pieces'],
+                ];
             }
 
             foreach ($paiements as $p) {
@@ -167,6 +182,17 @@ class VenteService
             if ($soldeDu > 0) {
                 $this->compteClientService->crediterDette(
                     $client, $soldeDu, $vente, $caissier, $autoriserDepassementLimite,
+                );
+            }
+
+            // Une vente enregistrée en bon de livraison est considérée livrée
+            // par défaut (règle métier du bouton Facture/BL) : on enchaîne un
+            // bon de livraison couvrant la totalité des lignes, dans la même
+            // transaction — même pattern que DevisService::transformer() qui
+            // enchaîne deux opérations liées en une seule opération atomique.
+            if ($type === VenteType::BonLivraison) {
+                $this->bonLivraisonService->livrer(
+                    $vente, $lignesLivraisonAuto, $caissier, 'Livraison automatique (vente enregistrée en bon de livraison)',
                 );
             }
 

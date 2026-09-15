@@ -17,7 +17,7 @@ use Spatie\MediaLibrary\InteractsWithMedia;
  * pour bénéficier du cache (lu sur presque chaque page : sidebar, connexion,
  * tickets, e-mails).
  */
-#[Fillable(['nom', 'slogan', 'couleur_primaire', 'numero', 'adresse', 'duree_validite_devis_jours', 'devise_id'])]
+#[Fillable(['nom', 'slogan', 'couleur_primaire', 'numero', 'adresse', 'duree_validite_devis_jours', 'devise_id', 'dossier_sauvegarde'])]
 class Parametre extends Model implements HasMedia
 {
     use InteractsWithMedia, LogsActivity;
@@ -65,6 +65,59 @@ class Parametre extends Model implements HasMedia
     public function logoUrl(): string
     {
         return $this->getFirstMediaUrl('logo') ?: asset('images/logo-defaut.svg');
+    }
+
+    /**
+     * Logo encodé en data URI pour les documents imprimables (facture de
+     * vente/devis/bon de livraison/bon de commande) : dompdf ne charge une
+     * image distante que si enable_remote est activé côté serveur, d'où
+     * l'encodage direct plutôt qu'une URL. Utilisé par tous les contrôleurs
+     * de facture — un seul endroit à faire évoluer.
+     *
+     * En noir et blanc par défaut sur ces documents (dompdf ne supporte pas
+     * le filtre CSS grayscale(), la désaturation se fait donc côté serveur
+     * via GD, driver image déjà utilisé par medialibrary — voir
+     * config/media-library.php). Le fichier original stocké n'est jamais
+     * modifié, uniquement cette copie encodée ; ré-encodée en PNG (préserve
+     * la transparence) quel que soit le format d'origine.
+     */
+    public function logoDataUri(bool $noirEtBlanc = true): ?string
+    {
+        $logo = $this->getFirstMedia('logo');
+        if (! $logo || ! is_file($logo->getPath())) {
+            return null;
+        }
+
+        $bytes = file_get_contents($logo->getPath());
+        $mime = $logo->mime_type;
+
+        if ($noirEtBlanc) {
+            [$bytes, $mime] = $this->logoEnNoirEtBlanc($bytes, $mime);
+        }
+
+        return 'data:'.$mime.';base64,'.base64_encode($bytes);
+    }
+
+    /**
+     * @return array{0: string, 1: string} contenu de l'image + type mime —
+     *   image/couleur d'origine inchangée si GD ne sait pas la décoder.
+     */
+    private function logoEnNoirEtBlanc(string $bytes, string $mimeOriginal): array
+    {
+        $image = @imagecreatefromstring($bytes);
+        if ($image === false) {
+            return [$bytes, $mimeOriginal];
+        }
+
+        imagefilter($image, IMG_FILTER_GRAYSCALE);
+        imagesavealpha($image, true);
+
+        ob_start();
+        imagepng($image);
+        $pngBytes = ob_get_clean();
+        imagedestroy($image);
+
+        return [$pngBytes, 'image/png'];
     }
 
     public function devise(): BelongsTo

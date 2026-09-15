@@ -36,10 +36,15 @@ class StockController extends Controller
         ];
 
         $query = $this->requeteProduitsFiltree($request, sousSeuilUniquement: $request->boolean('sous_seuil'))
-            ->with(['stocks' => fn ($q) => $q->when(
-                $request->filled('magasin_id'),
-                fn ($qq) => $qq->where('magasin_id', $request->integer('magasin_id')),
-            )]);
+            ->with([
+                'stocks' => fn ($q) => $q->when(
+                    $request->filled('magasin_id'),
+                    fn ($qq) => $qq->where('magasin_id', $request->integer('magasin_id')),
+                ),
+                // .magasin : nécessaire à Produit::coutMoyenPondere() pour
+                // exclure les dépôts (colonne CMP, jamais dupliquée par vue).
+                'stocks.magasin',
+            ]);
 
         // Ordre alphabétique par défaut, comme avant la refonte (une ligne
         // par produit désormais — trier par quantité n'a plus de sens
@@ -92,19 +97,13 @@ class StockController extends Controller
 
         $ligne = 2;
         foreach ($produits as $produit) {
-            $stockParMagasin = $produit->stockParMagasin($magasinsAffiches);
-            $detail = collect($stockParMagasin)
-                ->map(fn (array $l) => $l['magasin']->nom.' : '.quantite($l['quantite']))
-                ->implode(' | ');
-            $detailCmp = collect($stockParMagasin)
-                ->map(fn (array $l) => $l['magasin']->nom.' : '.montant($l['cout_moyen_pondere']))
-                ->implode(' | ');
+            $detail = quantite($produit->totalStock($magasinsAffiches)['quantite']).' '.$produit->unite_base_libelle_complet;
 
             $feuille->setCellValue("A{$ligne}", $produit->libelle_affichage);
             $feuille->setCellValue("B{$ligne}", $produit->sku);
             $feuille->setCellValue("C{$ligne}", $detail);
             $feuille->setCellValue("D{$ligne}", $produit->seuil_alerte);
-            $feuille->setCellValue("E{$ligne}", $detailCmp);
+            $feuille->setCellValue("E{$ligne}", $produit->coutMoyenPondere());
             $feuille->setCellValue("F{$ligne}", $produit->prix_piece);
             $ligne++;
         }
@@ -157,11 +156,27 @@ class StockController extends Controller
      * (le filtré s'il y en a un, sinon tous) est sous le seuil d'alerte —
      * l'absence de toute ligne Stock à cette destination compte aussi comme
      * "sous seuil" (quantité 0).
+     *
+     * Filtré par magasin_id (hors case "sous seuil", voir ci-dessous) : ne
+     * retourne que les produits réellement disponibles (quantité > 0) à CE
+     * magasin/dépôt précis — contrairement à la vue "tous les magasins" qui
+     * liste tout le catalogue actif, y compris les produits à 0 partout
+     * (état de stock complet).
      */
     private function requeteProduitsFiltree(Request $request, bool $sousSeuilUniquement = false): Builder
     {
         return Produit::query()
             ->when($request->filled('produit_id'), fn ($q) => $q->where('id', $request->integer('produit_id')))
+            // Préfixe (nom commençant par ce qui est tapé), pas une recherche
+            // "contient" — filtre à la frappe (voir x-recherche-form).
+            ->when($request->filled('recherche'), fn ($q) => $q->where('nom', 'like', $request->string('recherche').'%'))
+            // Le cas "sous seuil" gère lui-même la disponibilité par magasin
+            // ci-dessous (une rupture, quantité 0, doit rester visible comme
+            // "sous seuil" — ne pas la masquer ici via la disponibilité).
+            ->when($request->filled('magasin_id') && ! $sousSeuilUniquement, fn ($q) => $q->whereHas(
+                'stocks',
+                fn ($sq) => $sq->where('magasin_id', $request->integer('magasin_id'))->where('quantite', '>', 0),
+            ))
             ->when($sousSeuilUniquement, function ($q) use ($request) {
                 $q->where(function ($qq) use ($request) {
                     $qq->whereHas('stocks', function ($sq) use ($request) {
@@ -183,10 +198,13 @@ class StockController extends Controller
     private function produitsExport(Request $request): Collection
     {
         return $this->requeteProduitsFiltree($request, sousSeuilUniquement: $request->boolean('sous_seuil'))
-            ->with(['stocks' => fn ($q) => $q->when(
-                $request->filled('magasin_id'),
-                fn ($qq) => $qq->where('magasin_id', $request->integer('magasin_id')),
-            )])
+            ->with([
+                'stocks' => fn ($q) => $q->when(
+                    $request->filled('magasin_id'),
+                    fn ($qq) => $qq->where('magasin_id', $request->integer('magasin_id')),
+                ),
+                'stocks.magasin',
+            ])
             ->orderBy('nom')
             ->get();
     }
@@ -196,6 +214,7 @@ class StockController extends Controller
         return [
             'magasin' => $request->filled('magasin_id') ? Magasin::find($request->integer('magasin_id'))?->nom : null,
             'produit' => $request->filled('produit_id') ? Produit::find($request->integer('produit_id'))?->libelle_affichage : null,
+            'recherche' => $request->string('recherche')->toString() ?: null,
             'sousSeuil' => $request->boolean('sous_seuil'),
         ];
     }

@@ -25,6 +25,7 @@ class DatabaseSeeder extends Seeder
             CompteTresorerieSeeder::class,
             MotifMouvementSeeder::class,
             FormuleAbonnementSeeder::class,
+            ClientComptantDefautSeeder::class,
         ]);
 
         if (app()->environment('local')) {

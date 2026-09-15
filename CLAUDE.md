@@ -96,11 +96,20 @@ client, réglé plus tard.
     concerné, jamais un remboursement en espèces.** Il est obligatoirement rattaché à
     une vente/commande d'achat précise, ligne par ligne, dans la limite du reste
     retournable de chaque ligne ; il remet le stock retourné directement en stock
-    vendable (règle 1, via un mouvement immuable dédié) sans recalcul du CMP ; il
-    n'exige aucune session de caisse et n'entre jamais dans le comptage du tiroir
-    (même logique que le règlement fournisseur, règle 17). Comme un mouvement de stock
-    ou une écriture de compte, un retour est immuable : une correction se fait par une
-    nouvelle vente/un nouvel achat, jamais par l'annulation d'un retour.
+    vendable (règle 1, via un mouvement immuable dédié) sans recalcul du CMP. Comme un
+    mouvement de stock ou une écriture de compte, un retour est immuable : une
+    correction se fait par une nouvelle vente/un nouvel achat, jamais par l'annulation
+    d'un retour.
+    - **Côté fournisseur** : n'exige aucune session de caisse et n'entre jamais dans le
+      comptage du tiroir (même logique que le règlement fournisseur, règle 17).
+    - **Côté client** : exige une session de caisse ouverte — celle du caissier qui
+      traite le retour, pas forcément celle de la vente d'origine — **et uniquement le
+      jour même de la vente retournée** ; passé ce jour, plus aucun retour possible sur
+      cette facture, même avec une session ouverte (`RetourVenteService::retourner()`,
+      `RetourDateLimiteDepasseeException`/`SessionNonOuverteException`). Le retour lui-
+      même ne mouvemente toujours pas le tiroir (rattaché à une session pour la
+      traçabilité/le contrôle d'accès, pas pour un encaissement), mais son
+      **remboursement** (règle 20) en sort désormais bien réellement.
 19. **Un mouvement de caisse manuel (entrée/sortie) exige une session de caisse
     ouverte**, comme une vente (règle 6). Une sortie ne peut jamais dépasser le solde
     théorique du tiroir de cette session (fond de caisse + espèces déjà entrées − déjà
@@ -111,9 +120,17 @@ client, réglé plus tard.
     exception à la règle 18** : le retour lui-même ne mouvemente toujours jamais la
     caisse, seul ce remboursement, explicitement déclenché plus tard, le fait. Plafonné à
     l'avoir disponible (jamais plus que le solde négatif actuel du compte). Immuable,
-    comme un règlement. La part payée en espèces suit la règle 21 (Caisse Générale,
-    aucune session de caisse de caissier requise) — en **sortie** pour un client (on lui
-    rend son argent) et en **entrée** pour un fournisseur (il nous rembourse).
+    comme un règlement.
+    - **Côté fournisseur** : la part payée en espèces suit la règle 21 (Caisse Générale,
+      aucune session de caisse de caissier requise) — en **entrée** (il nous rembourse).
+    - **Côté client** : exige désormais une session de caisse ouverte (celle du
+      caissier qui traite le remboursement) — la part payée en espèces sort réellement
+      du **tiroir de cette session** (`CaisseMouvementService::enregistrer()`, type
+      `sortie`, plafonnée à son solde théorique — `SoldeCaisseInsuffisantException`
+      sinon), pas de la Caisse Générale. `RemboursementAvoirClient.session_caisse_id`
+      renseigné ; apparaît dans le journal de caisse (`rapports.mouvements-caisse`,
+      `comptabilite.caisses-vente.show`) comme une vraie sortie, libellée
+      "Remboursement avoir".
 21. **La Caisse Générale est un compte de trésorerie permanent, indépendant des caisses
     des caissiers** (règle 6-19) : pas de session, pas de caissier assigné, solde dérivé
     d'écritures immuables comme un compte client/fournisseur (règle 12/16). Elle reçoit
@@ -211,10 +228,15 @@ client, réglé plus tard.
   « Enregistrer et réceptionner immédiatement » (achat direct, voir plus bas) l'exige dès
   la saisie, puisqu'il crée la réception dans la même transaction.
 - **Taxe par ligne** : optionnelle, choisie parmi un référentiel `Taxe` préenregistré
-  (nom + taux %). `prix_achat` sur une ligne de commande est **HT indicatif** ; le
-  **TTC** est dérivé (jamais stocké), calculé et affiché par ligne et en récapitulatif
-  (total HT, total TTC) — voir règle d'arrondi unique. Le prix **réellement facturé**
-  (qui peut différer de cet indicatif) n'est capturé qu'à la réception.
+  (nom + taux %). `prix_achat` sur une ligne de commande est **HT indicatif**, en
+  **décimal(14,2)** — seule exception à la règle d'arrondi unique (voir « Argent et
+  arrondis ») : jamais arrondi à l'entier, ni à la saisie ni dans le **TTC** dérivé
+  (jamais stocké), calculé et affiché par ligne et en récapitulatif (total HT, total
+  TTC) — 2 décimales max, ni plus ni moins (`Arrondi::prixAchat()`,
+  `App\Http\Controllers\CommandeAchatController::nettoyerLignes()` normalise la virgule
+  saisie comme pour `quantite`). Le prix **réellement facturé**, capturé à la
+  réception (`prix_achat_reel`), reste lui **entier** comme le reste de l'application
+  (CMP, stock, vente) — l'exception ne porte que sur l'indicatif du bon de commande.
 - **Réceptions échelonnées (bon d'achat)** : un bon de commande **validé** (`statut` =
   `validee`, prix indicatifs, aucun impact stock/argent à ce stade) peut être
   **réceptionné en une ou plusieurs fois** (`ReceptionAchat`/`LigneReceptionAchat`),
@@ -303,11 +325,75 @@ client, réglé plus tard.
 - **CMP jamais recalculé** par un retour, comme tout mouvement hors réception. Le coût
   historique d'un retour client reprend `cout_applique` de la `LigneVente` d'origine
   (CMP figé au moment de la vente).
-- **Vente sans client identifié (comptant anonyme)** : retour bloqué — un retour exige
-  un compte à créditer.
+- **Vente sans client identifié (comptant anonyme)** : le retour n'est **pas** bloqué —
+  n'importe quelle vente doit pouvoir être retournée. La vente elle-même reste anonyme
+  (`Vente.client_id` inchangé). Le formulaire de retour **impose de choisir ou créer le
+  client réellement crédité** (`client_id_retour`, sélecteur + bouton "+" identique à
+  celui de l'écran de vente, `partials/client-rapide-modal.blade.php`) **uniquement si
+  l'avoir va rester sur un compte** — jamais un repli silencieux, puisque plusieurs
+  personnes différentes font des ventes comptant et mélanger leurs avoirs sur un seul
+  compte les rendrait impossibles à distinguer. **Exception** : si le retour est
+  remboursé tout de suite (case "Rembourser l'avoir tout de suite", voir ci-dessous),
+  rien ne reste sur aucun compte — l'identification n'apporte alors rien, le sélecteur
+  disparaît et le client singleton **"Client comptant"** (`Client.comptant_defaut`,
+  seedé une fois par `ClientComptantDefautSeeder`, même principe que
+  `CompteTresorerie.type=caisse_generale` — voir « Trésorerie ») est utilisé comme
+  simple compte de passage. Ce même singleton reste aussi sélectionnable dans le
+  sélecteur (pré-sélectionné par défaut) pour le cas où l'avoir persiste mais que le
+  client ne se présente vraiment pas — jamais supprimable depuis l'UI
+  (`ClientController::destroy()`). `RetourVenteService::retourner()` accepte ce client en
+  paramètre explicite (`$clientCredite`) ; sans lui (appel programmatique), il retombe
+  sur `$vente->client ?? Client::comptantDefaut()`.
 - **Immuable** (règle 18) : pas d'édition ni de suppression applicative d'un retour déjà
   enregistré. Corriger un retour erroné se fait par une nouvelle vente/un nouvel achat,
   jamais par son annulation.
+- **Point d'entrée dédié** (`/retours`, menu Vente → Retours, permission `vente.retour`) :
+  recherche une facture par numéro **du jour même** (comptant comme crédit, voir règle 18
+  — une facture d'un jour précédent n'apparaît plus, `Vente::scopeRetournable()`) sans
+  devoir déjà la connaître, puis ouvre sa fiche pour y faire le retour — le retour reste
+  toujours rattaché à cette facture précise (pas de sélection libre produit/quantité/prix,
+  voir ci-dessus). Bandeau si l'utilisateur n'a pas de session ouverte. Symétrique de
+  `bons-livraison.index`.
+- **Remboursement immédiat, coché par défaut, espèces présélectionnées** (deux boutons
+  radio sur le formulaire de retour, visibles si `client.reglement` : « Rembourser
+  maintenant » — par défaut, puisqu'un retour se fait désormais forcément le jour même
+  en session, le client est là, moyen de paiement "Espèces" déjà sélectionné (cas quasi
+  systématique au comptoir) — ou « Créer un avoir pour ce client », toujours possible :
+  tiroir de session court, ou client à crédit qui préfère garder ça en avoir sur son
+  compte). Le premier enchaîne, dans la foulée du retour, un
+  `RemboursementAvoirClient` pour tout ou partie de l'avoir qui vient d'être créé — ce
+  n'est **pas** une exception à la règle 18 (le retour lui-même ne mouvemente toujours
+  jamais la caisse) : ce sont deux écritures distinctes et immuables
+  (`RetourVente` + `RemboursementAvoirClient`), simplement déclenchées dans le même
+  geste côté écran plutôt qu'en deux visites séparées, avec la **même** session ouverte
+  (résolue une seule fois). Si le remboursement échoue (avoir insuffisant après
+  compensation d'une dette existante, ou tiroir de la session à sec), le retour reste
+  acquis ; seul le remboursement peut être retenté plus tard. Le sélecteur "Client à
+  créditer" ne s'affiche qu'en mode "Créer un avoir" (rien à identifier si tout repart en
+  espèces tout de suite, voir plus haut).
+- **Liste centralisée des avoirs** (`/remboursements-avoir`, menu Vente → Avoirs
+  clients, permission `client.reglement`) : tous les clients actifs à solde négatif
+  (`Client::actifsAvecAvoir()`, symétrique de `actifsAvecDette()`), remboursables
+  directement depuis la liste — sans devoir ouvrir la fiche de chaque client. Bandeau +
+  bouton "Rembourser" désactivé si l'utilisateur n'a pas de session ouverte (règle 20).
+- **Traçabilité de la facture d'origine d'un avoir** : même quand une vente reste
+  comptant (`Vente.client_id` jamais modifié par un retour) et que son retour est
+  crédité à un client précis, cette facture apparaît dans la section "Ventes" de la
+  fiche de **ce client** (`ClientController::show()`, union `client_id = X` OU
+  `retours.client_id = X`) avec un badge "Retour attribué" — pas seulement noyée dans
+  "Historique du compte". Distinct d'un achat réel de ce client (badge = avertissement,
+  jamais affiché comme une vente normale). Dans l'autre sens — depuis la facture/la
+  liste `/retours` — le nom du client crédité par CHAQUE retour est affiché dès qu'il
+  diffère du client de la vente (`$retour->client`, jamais `$vente->client` qui reste
+  anonyme) : sur le ticket ("Crédité à …", lien vers sa fiche) et dans la liste
+  `/retours` ("Avoir crédité à …", sous "Comptant").
+- **`Client::totalVentes()` ("Total ventes net") ne déduit QUE les retours sur les
+  propres ventes du client** (`retours.vente.client_id = $this->id`), jamais tous les
+  retours crédités à son compte au sens large — un client peut recevoir un avoir sur la
+  vente comptant anonyme de quelqu'un d'autre, ce qui n'a rien à voir avec SON volume
+  d'achat propre. Sans cette distinction, un client n'ayant jamais rien acheté mais
+  ayant reçu un tel avoir affichait un "Total ventes net" négatif. `max(0, …)` en filet
+  de sécurité, jamais un chiffre d'affaires négatif affiché.
 - Un document (`Vente`/`CommandeAchat`) ayant déjà fait l'objet d'un retour partiel ne
   peut plus être annulé en totalité (l'annulation totale restituerait une seconde fois
   le stock déjà repris par le retour) — utiliser un nouveau retour pour le reste, ou
@@ -356,13 +442,36 @@ client, réglé plus tard.
   caisses » distinct ne faisait plus que dupliquer cet écran pour n'y ajouter que le
   formulaire entrée/sortie et le solde théorique temps réel ; les deux ont été fusionnés
   dans `sessions/show.blade.php` pour ne pas faire cohabiter deux écrans qui montrent
-  presque la même chose. Pour une session **ouverte** : KPI « Solde théorique du
-  tiroir » (calculé en direct via `CaisseSessionService::calculerTheorique()`),
-  formulaire entrée/sortie (visible si `caisse.mouvement`, réservé au propriétaire de la
+  presque la même chose. Pour une session **ouverte**, une ligne de KPI dédiée raconte
+  la "story" financière dans l'ordre — **Total vendu** (brut, `total_net` de toutes les
+  ventes de la session) → **Retour/avoir** (montant + nombre de retours) → **Total en
+  caisse** (calculé en direct via `CaisseSessionService::calculerTheorique()` — fond de
+  caisse + espèces encaissées − sorties, remboursements d'avoir client inclus, règle 20 ;
+  c'est le nombre utilisé à la clôture pour comparer avec le comptage réel), séparée de
+  la ligne opérationnelle au-dessus (fond de caisse, nombre de ventes, ventes en
+  attente). L'ancien KPI « Total en caisse » de la décomposition (entrées seules, sans
+  jamais déduire les sorties) a été retiré : affiché à côté du vrai solde du tiroir, il
+  créait trop de confusion sur ce qu'il y a vraiment dedans — un seul chiffre "caisse",
+  celui qui compte réellement. La ligne « Espèces » de « Répartition par moyen de paiement »
+  (juste en dessous, `SessionCaisseController::paiementsParMoyen()`) raconte la même
+  histoire : les sorties (manuelles ou remboursement d'avoir client, toujours en
+  espèces, règle 19) en sont déduites — sans ça, "Espèces : 600" pouvait s'afficher à
+  côté d'un "Total en caisse" à 150, laissant croire qu'il restait 600 F dans le tiroir.
+  Les autres moyens (mobile money, carte…) restent bruts, jamais concernés par une
+  sortie de caisse (toujours en espèces). Formulaire entrée/sortie (visible si
+  `caisse.mouvement`, réservé au propriétaire de la
   session ou à un titulaire de `caisse.gerer` — `SessionCaisseController::storeMouvement()`/
   `assurerProprietaireOuGerant()`), et l'historique des mouvements manuels de cette
-  session. Une session **clôturée** garde son bloc « Clôture » existant (entrées/sorties
-  y figurent déjà) ; le formulaire disparaît puisqu'aucun mouvement n'est plus possible.
+  session — affiché en tableau dédié (distinct de la liste des ventes), positionné
+  **après** cette dernière sur l'écran. Une session **clôturée** garde son bloc
+  « Clôture » existant (entrées/sorties y figurent déjà) ; le formulaire disparaît
+  puisqu'aucun mouvement n'est plus possible. **L'écran de clôture** (`sessions/cloturer.blade.php`)
+  reprend la même ligne de KPI (Fond de caisse, Total ventes, **Montant vente** — tous
+  moyens de paiement confondus, contrairement à « Total en caisse » — Retour/avoir,
+  Entrée, Sortie, Total en caisse) : seul le montant comparé au comptage physique du
+  tiroir juste en dessous reste strictement les espèces (règle 10), « Montant vente »
+  n'est qu'une donnée informative supplémentaire, jamais celle utilisée pour le calcul
+  de l'écart à la validation.
 - **Historique complet** : rapport dédié (`rapports.mouvements-caisse`, sous `rapport.voir`,
   comme les autres rapports) — tous les mouvements toutes sessions/périodes confondues,
   filtrable par date et magasin, exportable PDF/Excel.
@@ -373,6 +482,25 @@ client, réglé plus tard.
   mêmes exports), qui ne duplique jamais le calcul du solde théorique. Seule la part
   encaissée en espèces d'une vente y apparaît (règle 10) ; une vente annulée n'y apparaît
   pas.
+- **Un retour client apparaît aussi dans ce même historique**, libellé « Retour (avoir) »
+  — rattaché à la caisse où il est **réellement traité** (`RetourVente.session_caisse_id`,
+  pas forcément celle de la vente d'origine, règle 18). Comme une vente, **un retour
+  n'est jamais un `MouvementCaisse`** : simple lecture seule via le même assemblage
+  (`JournalCaisse`, trait partagé par `rapports.mouvements-caisse` et
+  `comptabilite.caisses-vente.show`) — jamais additionné aux totaux entrées/sorties/
+  ventes (KPI "Retours" séparé), jamais affiché avec un signe +/− (il ne mouvemente
+  jamais le tiroir lui-même, règle 18). Un retour créé avant l'exigence de session
+  (`session_caisse_id` nul) disparaît de ce journal — pas de rattachement rétroactif
+  incertain à la caisse de la vente.
+- **Un avoir remboursé (`RemboursementAvoirClient`) apparaît aussi**, mais différemment :
+  côté client (règle 20), c'est désormais un **vrai** `MouvementCaisse` (type `sortie`,
+  généré par `CaisseMouvementService`, `reference` = le `RemboursementAvoirClient`) — il
+  compte donc normalement dans "Total sorties" et le solde théorique du tiroir (il sort
+  réellement de la caisse). `decorerLigneJournal()` lui donne un libellé distinct
+  (« Remboursement avoir ») pour ne pas le confondre avec une sortie manuelle
+  quelconque. Côté fournisseur, en revanche, un remboursement d'avoir reste hors caisse
+  (Caisse Générale, règle 20) et n'apparaît dans aucun de ces deux rapports — visible
+  uniquement via la Trésorerie.
 
 ---
 
@@ -404,11 +532,14 @@ client, réglé plus tard.
   transaction, sans valorisation supplémentaire — même principe qu'un transfert de stock
   inter-magasin.
 - **Alimente automatiquement la part espèces d'un règlement fournisseur** (règle 17) et
-  **d'un remboursement d'avoir client/fournisseur** (règle 20) : sortie pour un
-  règlement fournisseur ou un remboursement d'avoir client (l'argent sort), entrée pour
-  un remboursement d'avoir fournisseur (il nous rembourse) — aucune session de caisse de
-  caissier requise pour ces trois flux, contrairement à un règlement **client** (règle 14)
-  qui reste, lui, toujours rattaché à la session du caissier qui l'encaisse.
+  **d'un remboursement d'avoir fournisseur** (règle 20) : sortie pour un règlement
+  fournisseur, entrée pour un remboursement d'avoir fournisseur (il nous rembourse) —
+  aucune session de caisse de caissier requise pour ces deux flux, contrairement à un
+  règlement **client** (règle 14) qui reste, lui, toujours rattaché à la session du
+  caissier qui l'encaisse. **Un remboursement d'avoir client, lui, ne passe plus par
+  ici** (règle 20 amendée) : la part espèces sort désormais du tiroir de la session du
+  caissier qui rembourse (`CaisseMouvementService`, comme une sortie de caisse manuelle),
+  pas de la Caisse Générale.
 - **Un `Compte` n'a aucun lien avec les `MoyenPaiement`** de la vente (Espèces, Mobile
   Money, Carte…) : c'est une poche de trésorerie interne, jamais une destination
   automatique d'un encaissement à la vente.
@@ -456,10 +587,19 @@ client, réglé plus tard.
 ## Argent et arrondis
 
 - Devise **XOF**, **sans sous-unité** → montants en **entiers (francs)**. Jamais de flottant.
-- Remise en pourcentage → montant arrondi à l'entier ; règle d'arrondi unique, appliquée partout.
+  **Seule exception** : le prix d'achat indicatif d'un bon de commande (`prix_achat` et
+  tout ce qui en dérive — HT/TTC de ligne, totaux du bon de commande), en décimal 2
+  chiffres, jamais arrondi à l'entier (voir « Achat à crédit et comptes fournisseurs ») —
+  le prix réellement facturé à la réception (`prix_achat_reel`), lui, reste entier comme
+  partout ailleurs.
+- Remise en pourcentage → montant arrondi à l'entier ; règle d'arrondi unique, appliquée
+  partout **sauf** le prix d'achat indicatif ci-dessus (`Arrondi::prixAchat()`, 2
+  décimales, jamais l'entier).
 - **Pas de taxes côté vente** dans le MVP (aucun taux, aucune ligne taxe sur le ticket).
   Les taxes existent **uniquement côté achat** (voir « Achat à crédit et comptes
-  fournisseurs ») : `prix_achat` = HT, TTC dérivé et arrondi avec la même règle unique.
+  fournisseurs ») : `prix_achat` = HT indicatif (décimal, non arrondi), TTC dérivé avec
+  la même précision — jusqu'à la réception, où le montant réellement facturé redevient
+  entier comme le reste de l'application.
 - Clôture de session = `fond de caisse + total ventes espèces + total règlements clients
   espèces + total entrées de caisse − total sorties de caisse` (voir « Mouvements de
   caisse » et règle 19 ; un règlement fournisseur n'entre dans ce calcul que pour sa part
@@ -517,7 +657,8 @@ client, réglé plus tard.
   réception, au prix réellement facturé) lisse ça en une seule valeur de référence par
   (produit × magasin).
 - **LigneCommandeAchat** : produit + unité d'achat (pièce ou `UniteVente`, même
-  référentiel qu'à la vente) + quantité + **prix d'achat HT indicatif** + **taxe**
+  référentiel qu'à la vente) + quantité + **prix d'achat HT indicatif** (`decimal(14,2)`,
+  2 décimales, jamais arrondi à l'entier — voir « Argent et arrondis ») + **taxe**
   optionnelle (`Taxe`) + **destination prévue optionnelle** (`Magasin`, magasin ou dépôt —
   un plan facultatif, potentiellement modifié à la réception ; obligatoire uniquement
   pour l'achat direct, voir ci-dessus) ; TTC dérivé, jamais stocké.
@@ -563,7 +704,9 @@ client, réglé plus tard.
   (`SessionCaisse`, `ReglementFournisseur`, `RemboursementAvoirClient`,
   `RemboursementAvoirFournisseur` ou un autre `CompteTresorerie` pour un virement),
   auteur. Le solde d'un compte est la somme de ses écritures (règle 21).
-- **Vente** : numéro (`M{magasin}-C{caisse}-{séquence}`), lignes, remise total, session,
+- **Vente** : numéro (`M{magasin}-C{caisse}-{séquence}`, préfixé `BL-` pour un bon de
+  livraison — `type = bon_livraison`, voir plus bas — même compteur de séquence que les
+  factures de cette caisse, seul le préfixe change), lignes, remise total, session,
   magasin, **client** (nullable — obligatoire si la vente est à crédit), **avoir_applique**
   (part de l'avoir client déjà déduite du solde à crédit posé, figée à la création — voir
   « Vente à crédit et comptes clients »).
@@ -589,8 +732,8 @@ client, réglé plus tard.
 - **ReglementClient** : encaissement d'une dette client ; client + montant + moyen de
   paiement + session de caisse + caissier ; immuable, comme une vente (règle 14).
 - **RemboursementAvoirClient** : remboursement d'un avoir client (règle 20) ; client +
-  montant + auteur ; immuable. La part espèces alimente la Caisse Générale (règle 21),
-  jamais une session de caisse de caissier.
+  session de caisse + montant + auteur ; immuable. La part espèces sort du tiroir de
+  cette session de caisse (`CaisseMouvementService`), jamais la Caisse Générale.
 - **RemboursementAvoirClientPaiement** : rattaché à un remboursement d'avoir client ;
   moyen + montant (paiement mixte possible).
 - **EcritureCompteFournisseur** : immuable ; type = achat_credit | reglement |
@@ -610,7 +753,9 @@ client, réglé plus tard.
 - **RemboursementAvoirFournisseurPaiement** : rattaché à un remboursement d'avoir
   fournisseur ; moyen + montant (paiement mixte possible).
 - **RetourVente** : retour client, immuable (règle 18) ; numéro, `Vente` + `Client`
-  d'origine, motif optionnel, montant total (avoir crédité), auteur.
+  d'origine, **session de caisse** (celle où le retour est traité, nullable — absente
+  sur les retours antérieurs à cette exigence), motif optionnel, montant total (avoir
+  crédité), auteur.
 - **LigneRetourVente** : `LigneVente` d'origine + produit + magasin (source du mouvement
   de retour) + quantité en pièces + montant + coût appliqué (repris de la ligne de
   vente, pour la marge).
@@ -641,6 +786,12 @@ client, réglé plus tard.
   plutôt que replié en ligne sous la barre — plus confortable à parcourir sur petit
   écran ; mêmes regroupements/permissions, seule la présentation change selon la taille
   d'écran.
+- **« Vente → Facture » mène directement à la session en cours si le caissier connecté
+  en a déjà une d'ouverte** (`sessionCaissierOuverteMenu`, `AppServiceProvider::boot()`,
+  partagé avec `layouts.app`) — plutôt que de repasser par `sessions.index` (sélection
+  d'une caisse libre) à chaque fois, alors qu'une caisse n'a qu'une session ouverte à la
+  fois par caissier (règle 7). Sans session active, le lien reste `sessions.index` comme
+  avant.
 - **Dashboard adapté au rôle** : caissier → sa session ; gérant → son magasin (CA, panier
   moyen, top produits, stock sous seuil, écarts de caisse, **total des créances clients**,
   clients en dépassement de limite) ; superadmin → consolidé multi-magasin. Graphiques

@@ -15,7 +15,7 @@ use Spatie\Activitylog\Traits\LogsActivity;
  * de suppression applicative, une correction se fait par une nouvelle vente
  * (voir CLAUDE.md, section Retours).
  */
-#[Fillable(['numero', 'vente_id', 'client_id', 'motif', 'montant_total', 'created_by'])]
+#[Fillable(['numero', 'vente_id', 'client_id', 'session_caisse_id', 'motif', 'montant_total', 'created_by'])]
 class RetourVente extends Model
 {
     use HasFactory, LogsActivity;
@@ -42,6 +42,17 @@ class RetourVente extends Model
     public function client(): BelongsTo
     {
         return $this->belongsTo(Client::class);
+    }
+
+    /**
+     * Caisse où le retour est réellement traité (pas forcément celle de la
+     * vente d'origine, voir RetourVenteService::retourner()) — sert à
+     * rattacher ce retour au bon journal de caisse (JournalCaisse). Nullable :
+     * absent sur les retours créés avant l'exigence de session.
+     */
+    public function sessionCaisse(): BelongsTo
+    {
+        return $this->belongsTo(SessionCaisse::class);
     }
 
     public function auteur(): BelongsTo

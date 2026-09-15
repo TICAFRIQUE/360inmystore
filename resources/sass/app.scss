@@ -28,6 +28,12 @@ $border-radius-lg: 0.75rem;
 // page ($body-bg, un blanc cassé chaud) au lieu de s'en détacher.
 $card-bg: #fff;
 
+// Même logique pour les tableaux : $table-bg est transparent par défaut
+// chez Bootstrap, donc un <table> non enveloppé dans une carte (ou dont
+// la carte parente change de fond) laisse transparaître $body-bg au lieu
+// d'un blanc franc — toujours du blanc, quel que soit le conteneur.
+$table-bg: #fff;
+
 // Champs de formulaire plus visibles par défaut (pas seulement au focus),
 // bordure orange léger — teinte de $primary, jamais l'orange plein (réservé
 // aux boutons/accents), pour ne pas concurrencer l'accent principal.

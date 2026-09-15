@@ -196,6 +196,39 @@ class Produit extends Model implements HasMedia
         })->all();
     }
 
+    /**
+     * Stock total, tous magasins/dépôts de $magasins confondus (état de
+     * stock : une seule quantité globale, pas de détail par destination) —
+     * même base que stockParMagasin(), simplement sommée.
+     */
+    public function totalStock(iterable $magasins): array
+    {
+        $total = array_sum(array_column($this->stockParMagasin($magasins), 'quantite'));
+
+        return [
+            'quantite' => $total,
+            'sous_seuil' => $total <= $this->seuil_alerte,
+        ];
+    }
+
+    /**
+     * Coût moyen pondéré agrégé de ce produit, uniquement sur les magasins de
+     * vente — jamais les dépôts (lieux de stockage sans notion de "coût
+     * courant à la vente" pertinente ici, voir CLAUDE.md section Dépôts).
+     * Moyenne pondérée par quantité, 0 si aucun stock en magasin. Suppose les
+     * relations stocks et stocks.magasin déjà chargées (eager loading),
+     * sinon déclenche un N+1.
+     */
+    public function coutMoyenPondere(): int
+    {
+        $stocksMagasins = $this->stocks->filter(fn (Stock $s) => $s->magasin && ! $s->magasin->estDepot());
+        $totalQuantite = $stocksMagasins->sum('quantite');
+
+        return $totalQuantite > 0
+            ? Arrondi::entier($stocksMagasins->sum(fn (Stock $s) => $s->quantite * $s->cout_moyen_pondere) / $totalQuantite)
+            : 0;
+    }
+
     public function mouvementStocks(): HasMany
     {
         return $this->hasMany(MouvementStock::class);

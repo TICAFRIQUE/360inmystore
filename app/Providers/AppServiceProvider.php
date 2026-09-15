@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use App\Listeners\LogAuthentication;
 use App\Models\Parametre;
+use App\Models\SessionCaisse;
 use App\Models\User;
 use Illuminate\Auth\Events\Failed;
 use Illuminate\Auth\Events\Login;
@@ -45,6 +46,24 @@ class AppServiceProvider extends ServiceProvider
         // Parametre::actuel() depuis chaque contrôleur.
         View::composer(['layouts.app', 'layouts.erreur', 'auth.login'], function ($view) {
             $view->with('parametre', Parametre::actuel());
+        });
+
+        // Session de caisse réellement active (ni clôturée ni fermée) du
+        // caissier connecté — partagée avec le menu (topnav) pour que
+        // "Vente → Facture" mène directement à cette session (règle 7 : au
+        // plus une session ouverte par caissier à la fois) plutôt que de
+        // repasser par l'écran de sélection de caisse. Même double
+        // condition que VenteController::ticket()/ClientController::show().
+        View::composer('layouts.app', function ($view) {
+            $view->with(
+                'sessionCaissierOuverteMenu',
+                auth()->check()
+                    ? SessionCaisse::where('caissier_id', auth()->id())
+                        ->whereNull('date_fermeture')
+                        ->whereNull('date_cloture')
+                        ->first()
+                    : null
+            );
         });
     }
 }

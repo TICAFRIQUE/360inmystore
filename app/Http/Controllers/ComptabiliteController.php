@@ -204,6 +204,7 @@ class ComptabiliteController extends Controller
             'totalVentes' => (int) $toutesLesLignes->where('type', 'vente')->sum('montant'),
             'totalEntrees' => (int) $toutesLesLignes->where('type', 'entree')->sum('montant'),
             'totalSorties' => (int) $toutesLesLignes->where('type', 'sortie')->sum('montant'),
+            'totalRetours' => (int) $toutesLesLignes->where('type', 'retour')->sum('montant'),
         ]);
     }
 
