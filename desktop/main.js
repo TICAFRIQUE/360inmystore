@@ -7,7 +7,7 @@ const { execFile, spawn } = require('child_process');
 const { autoUpdater } = require('electron-updater');
 
 const DEFAULT_LARAGON_PATH = 'C:\\laragon\\laragon.exe';
-const DEFAULT_SERVER_URL = 'http://g_stock_quincaillerie.test';
+const DEFAULT_SERVER_URL = 'http://360_inmystore.test';
 const APP_ICON = path.join(__dirname, 'build', 'icon.ico');
 
 function configPath() {
@@ -96,7 +96,7 @@ function openSetupWindow() {
     resizable: false,
     autoHideMenuBar: true,
     icon: APP_ICON,
-    title: 'G-Stock — Configuration du poste',
+    title: '360inmystore — Configuration du poste',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -164,14 +164,14 @@ function showMessage(win, title, message, { showSettingsButton = true } = {}) {
           <button onclick="location.reload()" style="padding:10px 20px;font-size:14px;cursor:pointer;">Réessayer</button>
           ${
             showSettingsButton
-              ? '<button id="gstock-settings-btn" style="padding:10px 20px;font-size:14px;cursor:pointer;background:#e8590c;color:#fff;border:none;border-radius:4px;">Modifier l\'adresse du serveur</button>'
+              ? '<button id="inmystore-settings-btn" style="padding:10px 20px;font-size:14px;cursor:pointer;background:#2563eb;color:#fff;border:none;border-radius:4px;">Modifier l\'adresse du serveur</button>'
               : ''
           }
         </div>
         <script>
-          const btn = document.getElementById('gstock-settings-btn');
-          if (btn && window.gstock) {
-            btn.addEventListener('click', () => window.gstock.openSettings());
+          const btn = document.getElementById('inmystore-settings-btn');
+          if (btn && window.inmystore) {
+            btn.addEventListener('click', () => window.inmystore.openSettings());
           }
         </script>
       </body>
@@ -193,7 +193,7 @@ async function openMainWindow(config) {
     height: 800,
     autoHideMenuBar: false,
     icon: APP_ICON,
-    title: 'G-Stock Quincaillerie',
+    title: '360inmystore',
     show: false,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -238,7 +238,7 @@ async function openMainWindow(config) {
   });
 
   // Le contenu chargé dans cette fenêtre hérite du pont privilégié
-  // window.gstock (preload.js) — sans restriction, une page usurpée (lien
+  // window.inmystore (preload.js) — sans restriction, une page usurpée (lien
   // externe, MITM réseau local) pourrait l'utiliser pour repointer
   // durablement l'app (saveConfig) ou déclencher une impression arbitraire.
   // On n'autorise jamais de navigation hors de l'origine du serveur
@@ -271,12 +271,12 @@ async function openMainWindow(config) {
   mainWindow.loadURL(targetUrl);
 }
 
-ipcMain.handle('gstock:get-config', () => loadConfig());
-ipcMain.handle('gstock:defaults', () => ({
+ipcMain.handle('inmystore:get-config', () => loadConfig());
+ipcMain.handle('inmystore:defaults', () => ({
   laragonPath: DEFAULT_LARAGON_PATH,
   serverUrl: DEFAULT_SERVER_URL,
 }));
-ipcMain.handle('gstock:open-settings', () => openSetupWindow());
+ipcMain.handle('inmystore:open-settings', () => openSetupWindow());
 let previewWindow = null;
 
 function openPdfPreview(url, title) {
@@ -305,7 +305,7 @@ function openPdfPreview(url, title) {
   });
 }
 
-ipcMain.handle('gstock:print-pdf-url', (_event, url) => {
+ipcMain.handle('inmystore:print-pdf-url', (_event, url) => {
   // Facture/devis/bon d'achat : on affiche directement le PDF déjà généré
   // par le serveur (dompdf, route .pdf) dans sa propre fenêtre — plus fiable
   // qu'un <iframe> caché + printToPDF() de la fenêtre principale, qui ne
@@ -330,7 +330,7 @@ ipcMain.handle('gstock:print-pdf-url', (_event, url) => {
   return { success: true };
 });
 
-ipcMain.handle('gstock:print', async () => {
+ipcMain.handle('inmystore:print', async () => {
   if (!mainWindow) return { success: false, reason: 'no-window' };
   // webContents.print() ouvre bien le dialogue Windows natif, mais son
   // panneau d'aperçu reste vide (Electron ne fournit pas les données que
@@ -348,7 +348,7 @@ ipcMain.handle('gstock:print', async () => {
       // export PDF générique au lieu du ticket/facture prévu.
       margins: { marginType: 'none' },
     });
-    const filePath = path.join(os.tmpdir(), `gstock-impression-${Date.now()}.pdf`);
+    const filePath = path.join(os.tmpdir(), `360inmystore-impression-${Date.now()}.pdf`);
     fs.writeFileSync(filePath, pdfBuffer);
     openPdfPreview(pathToFileURL(filePath).toString(), mainWindow.getTitle());
     return { success: true };
@@ -357,7 +357,7 @@ ipcMain.handle('gstock:print', async () => {
     return { success: false, reason: err.message };
   }
 });
-ipcMain.handle('gstock:save-config', async (_event, config) => {
+ipcMain.handle('inmystore:save-config', async (_event, config) => {
   saveConfig(config);
   if (setupWindow) {
     setupWindow.close();

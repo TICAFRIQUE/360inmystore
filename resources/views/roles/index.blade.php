@@ -8,6 +8,10 @@
         <a href="{{ route('roles.create') }}" class="btn btn-primary">Nouveau rôle</a>
     </div>
 
+    <div class="d-flex justify-content-end mb-3">
+        <x-export-buttons :pdf-route="route('roles.pdf', request()->query())" :excel-route="route('roles.excel', request()->query())" :tout="true" />
+    </div>
+
     <div class="card">
         <div class="table-responsive">
             <table class="table table-hover align-middle mb-0">

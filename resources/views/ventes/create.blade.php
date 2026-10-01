@@ -207,7 +207,7 @@
             </div>
 
             <div class="col-12 col-lg-3">
-                <div style="position: sticky; top: 1rem;">
+                <div style="position: sticky; top: calc(var(--erp-topbar-height) + 1rem);">
                     <div class="card mb-3">
                         <div class="card-body">
                             <h3 class="h6">Récapitulatif</h3>

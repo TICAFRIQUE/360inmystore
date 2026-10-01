@@ -8,7 +8,11 @@
         <a href="{{ route('categories.create') }}" class="btn btn-primary">Nouvelle catégorie</a>
     </div>
 
-    <x-recherche-form :action="route('categories.index')" placeholder="Rechercher une catégorie…" />
+    <x-recherche-form :action="route('categories.index')" placeholder="Rechercher une catégorie…">
+        <x-slot:export>
+            <x-export-buttons :pdf-route="route('categories.pdf', request()->query())" :excel-route="route('categories.excel', request()->query())" :tout="true" />
+        </x-slot:export>
+    </x-recherche-form>
 
     <div class="card">
         <div class="table-responsive">

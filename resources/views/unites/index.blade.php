@@ -13,6 +13,10 @@
         nom des unités de vente (Carton, Bidon, Sac, Rouleau…).
     </p>
 
+    <div class="d-flex justify-content-end mb-3">
+        <x-export-buttons :pdf-route="route('unites.pdf', request()->query())" :excel-route="route('unites.excel', request()->query())" :tout="true" />
+    </div>
+
     <div class="card">
         <div class="table-responsive">
             <table class="table table-hover align-middle mb-0">

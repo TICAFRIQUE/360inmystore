@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\ExporteListe;
 use App\Http\Controllers\Concerns\TrieListe;
 use App\Models\CommandeAchat;
 use App\Models\EcritureCompteFournisseur;
@@ -20,26 +21,77 @@ use App\Support\Decimal;
 use App\Support\NumeroDocument;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 use InvalidArgumentException;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
-use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use RuntimeException;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class CommandeAchatController extends Controller
 {
-    use TrieListe;
+    use TrieListe, ExporteListe;
+
+    private const ENTETES_EXPORT_LISTE = ['Numéro', 'Fournisseur', 'Date', 'Statut', 'Type', 'Réception', 'Retours', 'Montant facturé', 'Déjà réglé', 'Reste à régler'];
 
     public function index(Request $request): View
     {
-        $debut = $request->filled('date_debut') ? Carbon::parse($request->string('date_debut')) : now()->startOfMonth();
-        $fin = $request->filled('date_fin') ? Carbon::parse($request->string('date_fin')) : now()->endOfMonth();
+        [$debut, $fin] = $this->periodeListe($request);
+
+        $commandes = $this->requeteListe($request)->paginate(20)->withQueryString();
+
+        return view('commande-achats.index', [
+            'commandes' => $commandes,
+            'receptionIncomplete' => $request->boolean('reception_incomplete'),
+            'dateDebut' => $debut->toDateString(),
+            'dateFin' => $fin->toDateString(),
+        ]);
+    }
+
+    public function listePdf(Request $request): Response
+    {
+        return $this->pdfDepuisListe('Bons de commande', self::ENTETES_EXPORT_LISTE, $this->lignesExport($request), 'bons-de-commande.pdf', $this->sousTitrePeriode($request));
+    }
+
+    public function listeExcel(Request $request): StreamedResponse
+    {
+        return $this->excelDepuisListe('Bons de commande', self::ENTETES_EXPORT_LISTE, $this->lignesExport($request), 'bons-de-commande.xlsx');
+    }
+
+    /**
+     * Période affichée par la liste : mois en cours tant qu'aucune date
+     * n'est choisie.
+     *
+     * @return array{0: Carbon, 1: Carbon}
+     */
+    private function periodeListe(Request $request): array
+    {
+        return [
+            $request->filled('date_debut') ? Carbon::parse($request->string('date_debut')) : now()->startOfMonth(),
+            $request->filled('date_fin') ? Carbon::parse($request->string('date_fin')) : now()->endOfMonth(),
+        ];
+    }
+
+    private function sousTitrePeriode(Request $request): string
+    {
+        [$debut, $fin] = $this->periodeListe($request);
+
+        return 'Du '.$debut->format('d/m/Y').' au '.$fin->format('d/m/Y');
+    }
+
+    /**
+     * Requête de la liste (filtres + tri), partagée par l'écran et ses exports :
+     * un export porte toujours sur ce que l'écran affiche, sans la pagination.
+     */
+    private function requeteListe(Request $request): Builder
+    {
+        [$debut, $fin] = $this->periodeListe($request);
 
         $query = CommandeAchat::query()
             // lignes.taxe/paiements/reglementsFournisseur/retours : nécessaires à
@@ -62,16 +114,33 @@ class CommandeAchatController extends Controller
             ->when($request->filled('type'), fn ($q) => $q->where('type', $request->string('type')))
             ->when($request->boolean('reception_incomplete'), fn ($q) => $q->receptionIncomplete());
 
-        $commandes = $this->appliquerTri($query, $request, ['numero', 'date_commande', 'statut'], 'created_at')
-            ->paginate(20)
-            ->withQueryString();
+        return $this->appliquerTri($query, $request, ['numero', 'date_commande', 'statut'], 'created_at');
+    }
 
-        return view('commande-achats.index', [
-            'commandes' => $commandes,
-            'receptionIncomplete' => $request->boolean('reception_incomplete'),
-            'dateDebut' => $debut->toDateString(),
-            'dateFin' => $fin->toDateString(),
-        ]);
+    private function lignesExport(Request $request): Collection
+    {
+        return $this->requeteListe($request)->get()->map(function (CommandeAchat $commande) {
+            // Comme à l'écran : réception et montants n'ont de sens qu'une
+            // fois le bon de commande validé.
+            $validee = $commande->statut === 'validee';
+
+            return [
+                $commande->numero,
+                $commande->fournisseur->nom,
+                $commande->date_commande->format('d/m/Y'),
+                $validee ? 'Validée' : 'Brouillon',
+                $commande->type === 'achat_direct' ? 'Achat direct' : 'Bon de commande',
+                $validee
+                    ? quantite($commande->quantiteRecuePieces()).'/'.quantite($commande->quantiteCommandeePieces()).' · '.$commande->tauxCompletion().' %'
+                    : '—',
+                $commande->retours->isNotEmpty()
+                    ? $commande->retours->count().' · '.montant($commande->retours->sum('montant_total'))
+                    : '—',
+                $validee ? montant($commande->totalTtcReel()) : '—',
+                $validee ? montant($commande->montantRegle()) : '—',
+                $validee ? montant($commande->resteDu()) : '—',
+            ];
+        });
     }
 
     public function create(): View
@@ -486,12 +555,7 @@ class CommandeAchatController extends Controller
             $feuille->getColumnDimension($colonne)->setAutoSize(true);
         }
 
-        $nomFichier = "bon-de-commande-{$commandeAchat->numero}.xlsx";
-        $writer = new Xlsx($spreadsheet);
-
-        return response()->streamDownload(function () use ($writer) {
-            $writer->save('php://output');
-        }, $nomFichier, ['Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet']);
+        return $this->telechargerTableur($spreadsheet, "bon-de-commande-{$commandeAchat->numero}.xlsx");
     }
 
     /**

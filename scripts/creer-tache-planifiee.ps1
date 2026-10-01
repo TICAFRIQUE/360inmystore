@@ -14,7 +14,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
-$nomTache = "GStockQuincaillerie_Schedule"
+$nomTache = "360inmystore_Schedule"
 $scriptsDir = $PSScriptRoot
 $vbsPath = Join-Path $scriptsDir "executer-schedule-silencieux.vbs"
 

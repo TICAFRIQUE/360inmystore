@@ -2,17 +2,45 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\ExporteListe;
 use App\Http\Controllers\Concerns\TrieListe;
 use App\Models\Magasin;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
+use Illuminate\Support\Collection;
 use Illuminate\View\View;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class MagasinController extends Controller
 {
-    use TrieListe;
+    use TrieListe, ExporteListe;
+
+    private const ENTETES_EXPORT = ['Nom', 'Type', 'Adresse', 'Téléphone', 'Statut'];
 
     public function index(Request $request): View
+    {
+        $magasins = $this->requeteListe($request)->paginate(20)->withQueryString();
+
+        return view('magasins.index', ['magasins' => $magasins]);
+    }
+
+    public function pdf(Request $request): Response
+    {
+        return $this->pdfDepuisListe('Magasins', self::ENTETES_EXPORT, $this->lignesExport($request), 'magasins.pdf');
+    }
+
+    public function excel(Request $request): StreamedResponse
+    {
+        return $this->excelDepuisListe('Magasins', self::ENTETES_EXPORT, $this->lignesExport($request), 'magasins.xlsx');
+    }
+
+    /**
+     * Requête de la liste (filtres + tri), partagée par l'écran et ses exports :
+     * un export porte toujours sur ce que l'écran affiche, sans la pagination.
+     */
+    private function requeteListe(Request $request): Builder
     {
         $query = Magasin::query()
             ->when($request->filled('recherche'), function ($q) use ($request) {
@@ -20,11 +48,18 @@ class MagasinController extends Controller
                 $q->where('nom', 'like', "%{$recherche}%");
             });
 
-        $magasins = $this->appliquerTri($query, $request, ['nom', 'actif', 'created_at'])
-            ->paginate(20)
-            ->withQueryString();
+        return $this->appliquerTri($query, $request, ['nom', 'actif', 'created_at']);
+    }
 
-        return view('magasins.index', ['magasins' => $magasins]);
+    private function lignesExport(Request $request): Collection
+    {
+        return $this->requeteListe($request)->get()->map(fn (Magasin $magasin) => [
+            $magasin->nom,
+            $magasin->estDepot() ? 'Dépôt' : 'Magasin',
+            $magasin->adresse ?? '—',
+            $magasin->telephone ?? '—',
+            $magasin->actif ? 'Actif' : 'Inactif',
+        ]);
     }
 
     public function create(): View

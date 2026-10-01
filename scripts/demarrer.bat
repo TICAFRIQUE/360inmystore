@@ -9,7 +9,7 @@ for /f "usebackq tokens=1,* delims==" %%A in (".env") do (
 if not defined APP_URL set APP_URL=http://localhost
 
 echo ============================================
-echo  Demarrage - G-Stock Quincaillerie
+echo  Demarrage - 360inmystore
 echo ============================================
 
 tasklist /fi "imagename eq httpd.exe" 2>nul | find /i "httpd.exe" >nul

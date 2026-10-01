@@ -1147,3 +1147,66 @@ window.ajouterMotifRapide = function (selectEl, inputEl, fermerCallback) {
         })
         .catch(() => afficherToastErreur('Impossible de créer le motif. Vérifiez votre connexion.'));
 };
+
+// --- Sidebar (voir layouts/app.blade.php et partials/sidebar.blade.php) ---
+//
+// Deux états sur desktop (≥ lg) : dépliée ou miniature (icônes seules). Le
+// choix est mémorisé par poste (localStorage) et réappliqué avant le premier
+// rendu par le script en tête du layout — ici, on ne fait que le basculer.
+// Sous lg, la sidebar est un panneau coulissant Bootstrap, toujours déplié.
+const CLE_SIDEBAR_MINI = 'erp.sidebar.mini';
+const racineDocument = document.documentElement;
+const ecranDesktop = window.matchMedia('(min-width: 992px)');
+
+function sidebarEstMini() {
+    return ecranDesktop.matches && racineDocument.classList.contains('erp-sidebar-mini');
+}
+
+document.querySelectorAll('[data-bascule-sidebar]').forEach((bouton) => {
+    bouton.setAttribute('aria-expanded', String(!racineDocument.classList.contains('erp-sidebar-mini')));
+
+    bouton.addEventListener('click', () => {
+        const mini = racineDocument.classList.toggle('erp-sidebar-mini');
+        bouton.setAttribute('aria-expanded', String(!mini));
+        try {
+            localStorage.setItem(CLE_SIDEBAR_MINI, mini ? '1' : '0');
+        } catch {
+            // Stockage indisponible (navigation privée…) : le choix vaut
+            // pour la page en cours, simplement pas mémorisé.
+        }
+    });
+});
+
+document.querySelectorAll('[data-menu-groupe]').forEach((groupe) => {
+    const bouton = groupe.querySelector(':scope > .erp-menu__link');
+    const sousMenu = groupe.querySelector(':scope > .erp-menu__sub');
+
+    // Sidebar dépliée : le clic replie/déplie le groupe. En miniature, le
+    // sous-menu volant s'ouvre au survol/focus (CSS) — le clic n'y change
+    // rien, pour ne pas modifier en douce l'état du menu déplié.
+    bouton.addEventListener('click', () => {
+        if (sidebarEstMini()) return;
+        const ouvert = groupe.classList.toggle('is-open');
+        bouton.setAttribute('aria-expanded', String(ouvert));
+    });
+
+    // Sous-menu volant (miniature) : aligné sur son icône par défaut, remonté
+    // juste ce qu'il faut s'il dépasse le bas de l'écran (groupes du bas de
+    // la sidebar, ex. Administration et sa douzaine d'entrées).
+    const recalerSousMenu = () => {
+        if (!sidebarEstMini()) return;
+        sousMenu.style.top = '0px';
+        const depassement = sousMenu.getBoundingClientRect().bottom - (window.innerHeight - 8);
+        if (depassement > 0) {
+            sousMenu.style.top = `${-depassement}px`;
+        }
+    };
+    groupe.addEventListener('mouseenter', recalerSousMenu);
+    groupe.addEventListener('focusin', recalerSousMenu);
+});
+
+// Entrée de la page courante toujours visible à l'arrivée, même en bas d'un
+// long groupe (ex. Administration → Rôles) qui dépasse la hauteur d'écran.
+if (ecranDesktop.matches && !sidebarEstMini()) {
+    document.querySelector('.erp-menu .is-active')?.scrollIntoView({ block: 'nearest' });
+}

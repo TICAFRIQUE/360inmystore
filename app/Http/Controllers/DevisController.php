@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Exceptions\DevisNonModifiableException;
+use App\Http\Controllers\Concerns\ExporteListe;
 use App\Http\Controllers\Concerns\TrieListe;
 use App\Http\Controllers\Concerns\ValideRemises;
 use App\Models\Client;
@@ -18,9 +19,11 @@ use App\Support\Arrondi;
 use App\Support\Decimal;
 use App\Support\Remise;
 use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Support\Collection;
 use Illuminate\View\View;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
@@ -28,9 +31,34 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class DevisController extends Controller
 {
-    use TrieListe, ValideRemises;
+    use TrieListe, ValideRemises, ExporteListe;
+
+    private const ENTETES_EXPORT_LISTE = ['Numéro', 'Client', 'Statut', "Valide jusqu'au"];
 
     public function index(Request $request): View
+    {
+        $devis = $this->requeteListe($request)->paginate(20)->withQueryString();
+
+        return view('devis.index', [
+            'devis' => $devis,
+        ]);
+    }
+
+    public function listePdf(Request $request): Response
+    {
+        return $this->pdfDepuisListe('Devis', self::ENTETES_EXPORT_LISTE, $this->lignesExport($request), 'devis.pdf');
+    }
+
+    public function listeExcel(Request $request): StreamedResponse
+    {
+        return $this->excelDepuisListe('Devis', self::ENTETES_EXPORT_LISTE, $this->lignesExport($request), 'devis.xlsx');
+    }
+
+    /**
+     * Requête de la liste (filtres + tri), partagée par l'écran et ses exports :
+     * un export porte toujours sur ce que l'écran affiche, sans la pagination.
+     */
+    private function requeteListe(Request $request): Builder
     {
         $query = Devis::query()
             ->with(['client'])
@@ -43,12 +71,16 @@ class DevisController extends Controller
             })
             ->when($request->filled('statut'), fn ($q) => $q->where('statut', $request->string('statut')));
 
-        $devis = $this->appliquerTri($query, $request, ['numero', 'statut', 'date_validite', 'created_at'], 'created_at')
-            ->paginate(20)
-            ->withQueryString();
+        return $this->appliquerTri($query, $request, ['numero', 'statut', 'date_validite', 'created_at'], 'created_at');
+    }
 
-        return view('devis.index', [
-            'devis' => $devis,
+    private function lignesExport(Request $request): Collection
+    {
+        return $this->requeteListe($request)->get()->map(fn (Devis $devis) => [
+            $devis->numero,
+            $devis->client->nom,
+            $devis->statutEffectif()->libelle(),
+            $devis->date_validite->format('d/m/Y'),
         ]);
     }
 

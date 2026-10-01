@@ -46,7 +46,7 @@ class Parametre extends Model implements HasMedia
     {
         $attributs = Cache::rememberForever(self::CACHE_KEY, function () {
             return self::query()->firstOrCreate(['id' => 1], [
-                'nom' => 'Gérer Mon Stock',
+                'nom' => '360inmystore',
             ])->getAttributes();
         });
 

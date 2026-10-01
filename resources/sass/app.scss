@@ -1,59 +1,105 @@
-// Palette ERP quincaillerie (voir CLAUDE.md) : primaire orange chantier,
-// secondaires mélangés (acier/béton, bleu industriel, jaune sécurité),
-// surfaces claires chaudes, gris/bruns neutres.
-$primary: #e8590c; // orange chantier
-$secondary: #57534e; // gris acier/béton
-$success: #2e7d32;
-$info: #2470a8; // bleu industriel (accent secondaire, badges informatifs)
-// Jaune sécurité assombri en ambre foncé : le jaune franc (#f5b800) a un
-// contraste ~1.6:1 sur les surfaces claires du thème — quasi invisible en
-// texte, à peine mieux en badge (voir CLAUDE.md, palette). Cette teinte
-// garde l'esprit "jaune sécurité" tout en passant le seuil WCAG AA (4.5:1)
-// sur le fond clair ($body-bg) et en blanc (boutons).
+// Palette 360inmystore (voir CLAUDE.md — Interface) : volontairement neutre
+// (bleu franc sur surfaces gris clair froid), l'application servant tout type
+// de commerce. La couleur primaire reste personnalisable par installation
+// (Paramètres → couleur, voir App\Support\PaletteCouleur et
+// partials/couleur-primaire.blade.php) : ne jamais supposer qu'elle est bleue.
+$primary: #2563eb;
+$secondary: #5b6779; // gris ardoise (texte secondaire, 5.6:1 sur blanc)
+$success: #15803d;
+$info: #0e7490; // cyan sarcelle (accent secondaire, badges informatifs)
+// Ambre foncé plutôt qu'un jaune franc : un jaune type #f5b800 a un contraste
+// ~1.6:1 sur les surfaces claires du thème — quasi invisible en texte, à
+// peine mieux en badge (voir CLAUDE.md, palette). Cette teinte passe le seuil
+// WCAG AA (4.5:1) sur le fond clair ($body-bg) et en blanc (boutons).
 $warning: #92650a;
 $danger: #c62828;
-$light: #f6f3ef;
-$dark: #241e19;
+$light: #f4f6f9;
+$dark: #101828;
 
-$body-bg: #f6f3ef;
-$body-color: #241e19;
-$font-family-sans-serif: 'Instrument Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+$body-bg: #f4f6f9;
+$body-color: #1d2939;
+$border-color: #e4e7ec;
+
+// Police fine (voir CLAUDE.md — Interface) : Inter en 14 px, graisses
+// plafonnées à 600 — aucun 700 chargé (voir vite.config.js), un "gras"
+// reste donc léger partout sans toucher aux vues.
+$font-family-sans-serif: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+$font-size-base: 0.875rem;
+$font-weight-semibold: 500;
+$font-weight-bold: 600;
+$font-weight-bolder: 600;
+$headings-font-weight: 500;
+$btn-font-weight: 500;
+$badge-font-weight: 500;
+$form-label-font-weight: 500;
+$table-th-font-weight: 500;
 
 $border-radius: 0.5rem;
 $border-radius-sm: 0.375rem;
 $border-radius-lg: 0.75rem;
 
+$box-shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.06);
+$box-shadow: 0 8px 24px rgba(16, 24, 40, 0.1);
+
 // Bootstrap fait hériter $card-bg de $body-bg par défaut : sans cette
 // surcharge, chaque carte (formulaire, tableau…) se fond dans le fond de
-// page ($body-bg, un blanc cassé chaud) au lieu de s'en détacher.
+// page ($body-bg, un gris très clair) au lieu de s'en détacher.
 $card-bg: #fff;
+$card-cap-bg: #fff;
+$card-border-color: $border-color;
 
 // Même logique pour les tableaux : $table-bg est transparent par défaut
 // chez Bootstrap, donc un <table> non enveloppé dans une carte (ou dont
 // la carte parente change de fond) laisse transparaître $body-bg au lieu
 // d'un blanc franc — toujours du blanc, quel que soit le conteneur.
 $table-bg: #fff;
+$table-border-color: $border-color;
+$table-hover-bg: #f9fafb;
+$table-cell-padding-y: 0.6rem;
+$table-cell-padding-x: 0.75rem;
 
-// Champs de formulaire plus visibles par défaut (pas seulement au focus),
-// bordure orange léger — teinte de $primary, jamais l'orange plein (réservé
-// aux boutons/accents), pour ne pas concurrencer l'accent principal.
-$input-border-color: mix($primary, white, 30%);
+// Champs de formulaire : bordure grise neutre toujours visible (pas
+// seulement au focus), la couleur primaire n'apparaît qu'au focus — elle
+// reste réservée aux actions et à l'élément actif.
+$input-border-color: #d0d5dd;
 $input-border-width: 1px;
 $input-bg: #ffffff;
+$input-btn-padding-y: 0.45rem;
+
+$dropdown-border-color: $border-color;
+$dropdown-link-hover-bg: #f2f4f7;
+$dropdown-item-padding-y: 0.4rem;
 
 @import 'bootstrap/scss/bootstrap';
 @import 'bootstrap-icons/font/bootstrap-icons.css';
 
-// --- ERP layout ---
+// --- Coquille ERP : sidebar + barre supérieure (voir CLAUDE.md — Interface) ---
 
 :root {
-    --erp-sidebar-bg: #{$dark};
-    // Orange brûlé plus sombre que $primary : un lien actif en $primary plein
-    // sur fond sidebar sombre resterait trop clair pour un texte blanc lisible.
-    --erp-sidebar-bg-active: #b34700;
-    --erp-sidebar-color: #e8ddd3;
-    --erp-sidebar-color-active: #ffffff;
+    --erp-sidebar-width: 15.5rem;
+    --erp-sidebar-width-mini: 4.25rem;
+    --erp-sidebar-largeur: var(--erp-sidebar-width);
+    --erp-topbar-height: 3.5rem;
+    --erp-surface: #fff;
+    --erp-border: #{$border-color};
+    --erp-menu-color: #475467;
+    --erp-menu-hover-bg: #f2f4f7;
+    // Fond sombre des écrans hors application (vitrine de connexion, pages
+    // d'erreur) — la coquille de l'application elle-même est claire.
+    --erp-ink: #{$dark};
     --erp-accent: #{$info};
+}
+
+// Posée sur <html> par le script en tête de layouts/app.blade.php (avant le
+// premier rendu) puis par le bouton de la barre supérieure (resources/js/app.js).
+.erp-sidebar-mini {
+    --erp-sidebar-largeur: var(--erp-sidebar-width-mini);
+}
+
+// Chiffres à chasse fixe : montants et quantités s'alignent en colonne dans
+// les tableaux et ne "dansent" pas quand une valeur change (panier, KPI).
+body {
+    font-variant-numeric: tabular-nums;
 }
 
 // Champs numériques (quantités, montants, remises…) : les flèches
@@ -71,141 +117,693 @@ input[type='number'] {
     }
 }
 
-// Menu horizontal (voir CLAUDE.md — Interface) : une seule barre en haut de
-// page, plus de sidebar. Les dropdowns par section remplacent les groupes de
-// liens verticaux, mêmes couleurs/comportement actif que l'ancienne sidebar.
-.erp-navbar {
-    background-color: var(--erp-sidebar-bg);
+.erp-shell {
+    display: flex;
+    min-height: 100vh;
+}
+
+// Un seul élément pour les deux présentations (.offcanvas-lg de Bootstrap) :
+// panneau coulissant sous lg, colonne fixe au-dessus. Bootstrap force le fond
+// de .offcanvas-lg à transparent à partir de lg (!important) — d'où le fond
+// porté par .erp-sidebar__panneau plutôt que par l'élément lui-même.
+.erp-sidebar {
+    --bs-offcanvas-width: min(17.5rem, 86vw);
+    --bs-offcanvas-bg: var(--erp-surface);
+    --bs-offcanvas-border-width: 0;
+
+    @include media-breakpoint-up(lg) {
+        position: sticky;
+        top: 0;
+        // Au-dessus de la barre supérieure ($zindex-sticky) : en mode
+        // miniature, les sous-menus volants débordent sur le contenu.
+        z-index: $zindex-fixed;
+        flex: 0 0 auto;
+        width: var(--erp-sidebar-largeur);
+        height: 100vh;
+        transition: width 0.2s ease;
+    }
+}
+
+.erp-sidebar__panneau {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
+    background-color: var(--erp-surface);
+    border-right: 1px solid var(--erp-border);
+}
+
+.erp-sidebar__entete {
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+    gap: 0.5rem;
+    height: var(--erp-topbar-height);
+    padding: 0 0.875rem;
+    border-bottom: 1px solid var(--erp-border);
+}
+
+.erp-brand {
+    display: flex;
+    flex: 1 1 auto;
+    align-items: center;
+    gap: 0.625rem;
+    min-width: 0;
+    color: $body-color;
+    text-decoration: none;
+}
+
+// Logo configurable (Paramètres), de proportions inconnues : hauteur fixe,
+// largeur plafonnée pour tenir aussi dans la sidebar miniature.
+.erp-brand__logo {
+    flex-shrink: 0;
+    width: auto;
+    max-width: 2.75rem;
+    height: 2rem;
+    border-radius: $border-radius-sm;
+    object-fit: contain;
+}
+
+.erp-brand__texte {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    line-height: 1.25;
+}
+
+// Nom de l'application (Paramètres, texte libre potentiellement long) :
+// tronqué sur une ligne, jamais de débordement hors de la sidebar — le nom
+// complet reste lisible au survol (attribut title du lien).
+.erp-brand__nom,
+.erp-brand__slogan {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.erp-brand__nom {
+    font-size: 0.9375rem;
+    font-weight: 600;
+}
+
+.erp-brand__slogan {
+    font-size: 0.75rem;
+    color: $secondary;
+}
+
+.erp-sidebar__corps {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+}
+
+.erp-sidebar__pied {
+    flex-shrink: 0;
+    padding: 0.625rem 1rem;
+    overflow: hidden;
+    font-size: 0.75rem;
+    color: $secondary;
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+    border-top: 1px solid var(--erp-border);
+}
+
+// --- Menu de la sidebar (voir partials/sidebar.blade.php) ---
+
+.erp-menu {
+    padding: 0.5rem 0.625rem 1rem;
+    margin: 0;
+    list-style: none;
+
+    ul {
+        padding: 0;
+        margin: 0;
+        list-style: none;
+    }
+}
+
+.erp-menu__section {
+    padding: 0.875rem 0.75rem 0.3rem;
+    font-size: 0.75rem;
+    color: $secondary;
+    letter-spacing: 0.01em;
+}
+
+.erp-menu__item {
+    position: relative;
+    margin-bottom: 1px;
+}
+
+.erp-menu__link {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    width: 100%;
+    padding: 0.5rem 0.75rem;
+    font: inherit;
+    line-height: 1.25rem;
+    color: var(--erp-menu-color);
+    text-align: left;
+    text-decoration: none;
+    background: none;
+    border: 0;
+    border-radius: $border-radius-sm;
+    transition: background-color 0.15s ease, color 0.15s ease;
+
+    > .bi:first-child {
+        flex-shrink: 0;
+        width: 1.25rem;
+        font-size: 1.05rem;
+        text-align: center;
+    }
+
+    &:hover {
+        color: $body-color;
+        background-color: var(--erp-menu-hover-bg);
+    }
+
+    &:focus-visible {
+        outline: 2px solid rgba(var(--bs-primary-rgb), 0.55);
+        outline-offset: -2px;
+    }
+
+    // Teinte dérivée de la couleur primaire courante (personnalisable) :
+    // fond très léger + texte en nuance foncée (--bs-primary-text-emphasis),
+    // lisible même si l'installation choisit une primaire claire.
+    &.is-active {
+        font-weight: 500;
+        color: var(--bs-primary-text-emphasis);
+        background-color: rgba(var(--bs-primary-rgb), 0.1);
+    }
+}
+
+.erp-menu__label {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.erp-menu__chevron {
+    flex-shrink: 0;
+    font-size: 0.7rem;
+    opacity: 0.6;
+    transition: transform 0.2s ease;
+}
+
+// Groupe dont une sous-entrée est la page courante : repéré sans le fond
+// "actif" plein, réservé à la sous-entrée elle-même (un seul élément
+// surligné à la fois dans le menu déplié).
+.erp-menu__groupe.a-un-actif > .erp-menu__link {
+    font-weight: 500;
+    color: $body-color;
+
+    > .bi:first-child {
+        color: var(--bs-primary);
+    }
+}
+
+.erp-menu__groupe.is-open > .erp-menu__link .erp-menu__chevron {
+    transform: rotate(180deg);
+}
+
+// Repli animé sans hauteur codée en dur (grid 0fr → 1fr). Le contenu replié
+// est aussi rendu invisible (visibility) pour sortir ses liens de l'ordre de
+// tabulation, pas seulement les masquer à l'œil.
+.erp-menu__sub {
+    display: grid;
+    grid-template-rows: 0fr;
+    transition: grid-template-rows 0.2s ease;
+}
+
+.erp-menu__sub-contenu {
+    min-height: 0;
+    overflow: hidden;
+    visibility: hidden;
+    transition: visibility 0s linear 0.2s;
+
+    > ul {
+        padding: 0.125rem 0 0.25rem 1.375rem;
+    }
+}
+
+.erp-menu__groupe.is-open > .erp-menu__sub {
+    grid-template-rows: 1fr;
+
+    > .erp-menu__sub-contenu {
+        visibility: visible;
+        transition-delay: 0s;
+    }
+}
+
+// Titre du groupe, répété en tête du sous-menu volant de la sidebar
+// miniature uniquement (voir plus bas) — redondant dans le menu déplié.
+.erp-menu__sub-titre {
+    display: none;
+}
+
+.erp-menu__sublink {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    padding: 0.4rem 0.75rem;
+    font-size: 0.8438rem;
+    line-height: 1.25rem;
+    color: var(--erp-menu-color);
+    text-decoration: none;
+    border-radius: $border-radius-sm;
+    transition: background-color 0.15s ease, color 0.15s ease;
+
+    > .bi {
+        flex-shrink: 0;
+        width: 1rem;
+        font-size: 0.9rem;
+        text-align: center;
+        opacity: 0.7;
+    }
+
+    > span {
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    &:hover {
+        color: $body-color;
+        background-color: var(--erp-menu-hover-bg);
+    }
+
+    &:focus-visible {
+        outline: 2px solid rgba(var(--bs-primary-rgb), 0.55);
+        outline-offset: -2px;
+    }
+
+    &.is-active {
+        font-weight: 500;
+        color: var(--bs-primary-text-emphasis);
+        background-color: rgba(var(--bs-primary-rgb), 0.1);
+
+        > .bi {
+            opacity: 1;
+        }
+    }
+}
+
+// --- Sidebar miniature (≥ lg uniquement : sous lg, le panneau coulissant
+// reste toujours déplié, même si la préférence "mini" est enregistrée) ---
+// Icônes seules ; le libellé d'un lien simple devient une infobulle au
+// survol/focus, un groupe ouvre son sous-menu en panneau volant à droite
+// (survol ou focus clavier/tactile — purement CSS, seul son recalage
+// vertical quand il dépasse le bas de l'écran est fait en JS, voir app.js).
+@include media-breakpoint-up(lg) {
+    .erp-sidebar-mini {
+        .erp-sidebar__entete {
+            justify-content: center;
+            padding: 0;
+        }
+
+        .erp-brand {
+            flex: 0 0 auto;
+        }
+
+        .erp-brand__texte,
+        .erp-sidebar__pied {
+            display: none;
+        }
+
+        // Sans défilement interne : un conteneur défilant rognerait les
+        // infobulles et sous-menus volants, positionnés hors de la colonne.
+        // Seules les entrées de premier niveau restent (une dizaine au plus).
+        .erp-sidebar__corps {
+            overflow: visible;
+        }
+
+        .erp-menu {
+            padding: 0.5rem;
+        }
+
+        // Le titre de section devient un simple filet de séparation.
+        .erp-menu__section {
+            height: 1px;
+            padding: 0;
+            margin: 0.5rem 0.625rem;
+            overflow: hidden;
+            font-size: 0;
+            background-color: var(--erp-border);
+        }
+
+        .erp-menu__link {
+            justify-content: center;
+            padding: 0.625rem 0;
+        }
+
+        .erp-menu__chevron,
+        .erp-menu__groupe > .erp-menu__link > .erp-menu__label {
+            display: none;
+        }
+
+        .erp-menu__groupe.a-un-actif > .erp-menu__link {
+            color: var(--bs-primary-text-emphasis);
+            background-color: rgba(var(--bs-primary-rgb), 0.1);
+        }
+
+        .erp-menu__item:not(.erp-menu__groupe) .erp-menu__label {
+            position: absolute;
+            top: 50%;
+            left: calc(100% + 0.625rem);
+            z-index: 1;
+            flex: none;
+            padding: 0.3rem 0.625rem;
+            overflow: visible;
+            font-size: 0.8125rem;
+            font-weight: 400;
+            color: #fff;
+            pointer-events: none;
+            visibility: hidden;
+            background-color: $dark;
+            border-radius: $border-radius-sm;
+            box-shadow: $box-shadow-sm;
+            opacity: 0;
+            transform: translateY(-50%);
+            transition: opacity 0.12s ease;
+        }
+
+        .erp-menu__item:not(.erp-menu__groupe) .erp-menu__link:hover .erp-menu__label,
+        .erp-menu__item:not(.erp-menu__groupe) .erp-menu__link:focus-visible .erp-menu__label {
+            visibility: visible;
+            opacity: 1;
+        }
+
+        // padding-left plutôt qu'une marge : la zone entre l'icône et le
+        // panneau reste "survolée", le sous-menu ne se referme pas en chemin.
+        .erp-menu__sub {
+            position: absolute;
+            top: 0;
+            left: 100%;
+            z-index: 1;
+            display: none;
+            width: 15.5rem;
+            padding-left: 0.625rem;
+            transition: none;
+        }
+
+        .erp-menu__groupe:hover > .erp-menu__sub,
+        .erp-menu__groupe:focus-within > .erp-menu__sub {
+            display: block;
+        }
+
+        .erp-menu__sub-contenu {
+            max-height: calc(100vh - 1rem);
+            padding: 0.375rem;
+            overflow-y: auto;
+            visibility: visible;
+            background-color: var(--erp-surface);
+            border: 1px solid var(--erp-border);
+            border-radius: $border-radius;
+            box-shadow: $box-shadow;
+            transition: none;
+
+            > ul {
+                padding: 0;
+            }
+        }
+
+        .erp-menu__sub-titre {
+            display: block;
+            padding: 0.375rem 0.75rem 0.5rem;
+            margin-bottom: 0.25rem;
+            font-weight: 600;
+            color: $body-color;
+            border-bottom: 1px solid var(--erp-border);
+        }
+    }
+}
+
+// --- Colonne de contenu : barre supérieure + page ---
+
+// min-width: 0 — sans ça, un tableau large élargit toute la colonne au lieu
+// de défiler dans son .table-responsive.
+.erp-contenu {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.erp-topbar {
     position: sticky;
     top: 0;
-    z-index: 1040;
-    padding-top: 0.6rem;
-    padding-bottom: 0.6rem;
+    z-index: $zindex-sticky;
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+    gap: 0.5rem;
+    height: var(--erp-topbar-height);
+    padding: 0 0.75rem;
+    background-color: var(--erp-surface);
+    border-bottom: 1px solid var(--erp-border);
 
-    .navbar-toggler {
-        border-color: var(--erp-sidebar-color);
-
-        .navbar-toggler-icon {
-            filter: invert(1);
-        }
+    @include media-breakpoint-up(lg) {
+        padding: 0 1.5rem 0 0.875rem;
     }
 
-    // Scopés à .navbar-nav (voir explication ci-dessous) : les dropdowns du
-    // coin (notifications, compte utilisateur) restent sur les couleurs
-    // Bootstrap par défaut, pas sur la palette sombre de la barre.
-    .navbar-nav .nav-link,
-    .navbar-nav .dropdown-item {
-        color: var(--erp-sidebar-color);
-        border-radius: $border-radius-sm;
+    // Cloches de notification (partials/_cloche-*.blade.php) : boutons icône
+    // ronds et discrets plutôt que des boutons gris pleins.
+    .btn-light {
+        --bs-btn-color: #{$secondary};
+        --bs-btn-bg: transparent;
+        --bs-btn-border-color: transparent;
+        --bs-btn-hover-color: #{$body-color};
+        --bs-btn-hover-bg: var(--erp-menu-hover-bg);
+        --bs-btn-hover-border-color: transparent;
+        --bs-btn-active-color: #{$body-color};
+        --bs-btn-active-bg: var(--erp-menu-hover-bg);
+        --bs-btn-active-border-color: transparent;
 
-        &.active,
-        &:hover {
-            background-color: var(--erp-sidebar-bg-active);
-            color: var(--erp-sidebar-color-active);
-        }
-    }
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 2.125rem;
+        height: 2.125rem;
+        padding: 0;
+        font-size: 1rem;
+        border-radius: 50%;
 
-    // Scopé à .navbar-nav : les menus de section (Ventes, Stock…) restent
-    // sombres comme la barre, mais les dropdowns du coin (notifications,
-    // compte utilisateur), hors .navbar-nav, gardent le blanc par défaut de
-    // Bootstrap — sur fond sombre, leur contenu (texte gris, badges) prévu
-    // pour un fond clair devenait illisible.
-    .navbar-nav .dropdown-menu {
-        background-color: var(--erp-sidebar-bg);
-        border: 1px solid var(--erp-sidebar-bg-active);
-        min-width: 14rem;
-    }
-
-    @media (max-width: 991.98px) {
-        .navbar-nav {
-            padding-top: 0.5rem;
-        }
-
-        .dropdown-menu {
-            border: none;
-            padding-left: 1rem;
-        }
-    }
-
-    // Nom de l'application (Paramètres, texte libre potentiellement long) :
-    // Bootstrap impose white-space: nowrap sur .navbar-brand, donc un nom
-    // long poussait indéfiniment le menu horizontal vers la droite au lieu
-    // de passer à la ligne. Plafonné en largeur et autorisé à revenir à la
-    // ligne dans son propre espace, sans jamais faire bouger le menu.
-    .navbar-brand-texte {
-        max-width: 200px;
-
-        .fs-6 {
-            white-space: normal;
-            line-height: 1.15;
-            overflow-wrap: break-word;
+        // Compteur ramené dans le coin du bouton : les utilitaires de
+        // position posés dans la vue (top-0 start-100 translate-middle) le
+        // faisaient déborder du bouton rond, jusqu'à chevaucher le voisin.
+        .badge {
+            top: 0.1rem !important;
+            right: -0.15rem;
+            left: auto !important;
+            padding: 0.2em 0.42em;
+            font-size: 0.625rem;
+            transform: none !important;
         }
     }
 }
 
-// Sidebar coulissante mobile/tablette (< lg) : même palette que la barre
-// horizontale desktop (voir .erp-navbar ci-dessus) — un seul menu, deux
-// présentations selon la taille d'écran, pas deux jeux de couleurs à
-// maintenir.
-.erp-sidebar {
-    background-color: var(--erp-sidebar-bg);
+.erp-topbar__bascule {
+    display: inline-flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    padding: 0;
+    font-size: 1.15rem;
+    color: $secondary;
+    background: none;
+    border: 0;
+    border-radius: $border-radius-sm;
+    transition: background-color 0.15s ease, color 0.15s ease;
 
-    // Bootstrap fixe la largeur via .offcanvas.offcanvas-start (deux classes,
-    // spécificité 0,2,0) : un simple .erp-sidebar (0,1,0) ne suffit pas à la
-    // remplacer malgré l'ordre des règles, il faut égaler la spécificité.
-    &.offcanvas-start {
-        width: min(280px, 85vw);
+    &:hover {
+        color: $body-color;
+        background-color: var(--erp-menu-hover-bg);
     }
 
-    .offcanvas-header {
-        border-bottom: 1px solid var(--erp-sidebar-bg-active);
-    }
-
-    .navbar-nav {
-        width: 100%;
-    }
-
-    // Scopés à .navbar-nav (même raison qu'en desktop, voir .erp-navbar) :
-    // les dropdowns du coin (notifications, compte utilisateur) gardent le
-    // blanc Bootstrap par défaut, lisible même détourés sur le panneau sombre.
-    .navbar-nav .nav-link,
-    .navbar-nav .dropdown-item {
-        color: var(--erp-sidebar-color);
-        border-radius: $border-radius-sm;
-
-        &.active,
-        &:hover {
-            background-color: var(--erp-sidebar-bg-active);
-            color: var(--erp-sidebar-color-active);
-        }
-    }
-
-    // Sans ces trois lignes, le sous-menu (Catalogue, Stock, Vente,
-    // Administration…) garde le positionnement Popper.js par défaut de
-    // Bootstrap (absolute + transform en style inline) : il flotte par-
-    // dessus les liens suivants de la sidebar au lieu de s'insérer dans le
-    // flux normal, qui se chevauchent visuellement à l'ouverture. !important
-    // nécessaire : Popper pose ces valeurs directement en style inline,
-    // priorité plus forte qu'une règle de feuille de style classique.
-    .navbar-nav .dropdown-menu {
-        background-color: transparent;
-        border: none;
-        padding-left: 1rem;
-        min-width: auto;
-        position: static !important;
-        inset: auto !important;
-        transform: none !important;
-    }
-
-    hr {
-        opacity: 0.15;
+    &:focus-visible {
+        outline: 2px solid rgba(var(--bs-primary-rgb), 0.55);
+        outline-offset: 1px;
     }
 }
 
-// --- Logo (fond blanc dans le fichier source) : présenté dans un chip blanc
-// pour rester lisible sur les fonds sombres (sidebar, vitrine de connexion),
-// avec une barre d'accent bleu industriel qui contraste avec l'orange
-// primaire (palette volontairement mélangée, pas monochrome).
+// Titre de la page courante : repère permanent, la barre restant visible
+// quand la page défile. Masqué sur petit écran (la page l'affiche déjà).
+.erp-topbar__titre {
+    min-width: 0;
+    overflow: hidden;
+    font-size: 0.9375rem;
+    font-weight: 500;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+
+    @include media-breakpoint-down(md) {
+        display: none;
+    }
+}
+
+.erp-topbar__session {
+    display: inline-flex;
+    flex-shrink: 0;
+    align-items: center;
+    gap: 0.45rem;
+    height: 2rem;
+    padding: 0 0.75rem;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: shade-color($success, 25%);
+    text-decoration: none;
+    white-space: nowrap;
+    background-color: rgba($success, 0.1);
+    border-radius: 2rem;
+    transition: background-color 0.15s ease;
+
+    &:hover {
+        color: shade-color($success, 25%);
+        background-color: rgba($success, 0.18);
+    }
+}
+
+.erp-topbar__session-point {
+    width: 0.5rem;
+    height: 0.5rem;
+    background-color: $success;
+    border-radius: 50%;
+    box-shadow: 0 0 0 3px rgba($success, 0.2);
+}
+
+.erp-topbar__compte {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.25rem 0.5rem 0.25rem 0.25rem;
+    color: $body-color;
+    background: none;
+    border: 0;
+    border-radius: 2rem;
+    transition: background-color 0.15s ease;
+
+    &:hover,
+    &[aria-expanded='true'] {
+        background-color: var(--erp-menu-hover-bg);
+    }
+
+    &:focus-visible {
+        outline: 2px solid rgba(var(--bs-primary-rgb), 0.55);
+        outline-offset: 1px;
+    }
+}
+
+.erp-topbar__compte-nom {
+    max-width: 10rem;
+    overflow: hidden;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.erp-topbar__compte-magasin {
+    font-size: 0.6875rem;
+    color: $secondary;
+}
+
+.erp-avatar {
+    display: inline-flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--bs-primary-text-emphasis);
+    background-color: rgba(var(--bs-primary-rgb), 0.12);
+    border-radius: 50%;
+}
+
+.erp-main {
+    flex: 1 1 auto;
+    padding: 1rem;
+
+    @include media-breakpoint-up(lg) {
+        padding: 1.5rem;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .erp-sidebar,
+    .erp-menu__link,
+    .erp-menu__sublink,
+    .erp-menu__chevron,
+    .erp-menu__sub,
+    .erp-menu__sub-contenu {
+        transition: none;
+    }
+}
+
+// --- Habillage générique des composants (aucune vue à modifier) ---
+
+.card {
+    box-shadow: $box-shadow-sm;
+
+    // Un tableau directement dans une carte : sans ça, ses coins carrés
+    // (fond blanc, voir $table-bg) dépassent des coins arrondis de la carte.
+    > .table-responsive {
+        border-radius: inherit;
+    }
+}
+
+// En-têtes de tableau discrets : texte secondaire sur fond à peine teinté,
+// pour que l'œil aille d'abord aux données. --bs-table-bg est hérité par les
+// cellules (Bootstrap peint le fond via cette variable).
+.table > thead {
+    --bs-table-bg: #f9fafb;
+    --bs-table-color: #{$secondary};
+
+    font-size: 0.8125rem;
+
+    th {
+        white-space: nowrap;
+    }
+}
+
+.dropdown-menu {
+    box-shadow: $box-shadow;
+}
+
+// Références (SKU, numéros de pièce) et cellules alignées à droite (montants,
+// boutons d'action) : jamais coupées sur deux lignes — la sidebar réduit la
+// largeur utile, et une référence ou une rangée de boutons repliée double la
+// hauteur de chaque ligne. Le tableau défile dans son .table-responsive.
+.table {
+    code,
+    td.text-end {
+        white-space: nowrap;
+    }
+}
+
+code {
+    font-size: 0.8125rem;
+    color: #344054;
+}
+
+.form-label {
+    font-size: 0.8125rem;
+    color: #344054;
+}
+
+// --- Logo sur fond sombre (vitrine de connexion, pages d'erreur) : présenté
+// dans un chip blanc pour rester lisible quel que soit le logo configuré,
+// avec une barre d'accent qui contraste avec la couleur primaire (palette
+// volontairement mélangée, pas monochrome).
 .brand-logo-chip {
     display: inline-flex;
     align-items: center;
@@ -231,21 +829,18 @@ input[type='number'] {
     width: 2.5rem;
     height: 3px;
     border-radius: 999px;
-    background-color: $info;
-}
-
-.erp-main {
-    background-color: $body-bg;
+    // Version éclaircie de $info : cette barre n'apparaît que sur fond sombre.
+    background-color: tint-color($info, 55%);
 }
 
 // --- Lisibilité des formulaires ---
 
 .form-control,
 .form-select {
-    box-shadow: 0 1px 2px rgba(15, 34, 27, 0.08);
+    box-shadow: 0 1px 2px rgba(16, 24, 40, 0.05);
 
     &:focus {
-        box-shadow: 0 0 0 0.2rem rgba($primary, 0.25);
+        box-shadow: 0 0 0 0.2rem rgba($primary, 0.2);
     }
 }
 
@@ -261,9 +856,11 @@ input[type='number'] {
     color: #fff !important;
 }
 
-// Même souci sur $primary (orange chantier) : le calcul de contraste
-// automatique de Bootstrap choisit du texte noir sur .btn-primary, illisible
-// sur cet orange. Le blanc reste le seul choix correct.
+// Texte blanc forcé sur .btn-primary : la couleur primaire est
+// personnalisable par installation (voir partials/couleur-primaire.blade.php),
+// et le calcul de contraste automatique de Bootstrap — figé à la compilation
+// sur $primary — ne suit pas une couleur choisie après coup. Le blanc reste
+// le choix cohérent quelle que soit la teinte retenue.
 .btn-primary {
     --bs-btn-color: #fff;
     --bs-btn-hover-color: #fff;
@@ -272,7 +869,7 @@ input[type='number'] {
 }
 
 // Même souci sur les badges pleins (.badge.text-bg-primary — "Caisse
-// Générale", rôle, formule actuelle…) : texte noir illisible sur cet orange.
+// Générale", rôle, formule actuelle…), pour la même raison.
 .text-bg-primary {
     color: #fff !important;
 }
@@ -280,7 +877,7 @@ input[type='number'] {
 // --- Bouton d'action "règlement" (paiement d'une dette fournisseur) ---
 // Le jaune $warning plat manque de contraste et se lit mal avec du texte
 // blanc ; les actions financières (régler) utilisent un dégradé violet
-// dédié, visuellement distinct de l'orange primaire, du vert succès et du
+// dédié, visuellement distinct de la couleur primaire, du vert succès et du
 // rouge danger déjà utilisés pour valider/annuler à côté de ces boutons.
 $reglement-start: #7c3aed;
 $reglement-end: #4c1d95;
@@ -358,11 +955,28 @@ $reglement-end-hover: #5b21b6;
 }
 
 // --- Select2 : le thème select2-bootstrap-5 utilise le bleu Bootstrap par
-// défaut (#0d6efd) — remplacé par le violet du projet partout où il
-// apparaît (focus, dropdown ouvert, option sélectionnée). !important
-// nécessaire : cette feuille de style tierce est importée via le bundle JS,
-// après celle-ci dans la sortie Vite.
+// défaut (#0d6efd) et ses propres dimensions (police 1rem, bordure grise
+// Bootstrap) — ramenés à la couleur primaire du projet partout où le bleu
+// apparaît (focus, dropdown ouvert, option sélectionnée) et aux dimensions
+// des champs natifs ($input-*), sinon un select recherchable ressort plus
+// gros que le champ texte voisin. !important nécessaire : cette feuille de
+// style tierce est importée via le bundle JS, après celle-ci dans la sortie
+// Vite.
 .select2-container--bootstrap-5 {
+    .select2-selection:not(.select2--small) {
+        min-height: $input-height !important;
+        padding-top: $input-padding-y !important;
+        padding-bottom: $input-padding-y !important;
+        font-size: $input-font-size !important;
+        border-color: $input-border-color !important;
+        border-radius: $input-border-radius !important;
+    }
+
+    .select2-dropdown .select2-search .select2-search__field,
+    .select2-dropdown .select2-results__options .select2-results__option {
+        font-size: $input-font-size !important;
+    }
+
     &.select2-container--focus .select2-selection,
     &.select2-container--open .select2-selection {
         border-color: $primary !important;
@@ -397,7 +1011,7 @@ $reglement-end-hover: #5b21b6;
     align-items: center;
     justify-content: center;
     padding: 3rem;
-    background: linear-gradient(160deg, var(--erp-sidebar-bg) 0%, $primary 100%);
+    background: linear-gradient(160deg, var(--erp-ink) 0%, $primary 100%);
 
     @include media-breakpoint-up(lg) {
         display: flex;
@@ -433,7 +1047,7 @@ $reglement-end-hover: #5b21b6;
 
     i {
         font-size: 1.4rem;
-        color: $info;
+        color: tint-color($info, 55%);
         margin-top: 0.15rem;
         flex-shrink: 0;
     }
@@ -460,9 +1074,15 @@ $reglement-end-hover: #5b21b6;
 // --- Reçu de caisse (impression POS) : seule la carte .recu-pos sort sur le
 // papier, à la largeur d'un ticket thermique 80mm — pas la sidebar/topbar.
 @media print {
-    .erp-navbar,
+    .erp-sidebar,
+    .erp-topbar,
     .d-print-none {
         display: none !important;
+    }
+
+    .erp-shell {
+        display: block;
+        min-height: 0;
     }
 
     .erp-main,

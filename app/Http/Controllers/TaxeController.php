@@ -2,17 +2,45 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\ExporteListe;
 use App\Http\Controllers\Concerns\TrieListe;
 use App\Models\Taxe;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
+use Illuminate\Support\Collection;
 use Illuminate\View\View;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class TaxeController extends Controller
 {
-    use TrieListe;
+    use TrieListe, ExporteListe;
+
+    private const ENTETES_EXPORT = ['Nom', 'Taux', 'Statut'];
 
     public function index(Request $request): View
+    {
+        $taxes = $this->requeteListe($request)->paginate(20)->withQueryString();
+
+        return view('taxes.index', ['taxes' => $taxes]);
+    }
+
+    public function pdf(Request $request): Response
+    {
+        return $this->pdfDepuisListe('Taxes', self::ENTETES_EXPORT, $this->lignesExport($request), 'taxes.pdf');
+    }
+
+    public function excel(Request $request): StreamedResponse
+    {
+        return $this->excelDepuisListe('Taxes', self::ENTETES_EXPORT, $this->lignesExport($request), 'taxes.xlsx');
+    }
+
+    /**
+     * Requête de la liste (filtres + tri), partagée par l'écran et ses exports :
+     * un export porte toujours sur ce que l'écran affiche, sans la pagination.
+     */
+    private function requeteListe(Request $request): Builder
     {
         $query = Taxe::query()
             ->when($request->filled('recherche'), function ($q) use ($request) {
@@ -20,11 +48,16 @@ class TaxeController extends Controller
                 $q->where('nom', 'like', "%{$recherche}%");
             });
 
-        $taxes = $this->appliquerTri($query, $request, ['nom', 'taux', 'actif', 'created_at'])
-            ->paginate(20)
-            ->withQueryString();
+        return $this->appliquerTri($query, $request, ['nom', 'taux', 'actif', 'created_at']);
+    }
 
-        return view('taxes.index', ['taxes' => $taxes]);
+    private function lignesExport(Request $request): Collection
+    {
+        return $this->requeteListe($request)->get()->map(fn (Taxe $taxe) => [
+            $taxe->nom,
+            $taxe->taux.' %',
+            $taxe->actif ? 'Active' : 'Inactive',
+        ]);
     }
 
     public function create(): View

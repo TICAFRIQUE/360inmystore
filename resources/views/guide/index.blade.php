@@ -87,7 +87,7 @@
                 <div class="accordion-body">
                     <h6>Ouvrir une session de caisse</h6>
                     <ol>
-                        <li>Menu <strong>Vente → Caisses</strong>, choisir une caisse <em>libre</em>
+                        <li>Menu <strong>Vente → Facture/BL</strong>, choisir une caisse <em>libre</em>
                             (sans pastille "session ouverte").</li>
                         <li>Cliquer sur <em>Ouvrir</em>, saisir le <strong>fond de caisse</strong>
                             (montant en espèces déjà dans le tiroir au départ).</li>
@@ -166,7 +166,7 @@
                     @can('caisse.mouvement')
                         <h6>Entrée / sortie de caisse</h6>
                         <p>
-                            Sur l'écran de la session ouverte (<strong>Vente → Caisses</strong>, puis la
+                            Sur l'écran de la session ouverte (<strong>Vente → Facture/BL</strong>, puis la
                             session en cours) : formulaire pour enregistrer une entrée ou une
                             sortie d'espèces (appoint, prélèvement...), avec un motif obligatoire.
                             Une sortie ne peut jamais dépasser l'argent réellement disponible
@@ -301,7 +301,7 @@
                     @can('stock.transferer')
                         <h6>Transfert entre magasins/dépôts</h6>
                         <p>
-                            <strong>Stock → Transferts</strong> : choisir le magasin/dépôt source et
+                            <strong>Stock → Transfert</strong> : choisir le magasin/dépôt source et
                             destination, le produit, la quantité — simple sortie d'un côté,
                             entrée de l'autre.
                         </p>
@@ -336,7 +336,7 @@
                     @can('achat.creer')
                         <h6>Passer un bon de commande</h6>
                         <ol>
-                            <li>Menu <strong>Stock → Bons de commande → Nouveau bon de commande</strong>,
+                            <li>Menu <strong>Achats → Bons de commande → Nouveau bon de commande</strong>,
                                 choisir le fournisseur.</li>
                             <li>Ajouter les lignes : produit, quantité, prix d'achat (HT) indicatif, et
                                 la destination du stock (un magasin ou un dépôt — un bon de commande
@@ -403,7 +403,7 @@
             <div id="gTresorerie" class="accordion-collapse collapse" data-bs-parent="#accordionGuide">
                 <div class="accordion-body">
                     <p>
-                        Menu horizontal <strong>Trésorerie</strong> : répertorie la
+                        Menu <strong>Trésorerie</strong> : répertorie la
                         <strong>Caisse Générale</strong> (un compte unique, permanent), les
                         <strong>Comptes</strong> (banque/autres, créés librement), et toutes les
                         caisses de vente (répertoire, pas seulement celles ouvertes

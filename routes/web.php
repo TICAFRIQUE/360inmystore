@@ -72,10 +72,15 @@ Route::middleware(['auth', 'abonnement.actif'])->group(function () {
     Route::get('notifications/{notification}/ouvrir', [NotificationController::class, 'ouvrir'])->name('notifications.ouvrir');
 
     Route::middleware('can:administration.gerer')->group(function () {
+        // pdf/excel avant le resource() : même précaution que pour inventaires.
+        Route::get('magasins/pdf', [MagasinController::class, 'pdf'])->name('magasins.pdf');
+        Route::get('magasins/excel', [MagasinController::class, 'excel'])->name('magasins.excel');
         Route::resource('magasins', MagasinController::class)->except(['show']);
     });
 
     Route::middleware('can:categorie.gerer')->group(function () {
+        Route::get('categories/pdf', [CategorieController::class, 'pdf'])->name('categories.pdf');
+        Route::get('categories/excel', [CategorieController::class, 'excel'])->name('categories.excel');
         Route::resource('categories', CategorieController::class)
             ->except(['show'])
             ->parameters(['categories' => 'categorie']);
@@ -94,14 +99,20 @@ Route::middleware(['auth', 'abonnement.actif'])->group(function () {
     });
 
     Route::middleware('can:administration.gerer')->group(function () {
+        Route::get('moyens-paiement/pdf', [MoyenPaiementController::class, 'pdf'])->name('moyens-paiement.pdf');
+        Route::get('moyens-paiement/excel', [MoyenPaiementController::class, 'excel'])->name('moyens-paiement.excel');
         Route::resource('moyens-paiement', MoyenPaiementController::class)
             ->except(['show'])
             ->parameters(['moyens-paiement' => 'moyenPaiement']);
 
+        Route::get('unites/pdf', [UniteController::class, 'pdf'])->name('unites.pdf');
+        Route::get('unites/excel', [UniteController::class, 'excel'])->name('unites.excel');
         Route::resource('unites', UniteController::class)->except(['show']);
     });
 
     Route::middleware('can:taxe.gerer')->group(function () {
+        Route::get('taxes/pdf', [TaxeController::class, 'pdf'])->name('taxes.pdf');
+        Route::get('taxes/excel', [TaxeController::class, 'excel'])->name('taxes.excel');
         Route::resource('taxes', TaxeController::class)
             ->except(['show'])
             ->parameters(['taxes' => 'taxe']);
@@ -144,12 +155,16 @@ Route::middleware(['auth', 'abonnement.actif'])->group(function () {
     });
 
     Route::middleware('can:typeclient.gerer')->group(function () {
+        Route::get('type-clients/pdf', [TypeClientController::class, 'pdf'])->name('type-clients.pdf');
+        Route::get('type-clients/excel', [TypeClientController::class, 'excel'])->name('type-clients.excel');
         Route::resource('type-clients', TypeClientController::class)
             ->except(['show'])
             ->parameters(['type-clients' => 'typeClient']);
     });
 
     Route::middleware('can:devise.gerer')->group(function () {
+        Route::get('devises/pdf', [DeviseController::class, 'pdf'])->name('devises.pdf');
+        Route::get('devises/excel', [DeviseController::class, 'excel'])->name('devises.excel');
         Route::resource('devises', DeviseController::class)->except(['show']);
     });
 
@@ -163,6 +178,8 @@ Route::middleware(['auth', 'abonnement.actif'])->group(function () {
     Route::post('motifs-mouvement/rapide', [MotifMouvementController::class, 'storeRapide'])->name('motifs-mouvement.rapide');
 
     Route::middleware('can:motif.gerer')->group(function () {
+        Route::get('motifs-mouvement/pdf', [MotifMouvementController::class, 'pdf'])->name('motifs-mouvement.pdf');
+        Route::get('motifs-mouvement/excel', [MotifMouvementController::class, 'excel'])->name('motifs-mouvement.excel');
         Route::resource('motifs-mouvement', MotifMouvementController::class)
             ->except(['show'])
             ->parameters(['motifs-mouvement' => 'motifMouvement']);
@@ -195,6 +212,11 @@ Route::middleware(['auth', 'abonnement.actif'])->group(function () {
     });
 
     Route::middleware('can:achat.voir')->group(function () {
+        // Export de la liste, avant /commande-achats/{commandeAchat} : sinon
+        // "pdf"/"excel" serait capturé comme un {commandeAchat}. Distinct de
+        // commande-achats.pdf/.excel (un bon de commande précis).
+        Route::get('commande-achats/pdf', [CommandeAchatController::class, 'listePdf'])->name('commande-achats.liste.pdf');
+        Route::get('commande-achats/excel', [CommandeAchatController::class, 'listeExcel'])->name('commande-achats.liste.excel');
         Route::resource('commande-achats', CommandeAchatController::class)
             ->only(['index', 'create', 'store', 'destroy'])
             ->parameters(['commande-achats' => 'commandeAchat']);
@@ -223,9 +245,13 @@ Route::middleware(['auth', 'abonnement.actif'])->group(function () {
         Route::get('stock/pdf', [StockController::class, 'pdf'])->name('stock.pdf');
         Route::get('stock/excel', [StockController::class, 'excel'])->name('stock.excel');
         Route::get('stock/mouvements', [StockMouvementController::class, 'index'])->name('stock.mouvements.index');
+        Route::get('stock/mouvements/pdf', [StockMouvementController::class, 'pdf'])->name('stock.mouvements.pdf');
+        Route::get('stock/mouvements/excel', [StockMouvementController::class, 'excel'])->name('stock.mouvements.excel');
     });
 
     Route::middleware('can:stock.transferer')->group(function () {
+        Route::get('transferts/pdf', [TransfertController::class, 'pdf'])->name('transferts.pdf');
+        Route::get('transferts/excel', [TransfertController::class, 'excel'])->name('transferts.excel');
         Route::resource('transferts', TransfertController::class)->only(['index', 'create', 'store']);
     });
 
@@ -249,6 +275,8 @@ Route::middleware(['auth', 'abonnement.actif'])->group(function () {
     // sur les sessions/ventes de son équipe (voir SessionCaisseController,
     // VenteController, VenteEnAttenteController, AutoriseVenteEnAttente).
     Route::middleware('can:administration.gerer')->group(function () {
+        Route::get('caisses/pdf', [CaisseController::class, 'pdf'])->name('caisses.pdf');
+        Route::get('caisses/excel', [CaisseController::class, 'excel'])->name('caisses.excel');
         Route::resource('caisses', CaisseController::class)
             ->except(['show'])
             ->parameters(['caisses' => 'caisse']);
@@ -339,6 +367,8 @@ Route::middleware(['auth', 'abonnement.actif'])->group(function () {
         Route::post('ventes/{vente}/bons-livraison', [BonLivraisonController::class, 'store'])->name('ventes.bons-livraison.store');
         // withTrashed() : un bon de livraison annulé reste consultable
         // (badge "Annulé"), jamais un 404 — même logique que ventes.facture.
+        Route::get('bons-livraison/pdf', [BonLivraisonController::class, 'listePdf'])->name('bons-livraison.liste.pdf');
+        Route::get('bons-livraison/excel', [BonLivraisonController::class, 'listeExcel'])->name('bons-livraison.liste.excel');
         Route::get('bons-livraison/{bonLivraison}', [BonLivraisonController::class, 'imprimer'])->name('bons-livraison.imprimer')->withTrashed();
         Route::get('bons-livraison/{bonLivraison}/pdf', [BonLivraisonController::class, 'pdf'])->name('bons-livraison.pdf')->withTrashed();
         // Pas de withTrashed() ici : annuler un BL déjà annulé doit échouer
@@ -352,11 +382,15 @@ Route::middleware(['auth', 'abonnement.actif'])->group(function () {
         // /remboursements-avoir avant /clients/{client}/... : liste centralisée
         // des clients ayant un avoir, symétrique de reglements.create côté dette.
         Route::get('remboursements-avoir', [RemboursementAvoirClientController::class, 'index'])->name('remboursements-avoir-client.index');
+        Route::get('remboursements-avoir/pdf', [RemboursementAvoirClientController::class, 'pdf'])->name('remboursements-avoir-client.pdf');
+        Route::get('remboursements-avoir/excel', [RemboursementAvoirClientController::class, 'excel'])->name('remboursements-avoir-client.excel');
         Route::post('clients/{client}/remboursements-avoir', [RemboursementAvoirClientController::class, 'store'])->name('remboursements-avoir-client.store');
     });
 
     Route::middleware('can:devis.voir')->group(function () {
         Route::get('devis', [DevisController::class, 'index'])->name('devis.index');
+        Route::get('devis/pdf', [DevisController::class, 'listePdf'])->name('devis.liste.pdf');
+        Route::get('devis/excel', [DevisController::class, 'listeExcel'])->name('devis.liste.excel');
     });
 
     // /devis/creer avant /devis/{devis} : sinon "creer" serait capturé comme
@@ -395,6 +429,8 @@ Route::middleware(['auth', 'abonnement.actif'])->group(function () {
     });
 
     Route::middleware('can:utilisateur.gerer')->group(function () {
+        Route::get('utilisateurs/pdf', [UtilisateurController::class, 'pdf'])->name('utilisateurs.pdf');
+        Route::get('utilisateurs/excel', [UtilisateurController::class, 'excel'])->name('utilisateurs.excel');
         Route::resource('utilisateurs', UtilisateurController::class)
             ->except(['show'])
             ->parameters(['utilisateurs' => 'utilisateur']);
@@ -403,6 +439,8 @@ Route::middleware(['auth', 'abonnement.actif'])->group(function () {
     });
 
     Route::middleware('can:role.gerer')->group(function () {
+        Route::get('roles/pdf', [RoleController::class, 'pdf'])->name('roles.pdf');
+        Route::get('roles/excel', [RoleController::class, 'excel'])->name('roles.excel');
         Route::resource('roles', RoleController::class)->except(['show']);
     });
 
@@ -438,5 +476,7 @@ Route::middleware(['auth', 'abonnement.actif'])->group(function () {
         Route::get('rapports/inventaires/excel', [RapportController::class, 'inventairesExcel'])->name('rapports.inventaires.excel');
 
         Route::get('journal', [JournalActiviteController::class, 'index'])->name('journal.index');
+        Route::get('journal/pdf', [JournalActiviteController::class, 'pdf'])->name('journal.pdf');
+        Route::get('journal/excel', [JournalActiviteController::class, 'excel'])->name('journal.excel');
     });
 });

@@ -2,22 +2,57 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\ExporteListe;
 use App\Models\User;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
+use Illuminate\Support\Collection;
 use Illuminate\View\View;
 use Spatie\Permission\Models\Role;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class RoleController extends Controller
 {
+    use ExporteListe;
+
+    private const ENTETES_EXPORT = ['Nom', 'Permissions', 'Utilisateurs'];
+
     public function index(Request $request): View
     {
-        $roles = Role::withCount(['users', 'permissions'])
-            ->when(! $request->user()->hasRole('Superadmin'), fn ($query) => $query->where('name', '!=', 'Superadmin'))
-            ->orderBy('name')
-            ->get();
+        $roles = $this->requeteListe($request)->get();
 
         return view('roles.index', ['roles' => $roles]);
+    }
+
+    public function pdf(Request $request): Response
+    {
+        return $this->pdfDepuisListe('Rôles', self::ENTETES_EXPORT, $this->lignesExport($request), 'roles.pdf');
+    }
+
+    public function excel(Request $request): StreamedResponse
+    {
+        return $this->excelDepuisListe('Rôles', self::ENTETES_EXPORT, $this->lignesExport($request), 'roles.xlsx');
+    }
+
+    /**
+     * Requête de la liste, partagée par l'écran et ses exports.
+     */
+    private function requeteListe(Request $request): Builder
+    {
+        return Role::withCount(['users', 'permissions'])
+            ->when(! $request->user()->hasRole('Superadmin'), fn ($query) => $query->where('name', '!=', 'Superadmin'))
+            ->orderBy('name');
+    }
+
+    private function lignesExport(Request $request): Collection
+    {
+        return $this->requeteListe($request)->get()->map(fn (Role $role) => [
+            $role->name,
+            $role->name === 'Superadmin' ? 'Accès total' : $role->permissions_count,
+            $role->users_count,
+        ]);
     }
 
     public function create(Request $request): View

@@ -5,7 +5,7 @@ cd /d "%~dp0.."
 set PROJET_DIR=%~dp0..\
 
 echo ============================================
-echo  Installation - G-Stock Quincaillerie
+echo  Installation - 360inmystore
 echo ============================================
 echo.
 echo IMPORTANT : lancez ce script depuis le Terminal Laragon
@@ -40,9 +40,9 @@ if errorlevel 1 (
 )
 
 echo.
-set /p APP_URL_SAISIE="URL de l'application (ex: http://g-stock-quincaillerie.test) : "
-set /p DB_NAME="Nom de la base de donnees [gstockquincaillerie] : "
-if "%DB_NAME%"=="" set DB_NAME=gstockquincaillerie
+set /p APP_URL_SAISIE="URL de l'application (ex: http://360_inmystore.test) : "
+set /p DB_NAME="Nom de la base de donnees [360inmystore] : "
+if "%DB_NAME%"=="" set DB_NAME=360inmystore
 set /p DB_USER="Utilisateur MySQL [root] : "
 if "%DB_USER%"=="" set DB_USER=root
 set /p DB_PASS="Mot de passe MySQL (laisser vide si aucun) : "

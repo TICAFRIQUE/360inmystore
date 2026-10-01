@@ -8,7 +8,11 @@
         <a href="{{ route('caisses.create') }}" class="btn btn-primary">Nouvelle caisse</a>
     </div>
 
-    <x-recherche-form :action="route('caisses.index')" placeholder="Rechercher une caisse…" />
+    <x-recherche-form :action="route('caisses.index')" placeholder="Rechercher une caisse…">
+        <x-slot:export>
+            <x-export-buttons :pdf-route="route('caisses.pdf', request()->query())" :excel-route="route('caisses.excel', request()->query())" :tout="true" />
+        </x-slot:export>
+    </x-recherche-form>
 
     <div class="card">
         <div class="table-responsive">

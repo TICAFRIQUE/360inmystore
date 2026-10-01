@@ -8,6 +8,10 @@
         <a href="{{ route('moyens-paiement.create') }}" class="btn btn-primary">Nouveau moyen de paiement</a>
     </div>
 
+    <div class="d-flex justify-content-end mb-3">
+        <x-export-buttons :pdf-route="route('moyens-paiement.pdf', request()->query())" :excel-route="route('moyens-paiement.excel', request()->query())" :tout="true" />
+    </div>
+
     <div class="card">
         <div class="table-responsive">
             <table class="table table-hover align-middle mb-0">

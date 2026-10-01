@@ -1,16 +1,38 @@
 @props(['pdfRoute', 'excelRoute', 'tout' => false])
 
-{{-- Groupées (btn-group) plutôt que trois boutons séparés : rendu plus
-     compact et cohérent qu'une rangée de gros boutons espacés. L'impression
-     ouvre directement le PDF (voir x-bouton-imprimer, ?imprimer=1) : même
-     rendu que le bouton "PDF" ci-dessous, jamais un print() du HTML de la
-     page qui rendrait différemment. --}}
-<div class="btn-group d-print-none" role="group">
-    <x-bouton-imprimer :tout="$tout" :pdf-route="$pdfRoute" />
-    <a href="{{ $pdfRoute }}" class="btn btn-sm btn-outline-secondary">
-        <i class="bi bi-file-earmark-pdf me-1"></i>PDF
-    </a>
-    <a href="{{ $excelRoute }}" class="btn btn-sm btn-outline-secondary">
-        <i class="bi bi-file-earmark-excel me-1"></i>Excel
-    </a>
+{{-- Un seul bouton « Exporter » ouvrant un menu (PDF, Excel, CSV, Imprimer)
+     plutôt qu'une rangée de boutons : même encombrement sur toutes les
+     listes, quel que soit le nombre de formats. Deux routes suffisent pour
+     les quatre entrées (voir ExporteListe) : le CSV est la route Excel avec
+     ?format=csv, l'impression la route PDF avec ?imprimer=1 (voir
+     x-bouton-imprimer) — même rendu que le PDF téléchargé, jamais un print()
+     du HTML de la page qui rendrait différemment. --}}
+@php
+    $csvRoute = $excelRoute.(str_contains($excelRoute, '?') ? '&' : '?').'format=csv';
+@endphp
+<div class="dropdown d-print-none">
+    <button type="button" class="btn btn-sm btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+        <i class="bi bi-download me-1"></i>Exporter
+    </button>
+    <ul class="dropdown-menu dropdown-menu-end">
+        <li>
+            <a href="{{ $pdfRoute }}" class="dropdown-item">
+                <i class="bi bi-file-earmark-pdf me-2"></i>PDF
+            </a>
+        </li>
+        <li>
+            <a href="{{ $excelRoute }}" class="dropdown-item">
+                <i class="bi bi-file-earmark-excel me-2"></i>Excel
+            </a>
+        </li>
+        <li>
+            <a href="{{ $csvRoute }}" class="dropdown-item">
+                <i class="bi bi-filetype-csv me-2"></i>CSV
+            </a>
+        </li>
+        <li><hr class="dropdown-divider"></li>
+        <li>
+            <x-bouton-imprimer :tout="$tout" :pdf-route="$pdfRoute" dans-menu />
+        </li>
+    </ul>
 </div>

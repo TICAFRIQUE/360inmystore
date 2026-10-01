@@ -41,11 +41,11 @@ préparées à l'avance (voir §5).
 Copier tout le dossier du projet **directement** dans `C:\laragon\www\` :
 
 ```
-C:\laragon\www\g_stock_quincaillerie\
+C:\laragon\www\360_inmystore\
 ```
 
 ⚠️ **Le dossier doit être directement sous `www\`, jamais imbriqué dans un
-sous-dossier** (ex. `C:\laragon\www\clients\g_stock_quincaillerie` ne
+sous-dossier** (ex. `C:\laragon\www\clients\360_inmystore` ne
 fonctionnera pas) — Laragon ne détecte automatiquement que les dossiers de
 premier niveau pour générer leur virtual host.
 
@@ -56,7 +56,7 @@ Terminal) — jamais l'invite de commandes Windows classique, qui ne connaît
 pas `php`/`composer`/`npm`/`mysql`.
 
 ```
-cd C:\laragon\www\g_stock_quincaillerie
+cd C:\laragon\www\360_inmystore
 scripts\installer.bat
 ```
 
@@ -108,7 +108,7 @@ l'adresse réseau du serveur.
 
 ⚠️ **Ne jamais pointer un poste caisse sur l'IP brute du serveur**
 (ex. `http://192.168.1.10`). Les virtual hosts Laragon sont **basés sur le
-nom** (`g_stock_quincaillerie.test`), pas sur l'IP : Apache ne reconnaît le
+nom** (`360_inmystore.test`), pas sur l'IP : Apache ne reconnaît le
 projet que si la requête arrive avec ce nom, sinon il retombe sur sa page
 par défaut, qui liste tous les dossiers de `C:\laragon\www\` (« Index of / »)
 — symptôme déjà rencontré. Pour qu'un poste caisse résolve ce nom vers le
@@ -118,10 +118,10 @@ poste serveur :
    ouvrir `C:\Windows\System32\drivers\etc\hosts`.
 2. Ajouter une ligne (IP réelle du poste serveur) :
    ```
-   192.168.1.10    g_stock_quincaillerie.test
+   192.168.1.10    360_inmystore.test
    ```
 3. Dans la coquille (Fichier → Paramètres du poste), utiliser
-   `http://g_stock_quincaillerie.test` comme adresse — jamais l'IP brute.
+   `http://360_inmystore.test` comme adresse — jamais l'IP brute.
 
 Réserver l'IP du poste serveur côté routeur (bail DHCP fixe) évite d'avoir à
 refaire cette entrée `hosts` si l'IP change.
@@ -139,16 +139,16 @@ solliciter internet.
 
 - [ ] Laragon : pastilles **Apache** et **MySQL** vertes.
 - [ ] Virtual host généré :
-      `dir C:\laragon\etc\apache2\sites-enabled\auto.g_stock_quincaillerie.test.conf`
+      `dir C:\laragon\etc\apache2\sites-enabled\auto.360_inmystore.test.conf`
       → doit exister, `DocumentRoot` doit pointer vers `...\public`.
 - [ ] Entrée dans le fichier hosts :
-      `findstr /i "g_stock_quincaillerie" C:\Windows\System32\drivers\etc\hosts`
+      `findstr /i "360_inmystore" C:\Windows\System32\drivers\etc\hosts`
 - [ ] `.env` → `APP_URL` correspond **exactement** au nom du dossier + `.test`
-      (`findstr APP_URL C:\laragon\www\g_stock_quincaillerie\.env`).
+      (`findstr APP_URL C:\laragon\www\360_inmystore\.env`).
 - [ ] Page accessible dans le navigateur, connexion avec le compte superadmin
       réussie.
 - [ ] Tâche planifiée active sans fenêtre qui clignote :
-      `Get-ScheduledTaskInfo -TaskName "GStockQuincaillerie_Schedule"`
+      `Get-ScheduledTaskInfo -TaskName "360inmystore_Schedule"`
       (`LastTaskResult : 0` après une exécution).
 
 ## 7. Dépannage — problèmes déjà rencontrés
@@ -158,4 +158,4 @@ solliciter internet.
 | `ERROR 2003 Can't connect to MySQL server ... (10061)` pendant l'install | MySQL de Laragon pas démarré, souvent un autre MySQL (WampServer, XAMPP...) qui occupe déjà le port 3306 | `netstat -ano \| findstr :3306` pour identifier le conflit ; changer le port MySQL dans Laragon (Préférences → Services & Ports) si besoin |
 | Navigateur : "site inaccessible" | Dossier du projet imbriqué (pas directement sous `www\`), OU Apache pas redémarré après la copie, OU entrée `hosts` jamais écrite (Laragon pas lancé en admin) | Vérifier la structure du dossier, faire Stop All/Start All, relancer Laragon en administrateur si l'entrée hosts manque |
 | Le compte superadmin ne se retrouve pas en base après l'install | Les deux saisies du code PIN (masquées) ne correspondaient pas, ou identifiant déjà pris — `installer.bat` continuait avant sans le signaler (corrigé : il boucle maintenant jusqu'au succès) | Rejouer uniquement : `php artisan app:creer-superadmin` |
-| Une fenêtre noire s'ouvre et se referme chaque minute | Ancienne version de la tâche planifiée (avant le fix du wrapper `.vbs` silencieux) | `powershell -NoProfile -ExecutionPolicy Bypass -File scripts\creer-tache-planifiee.ps1 -PhpExe (Get-Command php).Source -ArtisanPath "C:\laragon\www\g_stock_quincaillerie\artisan"` |
+| Une fenêtre noire s'ouvre et se referme chaque minute | Ancienne version de la tâche planifiée (avant le fix du wrapper `.vbs` silencieux) | `powershell -NoProfile -ExecutionPolicy Bypass -File scripts\creer-tache-planifiee.ps1 -PhpExe (Get-Command php).Source -ArtisanPath "C:\laragon\www\360_inmystore\artisan"` |

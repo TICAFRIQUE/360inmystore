@@ -9,18 +9,18 @@
         body {
             font-family: 'DejaVu Sans', Arial, sans-serif;
             font-size: 12px;
-            color: #241e19;
+            color: #1d2939;
             margin: 0;
             padding: 28px;
         }
         table { border-collapse: collapse; width: 100%; }
         .text-end { text-align: right; }
-        .titre { font-size: 20px; font-weight: bold; color: #e8590c; letter-spacing: 1px; margin-bottom: 4px; }
+        .titre { font-size: 20px; font-weight: bold; color: #101828; letter-spacing: 1px; margin-bottom: 4px; }
         .meta { font-size: 11px; color: #555; margin-bottom: 16px; }
         table.lignes th, table.lignes td { border: 1px solid #ccc; padding: 3px 5px; font-size: 9px; }
-        table.lignes th { background: #f0ece6; text-align: left; }
+        table.lignes th { background: #f2f4f7; text-align: left; }
         table.bilan { width: 260px; margin-top: 18px; margin-left: auto; }
-        table.bilan th { background: #f0ece6; text-align: left; font-size: 10px; padding: 4px 6px; border: 1px solid #ccc; }
+        table.bilan th { background: #f2f4f7; text-align: left; font-size: 10px; padding: 4px 6px; border: 1px solid #ccc; }
         table.bilan td { border: 1px solid #ccc; padding: 3px 6px; font-size: 9px; }
         table.bilan td:first-child { color: #555; }
         table.bilan td:last-child { text-align: right; font-weight: bold; }

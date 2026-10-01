@@ -6,8 +6,8 @@ use App\Models\MotifMouvement;
 use Illuminate\Database\Seeder;
 
 /**
- * Motifs courants d'entrée/sortie de caisse ou de trésorerie pour une
- * quincaillerie — répertoire de départ, complétable à tout moment en
+ * Motifs courants d'entrée/sortie de caisse ou de trésorerie d'un commerce,
+ * quel que soit son secteur — répertoire de départ, complétable à tout moment en
  * Administration ou à la volée depuis le formulaire de mouvement (bouton
  * "+", voir CLAUDE.md). firstOrCreate() : relancer ce seeder ne duplique
  * jamais la liste (même précaution que QuincaillerieTestSeeder).

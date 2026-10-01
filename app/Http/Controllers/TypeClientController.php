@@ -2,17 +2,45 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\ExporteListe;
 use App\Http\Controllers\Concerns\TrieListe;
 use App\Models\TypeClient;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
+use Illuminate\Support\Collection;
 use Illuminate\View\View;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class TypeClientController extends Controller
 {
-    use TrieListe;
+    use TrieListe, ExporteListe;
+
+    private const ENTETES_EXPORT = ['Nom', 'Clients', 'Statut'];
 
     public function index(Request $request): View
+    {
+        $typesClient = $this->requeteListe($request)->paginate(20)->withQueryString();
+
+        return view('type-clients.index', ['typesClient' => $typesClient]);
+    }
+
+    public function pdf(Request $request): Response
+    {
+        return $this->pdfDepuisListe('Types de client', self::ENTETES_EXPORT, $this->lignesExport($request), 'types-de-client.pdf');
+    }
+
+    public function excel(Request $request): StreamedResponse
+    {
+        return $this->excelDepuisListe('Types de client', self::ENTETES_EXPORT, $this->lignesExport($request), 'types-de-client.xlsx');
+    }
+
+    /**
+     * Requête de la liste (filtres + tri), partagée par l'écran et ses exports :
+     * un export porte toujours sur ce que l'écran affiche, sans la pagination.
+     */
+    private function requeteListe(Request $request): Builder
     {
         $query = TypeClient::query()
             ->withCount('clients')
@@ -21,11 +49,16 @@ class TypeClientController extends Controller
                 $q->where('nom', 'like', "%{$recherche}%");
             });
 
-        $typesClient = $this->appliquerTri($query, $request, ['nom', 'actif', 'created_at'])
-            ->paginate(20)
-            ->withQueryString();
+        return $this->appliquerTri($query, $request, ['nom', 'actif', 'created_at']);
+    }
 
-        return view('type-clients.index', ['typesClient' => $typesClient]);
+    private function lignesExport(Request $request): Collection
+    {
+        return $this->requeteListe($request)->get()->map(fn (TypeClient $typeClient) => [
+            $typeClient->nom,
+            $typeClient->clients_count,
+            $typeClient->actif ? 'Actif' : 'Inactif',
+        ]);
     }
 
     public function create(): View

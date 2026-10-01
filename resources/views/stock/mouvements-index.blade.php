@@ -9,7 +9,7 @@
             <h2 class="h4 mb-0">Historique des mouvements de stock</h2>
         </div>
         <div class="d-flex gap-2">
-            <x-bouton-imprimer tout />
+            <x-export-buttons :pdf-route="route('stock.mouvements.pdf', request()->query())" :excel-route="route('stock.mouvements.excel', request()->query())" :tout="true" />
         </div>
     </div>
     <p class="text-secondary small mb-3">

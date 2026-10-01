@@ -2,18 +2,46 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\ExporteListe;
 use App\Http\Controllers\Concerns\TrieListe;
 use App\Models\Caisse;
 use App\Models\Magasin;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
+use Illuminate\Support\Collection;
 use Illuminate\View\View;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class CaisseController extends Controller
 {
-    use TrieListe;
+    use TrieListe, ExporteListe;
+
+    private const ENTETES_EXPORT = ['Nom', 'Magasin', 'État', 'Statut'];
 
     public function index(Request $request): View
+    {
+        $caisses = $this->requeteListe($request)->paginate(20)->withQueryString();
+
+        return view('caisses.index', ['caisses' => $caisses]);
+    }
+
+    public function pdf(Request $request): Response
+    {
+        return $this->pdfDepuisListe('Caisses', self::ENTETES_EXPORT, $this->lignesExport($request), 'caisses.pdf');
+    }
+
+    public function excel(Request $request): StreamedResponse
+    {
+        return $this->excelDepuisListe('Caisses', self::ENTETES_EXPORT, $this->lignesExport($request), 'caisses.xlsx');
+    }
+
+    /**
+     * Requête de la liste (filtres + tri), partagée par l'écran et ses exports :
+     * un export porte toujours sur ce que l'écran affiche, sans la pagination.
+     */
+    private function requeteListe(Request $request): Builder
     {
         $query = Caisse::query()
             ->with(['magasin', 'sessionCaisses' => fn ($q) => $q->whereNull('date_fermeture')])
@@ -22,11 +50,17 @@ class CaisseController extends Controller
                 $q->where('nom', 'like', "%{$recherche}%");
             });
 
-        $caisses = $this->appliquerTri($query, $request, ['nom', 'actif', 'created_at'])
-            ->paginate(20)
-            ->withQueryString();
+        return $this->appliquerTri($query, $request, ['nom', 'actif', 'created_at']);
+    }
 
-        return view('caisses.index', ['caisses' => $caisses]);
+    private function lignesExport(Request $request): Collection
+    {
+        return $this->requeteListe($request)->get()->map(fn (Caisse $caisse) => [
+            $caisse->nom,
+            $caisse->magasin->nom,
+            $caisse->sessionCaisses->isNotEmpty() ? 'Occupée' : 'Libre',
+            $caisse->actif ? 'Active' : 'Inactive',
+        ]);
     }
 
     public function create(): View

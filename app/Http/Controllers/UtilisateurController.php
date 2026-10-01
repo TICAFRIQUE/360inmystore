@@ -2,20 +2,48 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\ExporteListe;
 use App\Http\Controllers\Concerns\TrieListe;
 use App\Models\Magasin;
 use App\Models\User;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
+use Illuminate\Support\Collection;
 use Illuminate\View\View;
 use Spatie\Permission\Models\Role;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class UtilisateurController extends Controller
 {
-    use TrieListe;
+    use TrieListe, ExporteListe;
+
+    private const ENTETES_EXPORT = ['Nom', "Nom d'utilisateur", 'Rôle', 'Magasin', 'Statut'];
 
     public function index(Request $request): View
+    {
+        $utilisateurs = $this->requeteListe($request)->paginate(20)->withQueryString();
+
+        return view('utilisateurs.index', ['utilisateurs' => $utilisateurs]);
+    }
+
+    public function pdf(Request $request): Response
+    {
+        return $this->pdfDepuisListe('Utilisateurs', self::ENTETES_EXPORT, $this->lignesExport($request), 'utilisateurs.pdf');
+    }
+
+    public function excel(Request $request): StreamedResponse
+    {
+        return $this->excelDepuisListe('Utilisateurs', self::ENTETES_EXPORT, $this->lignesExport($request), 'utilisateurs.xlsx');
+    }
+
+    /**
+     * Requête de la liste (filtres + tri), partagée par l'écran et ses exports :
+     * un export porte toujours sur ce que l'écran affiche, sans la pagination.
+     */
+    private function requeteListe(Request $request): Builder
     {
         $query = User::query()
             ->with(['magasin', 'roles'])
@@ -23,7 +51,7 @@ class UtilisateurController extends Controller
             // habilité utilisateur.gerer) ne voient jamais les comptes
             // Superadmin ni le compte développeur — pas juste "non gérables
             // depuis cet écran" (déjà le cas via edit()/update()), carrément
-            // invisibles dans la liste.
+            // invisibles dans la liste, donc dans ses exports aussi.
             ->when(! $request->user()->estGestionnaireAbonnement(), function ($q) {
                 $q->whereDoesntHave('roles', fn ($r) => $r->where('name', 'Superadmin'))
                     ->when(config('abonnement.developpeur_username'), fn ($q2, $developpeur) => $q2->where('username', '!=', $developpeur));
@@ -36,11 +64,18 @@ class UtilisateurController extends Controller
                 });
             });
 
-        $utilisateurs = $this->appliquerTri($query, $request, ['name', 'username', 'actif', 'created_at'])
-            ->paginate(20)
-            ->withQueryString();
+        return $this->appliquerTri($query, $request, ['name', 'username', 'actif', 'created_at']);
+    }
 
-        return view('utilisateurs.index', ['utilisateurs' => $utilisateurs]);
+    private function lignesExport(Request $request): Collection
+    {
+        return $this->requeteListe($request)->get()->map(fn (User $utilisateur) => [
+            $utilisateur->name,
+            $utilisateur->username,
+            $utilisateur->roles->pluck('name')->implode(', ') ?: '—',
+            $utilisateur->magasin->nom ?? '—',
+            $utilisateur->actif ? 'Actif' : 'Inactif',
+        ]);
     }
 
     public function create(): View

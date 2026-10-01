@@ -274,8 +274,8 @@
         // x-bouton-imprimer pour le même mécanisme).
         function imprimerDevis() {
             const url = '{{ route('devis.pdf', $devis) }}?imprimer=1';
-            if (window.gstock && window.gstock.printPdfUrl) {
-                window.gstock.printPdfUrl(url);
+            if (window.inmystore && window.inmystore.printPdfUrl) {
+                window.inmystore.printPdfUrl(url);
                 return;
             }
             let iframe = document.getElementById('__iframeDevisPdf');

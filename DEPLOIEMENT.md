@@ -1,4 +1,4 @@
-# Déploiement — G-Stock
+# Déploiement — 360inmystore
 
 Guide de mise en production sur le sous-domaine `g-stock.maxisujets.net`
 (hébergement mutualisé cPanel), build et déploiement automatisés via GitHub
@@ -124,8 +124,8 @@ portée du web.
 
 cPanel > **MySQL Databases** :
 
-1. Créer une base (ex. `gstock`) — cPanel préfixera automatiquement par le
-   nom du compte (ex. `maxisgwd_gstock`).
+1. Créer une base (ex. `360inmystore`) — cPanel préfixera automatiquement par le
+   nom du compte (ex. `maxisgwd_360inmystore`).
 2. Créer un utilisateur MySQL dédié, mot de passe fort.
 3. L'associer à la base avec **tous les privilèges**.
 4. Renseigner ces valeurs dans le `.env` du serveur (§3).

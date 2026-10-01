@@ -2,12 +2,12 @@
 <html lang="fr">
 <head>
 <meta charset="utf-8" />
-<title>G-Stock — Configuration du poste</title>
+<title>360inmystore — Configuration du poste</title>
 <style>
   * { box-sizing: border-box; }
   body {
     font-family: "Segoe UI", sans-serif;
-    background: #f4f1ec;
+    background: #f4f6f9;
     color: #2b2b2b;
     margin: 0;
     padding: 24px;
@@ -15,7 +15,7 @@
   h1 { font-size: 18px; margin: 0 0 4px; }
   p.hint { color: #666; font-size: 13px; margin: 0 0 20px; }
   fieldset {
-    border: 1px solid #d8d2c6;
+    border: 1px solid #e4e7ec;
     border-radius: 6px;
     padding: 14px 16px;
     margin-bottom: 16px;
@@ -25,7 +25,7 @@
   input[type="text"] {
     width: 100%;
     padding: 8px 10px;
-    border: 1px solid #c9c2b3;
+    border: 1px solid #d0d5dd;
     border-radius: 4px;
     font-size: 14px;
   }
@@ -43,8 +43,8 @@
     border: none;
     cursor: pointer;
   }
-  #save { background: #c1621a; color: #fff; }
-  #test { background: #e9e3d6; color: #2b2b2b; }
+  #save { background: #2563eb; color: #fff; }
+  #test { background: #e4e7ec; color: #2b2b2b; }
   #status { font-size: 12px; margin-top: 8px; min-height: 16px; }
   #status.ok { color: #2f7d3a; }
   #status.err { color: #b3261e; }
@@ -75,9 +75,9 @@
   <fieldset id="client-fields" class="hidden">
     <legend>Poste caisse</legend>
     <label for="serverUrlClient">Adresse du poste serveur</label>
-    <input type="text" id="serverUrlClient" placeholder="http://g_stock_quincaillerie.test" />
+    <input type="text" id="serverUrlClient" placeholder="http://360_inmystore.test" />
     <p class="role-desc" style="margin-top:8px;">
-      Utiliser le nom du site (ex. <code>g_stock_quincaillerie.test</code>),
+      Utiliser le nom du site (ex. <code>360_inmystore.test</code>),
       pas l'IP brute — sinon Apache affiche la liste des dossiers au lieu de
       l'application. Ce nom doit être ajouté dans le fichier <code>hosts</code>
       de ce poste, pointant vers l'IP du serveur (voir INSTALLATION-LOCALE.md).
@@ -122,8 +122,8 @@
 
     async function init() {
       const [defaults, existing] = await Promise.all([
-        window.gstock.getDefaults(),
-        window.gstock.getConfig(),
+        window.inmystore.getDefaults(),
+        window.inmystore.getConfig(),
       ]);
       laragonPathInput.value = (existing && existing.laragonPath) || defaults.laragonPath;
       if (existing && existing.role === 'client') {
@@ -170,7 +170,7 @@
       if (role === 'server') {
         config.laragonPath = laragonPathInput.value.trim();
       }
-      await window.gstock.saveConfig(config);
+      await window.inmystore.saveConfig(config);
     });
 
     init();

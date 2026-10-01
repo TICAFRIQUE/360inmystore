@@ -2,18 +2,54 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\ExporteListe;
 use App\Models\MoyenPaiement;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
+use Illuminate\Support\Collection;
 use Illuminate\View\View;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class MoyenPaiementController extends Controller
 {
+    use ExporteListe;
+
+    private const ENTETES_EXPORT = ['Nom', 'Espèces (tiroir)', 'Statut'];
+
     public function index(): View
     {
-        $moyensPaiement = MoyenPaiement::query()->orderBy('nom')->get();
+        $moyensPaiement = $this->requeteListe()->get();
 
         return view('moyens-paiement.index', ['moyensPaiement' => $moyensPaiement]);
+    }
+
+    public function pdf(): Response
+    {
+        return $this->pdfDepuisListe('Moyens de paiement', self::ENTETES_EXPORT, $this->lignesExport(), 'moyens-de-paiement.pdf');
+    }
+
+    public function excel(): StreamedResponse
+    {
+        return $this->excelDepuisListe('Moyens de paiement', self::ENTETES_EXPORT, $this->lignesExport(), 'moyens-de-paiement.xlsx');
+    }
+
+    /**
+     * Requête de la liste, partagée par l'écran et ses exports.
+     */
+    private function requeteListe(): Builder
+    {
+        return MoyenPaiement::query()->orderBy('nom');
+    }
+
+    private function lignesExport(): Collection
+    {
+        return $this->requeteListe()->get()->map(fn (MoyenPaiement $moyenPaiement) => [
+            $moyenPaiement->nom,
+            $moyenPaiement->est_espece ? 'Oui' : 'Non',
+            $moyenPaiement->actif ? 'Actif' : 'Inactif',
+        ]);
     }
 
     public function create(): View

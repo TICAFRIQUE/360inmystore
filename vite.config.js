@@ -8,7 +8,7 @@ export default defineConfig({
             input: ['resources/sass/app.scss', 'resources/js/app.js'],
             refresh: true,
             fonts: [
-                bunny('Instrument Sans', {
+                bunny('Inter', {
                     weights: [400, 500, 600],
                 }),
             ],

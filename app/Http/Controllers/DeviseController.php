@@ -2,17 +2,45 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\ExporteListe;
 use App\Http\Controllers\Concerns\TrieListe;
 use App\Models\Devise;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
+use Illuminate\Support\Collection;
 use Illuminate\View\View;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class DeviseController extends Controller
 {
-    use TrieListe;
+    use TrieListe, ExporteListe;
+
+    private const ENTETES_EXPORT = ['Nom', 'Abréviation', 'Statut'];
 
     public function index(Request $request): View
+    {
+        $devises = $this->requeteListe($request)->paginate(20)->withQueryString();
+
+        return view('devises.index', ['devises' => $devises]);
+    }
+
+    public function pdf(Request $request): Response
+    {
+        return $this->pdfDepuisListe('Devises', self::ENTETES_EXPORT, $this->lignesExport($request), 'devises.pdf');
+    }
+
+    public function excel(Request $request): StreamedResponse
+    {
+        return $this->excelDepuisListe('Devises', self::ENTETES_EXPORT, $this->lignesExport($request), 'devises.xlsx');
+    }
+
+    /**
+     * Requête de la liste (filtres + tri), partagée par l'écran et ses exports :
+     * un export porte toujours sur ce que l'écran affiche, sans la pagination.
+     */
+    private function requeteListe(Request $request): Builder
     {
         $query = Devise::query()
             ->when($request->filled('recherche'), function ($q) use ($request) {
@@ -23,11 +51,16 @@ class DeviseController extends Controller
                 });
             });
 
-        $devises = $this->appliquerTri($query, $request, ['nom', 'abreviation', 'actif', 'created_at'])
-            ->paginate(20)
-            ->withQueryString();
+        return $this->appliquerTri($query, $request, ['nom', 'abreviation', 'actif', 'created_at']);
+    }
 
-        return view('devises.index', ['devises' => $devises]);
+    private function lignesExport(Request $request): Collection
+    {
+        return $this->requeteListe($request)->get()->map(fn (Devise $devise) => [
+            $devise->nom,
+            $devise->abreviation,
+            $devise->actif ? 'Active' : 'Inactive',
+        ]);
     }
 
     public function create(): View

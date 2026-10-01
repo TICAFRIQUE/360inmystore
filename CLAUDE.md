@@ -8,13 +8,21 @@ et surtout **les règles à ne jamais violer**. Le détail fonctionnel complet e
 
 ## Vue d'ensemble
 
-Application web **ERP (inspiration Odoo)** de **caisse (POS) + gestion de stock** pour un
-vendeur de **matériaux et outillage de quincaillerie** exploitant **plusieurs magasins**.
+**360inmystore** — application web **ERP (inspiration Odoo)** de **caisse (POS) + gestion
+de stock** pour un commerce exploitant **un ou plusieurs magasins**, **quel que soit son
+secteur d'activité** (quincaillerie, alimentation, boutique, pièces détachées…). Aucun
+libellé, exemple par défaut, couleur ni règle ne doit supposer un secteur précis : ce
+qui varie d'un commerce à l'autre (catalogue, unités, types de client, motifs de
+mouvement, nom/logo/couleur) est du **paramétrage**, jamais du code.
 Cible : utilisateurs **non techniques** — interface simple et intuitive.
 
-Clientèle mixte : particuliers (vente comptant) **et** professionnels du bâtiment
-(maçons, artisans, entrepreneurs) qui achètent régulièrement **à crédit** sur compte
-client, réglé plus tard.
+« 360inmystore » est le nom du **produit** (`APP_NAME`, scripts, coquille desktop,
+discret en pied de sidebar) ; le nom affiché en grand à l'écran et sur les documents
+reste celui du **commerce**, configurable dans Paramètres (`Parametre.nom`, qui vaut
+« 360inmystore » tant qu'il n'a pas été personnalisé).
+
+Clientèle mixte : particuliers (vente comptant) **et** clients professionnels réguliers
+qui achètent **à crédit** sur compte client, réglé plus tard.
 
 - Web **responsive** (smartphone / tablette / desktop).
 - **MVP connecté** : la caisse dialogue avec le serveur. Hors-ligne reporté —
@@ -516,7 +524,7 @@ client, réglé plus tard.
 - **Volontairement indépendant des caisses de vente des caissiers** (`Caisse`/
   `SessionCaisse`/`MouvementCaisse`, voir « Mouvements de caisse » ci-dessus) : les deux
   univers ne se mélangent jamais comptablement, même s'ils apparaissent côte à côte dans
-  l'écran « Trésorerie » (menu horizontal, entrée dédiée — voir « Interface »).
+  l'écran « Trésorerie » (entrée dédiée du menu — voir « Interface »).
 - **Dépôt automatique à la clôture d'une session** : dès qu'une session de caissier est
   clôturée (règle 9), le montant **compté** (pas le théorique) génère une écriture
   `depot_session_cloturee` sur la Caisse Générale — modélise le geste physique de vider
@@ -549,7 +557,7 @@ client, réglé plus tard.
 - **Rapport dédié** (`rapports.tresorerie`) : tous les mouvements de trésorerie, filtrable
   par compte/type/période, exportable PDF/Excel — **séparé** de
   `rapports.mouvements-caisse` qui reste scopé aux tiroirs des caissiers.
-- **Écran « Trésorerie » (`comptabilite.caisses.index`, menu horizontal, entrée dédiée)** :
+- **Écran « Trésorerie » (`comptabilite.caisses.index`, entrée dédiée du menu)** :
   répertoire listant la Caisse Générale, les Comptes, et **toutes** les caisses de vente
   (pas seulement celles actuellement ouvertes — un répertoire de trésorerie, pas l'écran
   opérationnel du jour, voir `/sessions`). Cliquer sur une caisse de vente ouvre un
@@ -774,24 +782,39 @@ client, réglé plus tard.
 
 ## Interface (ERP type Odoo)
 
-- **Layout à menu horizontal sur desktop** : une seule barre en haut de page ; sections
-  regroupées en menus déroulants (Vente, Stock, Catalogue, Rapports, Administration) plus
-  une entrée simple « Trésorerie » (Caisse Générale/Comptes, Gérant/Superadmin uniquement,
-  voir « Trésorerie »). Les entrées/sorties de tiroir des caissiers ne sont **pas** un
-  menu séparé : elles se saisissent directement sur l'écran de session de vente
-  (`/sessions/{session}`, voir « Mouvements de caisse ») — `sessions.index`/
-  `sessions.show` couvraient déjà l'essentiel de ce qu'un onglet « Mes caisses » dédié
-  aurait montré, donc pas de duplication.
-  Sur mobile/tablette (< lg), le même menu s'ouvre en **sidebar coulissante** (offcanvas)
-  plutôt que replié en ligne sous la barre — plus confortable à parcourir sur petit
-  écran ; mêmes regroupements/permissions, seule la présentation change selon la taille
-  d'écran.
-- **« Vente → Facture » mène directement à la session en cours si le caissier connecté
+- **Layout à sidebar** (`layouts/app.blade.php`) : menu vertical à gauche + barre
+  supérieure fine (bouton de bascule du menu, titre de la page, raccourci « Caisse
+  ouverte », cloches de notification, compte utilisateur). Le menu
+  (`partials/sidebar.blade.php`) est décrit par **un seul tableau** sections → entrées →
+  sous-entrées : Tableau de bord ; *Opérations* (Vente, Achats, Stock, Catalogue) ;
+  *Pilotage* (Trésorerie — Caisse Générale/Comptes, Gérant/Superadmin uniquement, voir
+  « Trésorerie » — et Rapports) ; *Configuration* (Administration). Un groupe ne
+  s'affiche que si au moins une de ses sous-entrées est visible pour l'utilisateur, et
+  son état actif se déduit d'elles — **jamais** une seconde liste de permissions/routes
+  à maintenir sur le parent (c'était la source d'un menu « Stock » au HTML cassé pour un
+  rôle ayant `stock.transferer` sans `stock.voir`). Ajouter un écran = ajouter une ligne
+  à ce tableau.
+  Les entrées/sorties de tiroir des caissiers ne sont **pas** un menu séparé : elles se
+  saisissent directement sur l'écran de session de vente (`/sessions/{session}`, voir
+  « Mouvements de caisse ») — `sessions.index`/`sessions.show` couvraient déjà
+  l'essentiel de ce qu'un onglet « Mes caisses » dédié aurait montré, donc pas de
+  duplication.
+- **Sidebar réductible en miniature** (desktop ≥ lg) : icônes seules (classe
+  `erp-sidebar-mini` sur `<html>`), le libellé d'un lien simple devient une infobulle et
+  un groupe ouvre son sous-menu en panneau volant au survol/focus. Choix mémorisé **par
+  poste** (`localStorage`, clé `erp.sidebar.mini`) et réappliqué par un script en tête
+  du layout, avant le premier rendu (pas de saut visuel) ; sans préférence enregistrée,
+  réduite d'office sous 1200 px de large. Sur mobile/tablette (< lg), le **même** élément
+  devient un panneau coulissant (`.offcanvas-lg` de Bootstrap), toujours déplié — un seul
+  menu dans le DOM, mêmes regroupements/permissions, seule la présentation change.
+- **« Vente → Facture/BL » mène directement à la session en cours si le caissier connecté
   en a déjà une d'ouverte** (`sessionCaissierOuverteMenu`, `AppServiceProvider::boot()`,
   partagé avec `layouts.app`) — plutôt que de repasser par `sessions.index` (sélection
   d'une caisse libre) à chaque fois, alors qu'une caisse n'a qu'une session ouverte à la
   fois par caissier (règle 7). Sans session active, le lien reste `sessions.index` comme
-  avant.
+  avant. La même donnée alimente la pastille « Caisse ouverte » de la barre supérieure
+  (`partials/topbar.blade.php`), visible depuis n'importe quel écran, y compris menu
+  réduit.
 - **Dashboard adapté au rôle** : caissier → sa session ; gérant → son magasin (CA, panier
   moyen, top produits, stock sous seuil, écarts de caisse, **total des créances clients**,
   clients en dépassement de limite) ; superadmin → consolidé multi-magasin. Graphiques
@@ -803,16 +826,38 @@ client, réglé plus tard.
   (`Vente.avoir_applique`), et total en caisse du mois (espèces réellement encaissées —
   paiements à la vente **et** règlements clients, règle 10 ; jamais confondu avec le total
   ventes). Le graphique « Moyens de paiement » compte lui aussi les deux sources.
-- Palette ERP quincaillerie : primaire **orange chantier**, accents mélangés
-  (bleu industriel, ambre foncé, gris acier), surfaces claires chaudes.
-  Définie dans `resources/sass/app.scss` (variables Bootstrap `$primary`
-  et suivantes) — toujours modifier la palette à cet endroit, jamais de
-  couleur codée en dur dans une vue. `$warning` est un **ambre foncé**
-  (`#92650a`), pas un jaune franc : le jaune sécurité d'origine (`#f5b800`)
-  tombait sous le seuil WCAG AA (~1.6:1 de contraste sur les surfaces
-  claires du thème) — quasi illisible en texte comme en libellé de bouton.
+- Palette **neutre, sans connotation de secteur** : primaire **bleu** (`#2563eb`),
+  accents mélangés (cyan sarcelle, ambre foncé, gris ardoise), surfaces claires
+  (sidebar et barre supérieure blanches, fond de page gris très clair, cartes blanches à
+  bordure fine). Définie dans `resources/sass/app.scss` (variables Bootstrap `$primary`
+  et suivantes) — toujours modifier la palette à cet endroit, jamais de couleur codée en
+  dur dans une vue. La primaire est **personnalisable par installation** (Paramètres →
+  couleur, `PaletteCouleur` + `partials/couleur-primaire.blade.php`) : tout élément
+  teinté (entrée de menu active, avatar…) doit dériver des variables `--bs-primary*`,
+  jamais de `$primary` en dur côté composant ; `PaletteCouleur::DEFAUT` doit rester
+  identique à `$primary`. `$warning` est un **ambre foncé** (`#92650a`), pas un jaune
+  franc : un jaune type `#f5b800` tombe sous le seuil WCAG AA (~1.6:1 de contraste sur
+  les surfaces claires du thème) — quasi illisible en texte comme en libellé de bouton.
+- **Police fine** : Inter (chargée via `vite.config.js`, graisses 400/500/600
+  uniquement), base 14 px, titres en 500, « gras » plafonné à 600 par les variables
+  Bootstrap (`$font-weight-*`) — donc appliqué partout sans toucher aux vues. Ne pas
+  réintroduire de graisse 700 ni de taille de base 16 px vue par vue.
 - Listes en **DataTables serveur** (jamais charger toute une table en mémoire).
-- Feedback explicite (toasts), sentence case, responsive (menu repliable sur mobile).
+- **Toute liste a un menu « Exporter »** (`x-export-buttons`) : un seul bouton déroulant
+  avec PDF, Excel, CSV et Imprimer — jamais une rangée de boutons, jamais un bouton
+  « Imprimer » isolé qui imprimerait le HTML de la page. Les quatre entrées reposent sur
+  **deux routes** par liste (trait `ExporteListe`) : `*.pdf` (téléchargement, ou
+  impression avec `?imprimer=1`) et `*.excel` (xlsx, ou CSV avec `?format=csv` —
+  séparateur `;`, UTF-8 avec BOM, pour s'ouvrir directement dans un Excel français). Un
+  export porte toujours sur ce que l'écran affiche (mêmes filtres et tri, passés par la
+  query string), sans la pagination : le contrôleur expose une seule requête
+  (`requeteListe()`) partagée par `index()` et `lignesExport()`, jamais une copie des
+  filtres. Quand le contrôleur exporte déjà un document unitaire sous `pdf()`/`excel()`
+  (bon de commande, devis, bon de livraison), l'export de la liste s'appelle
+  `listePdf()`/`listeExcel()` (routes `*.liste.pdf`/`*.liste.excel`). Tout export tableur
+  sort par `ExporteListe::telechargerTableur()`, y compris ceux qui construisent leur
+  propre classeur.
+- Feedback explicite (toasts), sentence case, responsive (menu coulissant sur mobile).
 - **Rupture de stock** : produit ou unité de vente en stock insuffisant affiché **grisé**
   avec mention « rupture de stock », non sélectionnable au panier (blocage en amont dans
   l'UI, pas d'erreur après coup).
@@ -922,7 +967,7 @@ ouverte, contrairement à avant) ; elle reçoit aussi automatiquement le montant
 chaque session de caissier clôturée (règle 21). Des **Comptes** (banque/autre)
 s'alimentent par virement depuis la Caisse Générale, sans aucun lien avec les moyens de
 paiement de la vente. Nouvel écran **Trésorerie** (`tresorerie.voir`/`tresorerie.gerer`,
-Gérant/Superadmin uniquement, entrée dédiée du menu horizontal) : répertoire listant
+Gérant/Superadmin uniquement, entrée dédiée du menu) : répertoire listant
 Caisse Générale + Comptes + **toutes** les caisses de vente (pas seulement celles
 ouvertes), chacune menant à son propre rapport historique ; et un rapport dédié
 (`rapports.tresorerie`) séparé de `rapports.mouvements-caisse`. L'ancien onglet « Mes
@@ -947,3 +992,18 @@ liées, sans flag stocké. Pour un achat déjà effectué (achat comptant chez l
 fournisseur, sans document envoyé au préalable), l'écran de création propose un
 raccourci « Enregistrer et réceptionner immédiatement » qui enchaîne création,
 validation et réception complète en une seule action.
+
+Nouvelle extension (360inmystore, application tous secteurs) : le projet, né pour une
+quincaillerie (« G-Stock Quincaillerie »), devient **360inmystore**, utilisable par
+tout type de commerce — nom remplacé partout (scripts, coquille desktop, docs, valeur
+par défaut de `Parametre.nom`), aucun secteur supposé dans les libellés/exemples
+(voir « Vue d'ensemble »). **Refonte de l'interface** : la décision « menu horizontal
+en remplacement de la sidebar » ci-dessus est **annulée** — retour à une **sidebar**,
+réductible en miniature sur desktop et coulissante sur mobile, avec un groupe
+« Achats » (Fournisseurs, Bons de commande) séparé de « Stock » ; palette neutre à
+primaire bleue en remplacement de l'orange chantier, police fine (Inter 14 px) — voir
+« Interface ». Seule la présentation change : routes, permissions et règles métier
+sont inchangées. Le pont desktop exposé aux vues s'appelle désormais
+`window.inmystore` (anciennement `window.gstock`) : vues et `desktop/preload.js`
+doivent toujours évoluer ensemble. `QuincaillerieTestSeeder` reste un simple jeu de
+données de démonstration (environnement local uniquement), pas une hypothèse produit.

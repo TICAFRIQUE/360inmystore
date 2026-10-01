@@ -14,7 +14,11 @@
         devise active se choisit dans <a href="{{ route('parametres.edit') }}">Paramètres</a>.
     </p>
 
-    <x-recherche-form :action="route('devises.index')" placeholder="Rechercher une devise…" />
+    <x-recherche-form :action="route('devises.index')" placeholder="Rechercher une devise…">
+        <x-slot:export>
+            <x-export-buttons :pdf-route="route('devises.pdf', request()->query())" :excel-route="route('devises.excel', request()->query())" :tout="true" />
+        </x-slot:export>
+    </x-recherche-form>
 
     <div class="card">
         <div class="table-responsive">

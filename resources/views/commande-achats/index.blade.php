@@ -41,6 +41,9 @@
                    class="form-check-input" @checked($receptionIncomplete) onchange="this.form.submit()">
             <label class="form-check-label small" for="reception-incomplete">Pas encore reçus à 100 %</label>
         </div>
+        <x-slot:export>
+            <x-export-buttons :pdf-route="route('commande-achats.liste.pdf', request()->query())" :excel-route="route('commande-achats.liste.excel', request()->query())" :tout="true" />
+        </x-slot:export>
     </x-recherche-form>
 
     <div class="card">

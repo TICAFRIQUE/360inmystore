@@ -12,7 +12,11 @@
         ouvrez une facture pour y enregistrer une livraison, comme depuis sa fiche.
     </p>
 
-    <x-recherche-form :action="route('bons-livraison.index')" placeholder="Numéro de facture…" />
+    <x-recherche-form :action="route('bons-livraison.index')" placeholder="Numéro de facture…">
+        <x-slot:export>
+            <x-export-buttons :pdf-route="route('bons-livraison.liste.pdf', request()->query())" :excel-route="route('bons-livraison.liste.excel', request()->query())" :tout="true" />
+        </x-slot:export>
+    </x-recherche-form>
 
     <div class="card">
         <div class="table-responsive">

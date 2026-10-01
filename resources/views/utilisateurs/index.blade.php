@@ -24,7 +24,11 @@
         </div>
     @endif
 
-    <x-recherche-form :action="route('utilisateurs.index')" placeholder="Nom ou nom d'utilisateur…" />
+    <x-recherche-form :action="route('utilisateurs.index')" placeholder="Nom ou nom d'utilisateur…">
+        <x-slot:export>
+            <x-export-buttons :pdf-route="route('utilisateurs.pdf', request()->query())" :excel-route="route('utilisateurs.excel', request()->query())" :tout="true" />
+        </x-slot:export>
+    </x-recherche-form>
 
     <div class="card">
         <div class="table-responsive">

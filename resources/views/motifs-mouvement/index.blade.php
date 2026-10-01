@@ -12,7 +12,11 @@
         un motif reste un texte libre à la saisie (règle 19), ce référentiel ne fait qu'harmoniser les libellés déjà utilisés.
     </p>
 
-    <x-recherche-form :action="route('motifs-mouvement.index')" placeholder="Rechercher un motif…" />
+    <x-recherche-form :action="route('motifs-mouvement.index')" placeholder="Rechercher un motif…">
+        <x-slot:export>
+            <x-export-buttons :pdf-route="route('motifs-mouvement.pdf', request()->query())" :excel-route="route('motifs-mouvement.excel', request()->query())" :tout="true" />
+        </x-slot:export>
+    </x-recherche-form>
 
     <div class="card">
         <div class="table-responsive">

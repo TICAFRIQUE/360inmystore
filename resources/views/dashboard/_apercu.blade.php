@@ -270,8 +270,8 @@
             // seules — on relit --bs-primary(-rgb) à l'exécution pour rester
             // cohérent avec la couleur primaire configurée en Paramètres.
             const racine = getComputedStyle(document.documentElement);
-            const couleurPrimaire = (racine.getPropertyValue('--bs-primary') || '#e8590c').trim();
-            const couleurPrimaireRgb = (racine.getPropertyValue('--bs-primary-rgb') || '232, 89, 12').trim();
+            const couleurPrimaire = (racine.getPropertyValue('--bs-primary') || '#2563eb').trim();
+            const couleurPrimaireRgb = (racine.getPropertyValue('--bs-primary-rgb') || '37, 99, 235').trim();
 
             const evolutionEl = document.getElementById('chart-evolution');
             if (evolutionEl) {
@@ -300,7 +300,7 @@
                         labels: JSON.parse(moyensEl.dataset.labels),
                         datasets: [{
                             data: JSON.parse(moyensEl.dataset.valeurs),
-                            backgroundColor: [couleurPrimaire, '#2470a8', '#f5b800', '#c62828', '#2e7d32'],
+                            backgroundColor: [couleurPrimaire, '#0e7490', '#d99a1c', '#c62828', '#15803d'],
                         }],
                     },
                 });

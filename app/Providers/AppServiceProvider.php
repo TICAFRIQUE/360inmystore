@@ -49,7 +49,7 @@ class AppServiceProvider extends ServiceProvider
         });
 
         // Session de caisse réellement active (ni clôturée ni fermée) du
-        // caissier connecté — partagée avec le menu (topnav) pour que
+        // caissier connecté — partagée avec le menu (sidebar) pour que
         // "Vente → Facture" mène directement à cette session (règle 7 : au
         // plus une session ouverte par caissier à la fois) plutôt que de
         // repasser par l'écran de sélection de caisse. Même double

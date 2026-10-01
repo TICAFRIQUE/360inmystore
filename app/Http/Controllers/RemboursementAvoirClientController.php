@@ -4,14 +4,18 @@ namespace App\Http\Controllers;
 
 use App\Exceptions\AvoirClientInsuffisantException;
 use App\Exceptions\SoldeCaisseInsuffisantException;
+use App\Http\Controllers\Concerns\ExporteListe;
 use App\Models\Client;
 use App\Models\MoyenPaiement;
 use App\Models\SessionCaisse;
 use App\Services\RemboursementAvoirClientService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
+use Illuminate\Support\Collection;
 use Illuminate\View\View;
 use InvalidArgumentException;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
  * Règle un avoir client (solde négatif — voir CLAUDE.md, section Retours) :
@@ -22,6 +26,10 @@ use InvalidArgumentException;
  */
 class RemboursementAvoirClientController extends Controller
 {
+    use ExporteListe;
+
+    private const ENTETES_EXPORT = ['Client', 'Code', 'Avoir disponible'];
+
     /**
      * Liste centralisée de tous les clients ayant un avoir disponible
      * (solde négatif), avec un remboursement possible directement depuis
@@ -38,6 +46,25 @@ class RemboursementAvoirClientController extends Controller
                 ->whereNull('date_fermeture')
                 ->whereNull('date_cloture')
                 ->first(),
+        ]);
+    }
+
+    public function pdf(): Response
+    {
+        return $this->pdfDepuisListe('Avoirs clients', self::ENTETES_EXPORT, $this->lignesExport(), 'avoirs-clients.pdf');
+    }
+
+    public function excel(): StreamedResponse
+    {
+        return $this->excelDepuisListe('Avoirs clients', self::ENTETES_EXPORT, $this->lignesExport(), 'avoirs-clients.xlsx');
+    }
+
+    private function lignesExport(): Collection
+    {
+        return Client::actifsAvecAvoir()->map(fn (Client $client) => [
+            $client->nom,
+            $client->code,
+            montant(-$client->solde),
         ]);
     }
 

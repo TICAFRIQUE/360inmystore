@@ -195,7 +195,7 @@
 
         <div class="btn-group">
             <button type="button" class="btn btn-sm btn-outline-secondary"
-                onclick="(window.gstock && window.gstock.print) ? window.gstock.print() : window.print()">
+                onclick="(window.inmystore && window.inmystore.print) ? window.inmystore.print() : window.print()">
                 <i class="bi bi-printer me-1"></i>Ticket caisse
             </button>
             <button type="button" class="btn btn-sm btn-outline-secondary" onclick="imprimerFacture()">
@@ -1068,8 +1068,8 @@
         // x-bouton-imprimer pour le même mécanisme).
         function imprimerFacture() {
             const url = '{{ route('ventes.pdf', $vente) }}?imprimer=1';
-            if (window.gstock && window.gstock.printPdfUrl) {
-                window.gstock.printPdfUrl(url);
+            if (window.inmystore && window.inmystore.printPdfUrl) {
+                window.inmystore.printPdfUrl(url);
                 return;
             }
             let iframe = document.getElementById('__iframeFacturePdf');
@@ -1092,8 +1092,8 @@
         // chaque bon de livraison de la ligne "Imprimer" du tableau
         // Livraisons — un seul iframe caché partagé entre les appels.
         function imprimerBonLivraison(url) {
-            if (window.gstock && window.gstock.printPdfUrl) {
-                window.gstock.printPdfUrl(url);
+            if (window.inmystore && window.inmystore.printPdfUrl) {
+                window.inmystore.printPdfUrl(url);
                 return;
             }
             let iframe = document.getElementById('__iframeBonLivraisonPdf');

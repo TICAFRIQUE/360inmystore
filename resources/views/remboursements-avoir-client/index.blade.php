@@ -5,6 +5,7 @@
 @section('content')
     <div class="d-flex justify-content-between align-items-center mb-3">
         <h2 class="h4 mb-0">Avoirs clients</h2>
+        <x-export-buttons :pdf-route="route('remboursements-avoir-client.pdf', request()->query())" :excel-route="route('remboursements-avoir-client.excel', request()->query())" :tout="true" />
     </div>
 
     <p class="text-secondary small mb-3">

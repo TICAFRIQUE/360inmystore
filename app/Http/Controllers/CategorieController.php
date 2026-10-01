@@ -2,17 +2,45 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\ExporteListe;
 use App\Http\Controllers\Concerns\TrieListe;
 use App\Models\Categorie;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
+use Illuminate\Support\Collection;
 use Illuminate\View\View;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class CategorieController extends Controller
 {
-    use TrieListe;
+    use TrieListe, ExporteListe;
+
+    private const ENTETES_EXPORT = ['Nom', 'Catégorie parente', 'Produits', 'Statut'];
 
     public function index(Request $request): View
+    {
+        $categories = $this->requeteListe($request)->paginate(20)->withQueryString();
+
+        return view('categories.index', ['categories' => $categories]);
+    }
+
+    public function pdf(Request $request): Response
+    {
+        return $this->pdfDepuisListe('Catégories', self::ENTETES_EXPORT, $this->lignesExport($request), 'categories.pdf');
+    }
+
+    public function excel(Request $request): StreamedResponse
+    {
+        return $this->excelDepuisListe('Catégories', self::ENTETES_EXPORT, $this->lignesExport($request), 'categories.xlsx');
+    }
+
+    /**
+     * Requête de la liste (filtres + tri), partagée par l'écran et ses exports :
+     * un export porte toujours sur ce que l'écran affiche, sans la pagination.
+     */
+    private function requeteListe(Request $request): Builder
     {
         $query = Categorie::query()
             ->withCount('produits')
@@ -22,11 +50,17 @@ class CategorieController extends Controller
                 $q->where('nom', 'like', "%{$recherche}%");
             });
 
-        $categories = $this->appliquerTri($query, $request, ['nom', 'created_at'])
-            ->paginate(20)
-            ->withQueryString();
+        return $this->appliquerTri($query, $request, ['nom', 'created_at']);
+    }
 
-        return view('categories.index', ['categories' => $categories]);
+    private function lignesExport(Request $request): Collection
+    {
+        return $this->requeteListe($request)->get()->map(fn (Categorie $categorie) => [
+            $categorie->nom,
+            $categorie->parent->nom ?? '—',
+            $categorie->produits_count,
+            $categorie->actif ? 'Active' : 'Inactive',
+        ]);
     }
 
     public function create(): View

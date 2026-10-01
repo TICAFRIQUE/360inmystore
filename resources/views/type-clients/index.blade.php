@@ -8,7 +8,11 @@
         <a href="{{ route('type-clients.create') }}" class="btn btn-primary">Nouveau type</a>
     </div>
 
-    <x-recherche-form :action="route('type-clients.index')" placeholder="Rechercher un type…" />
+    <x-recherche-form :action="route('type-clients.index')" placeholder="Rechercher un type…">
+        <x-slot:export>
+            <x-export-buttons :pdf-route="route('type-clients.pdf', request()->query())" :excel-route="route('type-clients.excel', request()->query())" :tout="true" />
+        </x-slot:export>
+    </x-recherche-form>
 
     <div class="card">
         <div class="table-responsive">

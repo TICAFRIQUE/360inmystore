@@ -14,7 +14,6 @@
             --bs-link-color-rgb: {{ $n['primaire_rgb'] }};
             --bs-link-hover-color: {{ $n['lien_survol'] }};
             --bs-link-hover-color-rgb: {{ $n['lien_survol_rgb'] }};
-            --erp-sidebar-bg-active: {{ $n['btn_active_bg'] }};
         }
 
         .btn-primary {
@@ -41,11 +40,6 @@
             --bs-btn-disabled-color: {{ $n['primaire'] }};
             --bs-btn-disabled-border-color: {{ $n['primaire'] }};
             --bs-btn-focus-shadow-rgb: {{ $n['primaire_rgb'] }};
-        }
-
-        .form-control,
-        .form-select {
-            border-color: {{ $n['bordure_champ'] }};
         }
 
         .form-control:focus,
@@ -75,7 +69,7 @@
         }
 
         .login-layout__vitrine {
-            background: linear-gradient(160deg, var(--erp-sidebar-bg) 0%, {{ $n['primaire'] }} 100%);
+            background: linear-gradient(160deg, var(--erp-ink) 0%, {{ $n['primaire'] }} 100%);
         }
 
         .pagination {

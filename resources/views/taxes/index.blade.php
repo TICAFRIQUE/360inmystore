@@ -8,7 +8,11 @@
         <a href="{{ route('taxes.create') }}" class="btn btn-primary">Nouvelle taxe</a>
     </div>
 
-    <x-recherche-form :action="route('taxes.index')" placeholder="Rechercher une taxe…" />
+    <x-recherche-form :action="route('taxes.index')" placeholder="Rechercher une taxe…">
+        <x-slot:export>
+            <x-export-buttons :pdf-route="route('taxes.pdf', request()->query())" :excel-route="route('taxes.excel', request()->query())" :tout="true" />
+        </x-slot:export>
+    </x-recherche-form>
 
     <div class="card">
         <div class="table-responsive">

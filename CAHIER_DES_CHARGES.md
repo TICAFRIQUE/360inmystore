@@ -1,6 +1,6 @@
-# Cahier des charges — Application POS & gestion de stock
+# Cahier des charges — 360inmystore (POS & gestion de stock)
 
-**Secteur :** vente de matériaux et outillage (quincaillerie)
+**Secteur :** tout commerce de détail ou de gros (premier client : quincaillerie)
 **Type :** application ERP (inspiration Odoo)
 **Version :** 0.5 (MVP)
 **Statut :** hypothèses tranchées — prêt pour conception technique (ERD)
@@ -9,12 +9,14 @@
 
 ## 1. Contexte et objectif
 
-Le client vend des matériaux et de l'outillage de quincaillerie dans plusieurs magasins
-et veut un logiciel de caisse (type supermarché) couplé à une gestion de stock, dans une
-application **ERP simple et intuitive**, utilisable par des personnes non techniques.
-Sa clientèle est mixte : particuliers en achat comptant, et professionnels du bâtiment
-(maçons, artisans, entrepreneurs) qui achètent régulièrement **à crédit**, réglé plus
-tard. L'application doit faire tourner trois boucles cohérentes en permanence :
+**360inmystore** s'adresse à tout commerce exploitant un ou plusieurs magasins, quel
+que soit son secteur d'activité : un logiciel de caisse (type supermarché) couplé à une
+gestion de stock, dans une application **ERP simple et intuitive**, utilisable par des
+personnes non techniques. Le premier client vend des matériaux et de l'outillage de
+quincaillerie — les exemples de ce document en gardent la trace, mais rien dans
+l'application n'est propre à ce secteur. La clientèle d'un commerce est mixte :
+particuliers en achat comptant, et clients professionnels réguliers (par exemple maçons,
+artisans, entrepreneurs) qui achètent **à crédit**, réglé plus tard. L'application doit faire tourner trois boucles cohérentes en permanence :
 
 - **Boucle marchandise** — la quantité disponible d'un produit augmente
   (réception d'achat) et diminue (vente, casse, transfert), et se contrôle par inventaire.

@@ -16,7 +16,7 @@ class ParametreSeeder extends Seeder
     public function run(): void
     {
         Parametre::query()->firstOrCreate(['id' => 1], [
-            'nom' => 'Gérer Mon Stock',
+            'nom' => '360inmystore',
         ]);
 
         Parametre::invaliderCache();

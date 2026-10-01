@@ -5,7 +5,7 @@
 @section('content')
     <div class="d-flex justify-content-between align-items-center mb-1">
         <h2 class="h4 mb-0">Journal d'activité</h2>
-        <x-bouton-imprimer />
+        <x-export-buttons :pdf-route="route('journal.pdf', request()->query())" :excel-route="route('journal.excel', request()->query())" :tout="true" />
     </div>
     <p class="text-secondary small mb-3">
         Période : du {{ $debut->format('d/m/Y') }} au {{ $fin->format('d/m/Y') }}
@@ -59,8 +59,7 @@
                 <tbody>
                     @forelse ($activites as $activite)
                         @php
-                            $libellesEvenement = ['created' => 'Créé', 'updated' => 'Modifié', 'deleted' => 'Supprimé'];
-                            $action = $libellesEvenement[$activite->description] ?? $activite->description;
+                            $action = \App\Http\Controllers\JournalActiviteController::LIBELLES_EVENEMENT[$activite->description] ?? $activite->description;
                             $sujet = $activite->subject_type ? class_basename($activite->subject_type) : null;
                         @endphp
                         <tr>

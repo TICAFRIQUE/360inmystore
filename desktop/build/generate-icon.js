@@ -9,7 +9,7 @@ const svgPath = path.join(__dirname, 'icon-source.svg');
 
 async function main() {
   const svg = fs.readFileSync(svgPath);
-  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'gstock-icon-'));
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), '360inmystore-icon-'));
 
   const files = await Promise.all(
     sizes.map(async (size) => {

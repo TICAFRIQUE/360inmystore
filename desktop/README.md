@@ -1,6 +1,6 @@
-# G-Stock Desktop
+# 360inmystore Desktop
 
-Coquille desktop (Electron) pour G-Stock Quincaillerie. Ce n'est **pas** une
+Coquille desktop (Electron) pour 360inmystore. Ce n'est **pas** une
 réécriture de l'application — le code Laravel/Blade/Alpine dans le reste du
 dépôt est inchangé et continue de tourner via Laragon comme décrit dans
 `INSTALLATION-LOCALE.md`. Cette app n'est qu'une fenêtre native qui affiche
@@ -10,7 +10,7 @@ Un seul et même exécutable sert les deux rôles possibles d'un poste, choisi a
 premier lancement (menu Fichier → Paramètres du poste pour changer ensuite) :
 
 - **Poste serveur** : démarre Laragon (comme `scripts/demarrer.bat`) puis
-  ouvre l'application (`APP_URL` du poste, ex. `http://g_stock_quincaillerie.test`).
+  ouvre l'application (`APP_URL` du poste, ex. `http://360_inmystore.test`).
   À installer sur le poste qui héberge réellement Laragon/MySQL.
 - **Poste caisse** : se connecte directement à l'adresse réseau du poste
   serveur (ex. `http://192.168.1.10`), sans rien installer d'autre en local.
@@ -34,9 +34,9 @@ npm run dist
 ```
 
 Génère un installateur NSIS dans `desktop/dist/` :
-- `G-Stock Quincaillerie Setup X.Y.Z.exe` — l'installateur.
+- `360inmystore Setup X.Y.Z.exe` — l'installateur.
 - `latest.yml` — le fichier de version consulté par la mise à jour automatique.
-- `G-Stock Quincaillerie Setup X.Y.Z.exe.blockmap` — utilisé par la mise à jour
+- `360inmystore Setup X.Y.Z.exe.blockmap` — utilisé par la mise à jour
   automatique pour ne télécharger que ce qui a changé.
 
 ## Mise à jour automatique
@@ -55,9 +55,9 @@ elle-même, qui ne passent jamais par ce mécanisme) :
 2. `npm run dist`.
 3. Copier ces 3 fichiers depuis `desktop/dist/` vers
    `public/desktop-updates/` **sur le poste serveur** (écraser les anciens) :
-   - `G-Stock Quincaillerie Setup X.Y.Z.exe`
+   - `360inmystore Setup X.Y.Z.exe`
    - `latest.yml`
-   - `G-Stock Quincaillerie Setup X.Y.Z.exe.blockmap`
+   - `360inmystore Setup X.Y.Z.exe.blockmap`
 4. C'est tout — chaque poste (y compris le serveur lui-même, s'il utilise
    aussi la coquille) télécharge et propose l'installation au prochain
    démarrage, sans rien réinstaller manuellement. « Fichier → Vérifier les

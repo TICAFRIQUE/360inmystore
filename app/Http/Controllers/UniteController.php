@@ -2,18 +2,56 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\ExporteListe;
 use App\Models\Unite;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
+use Illuminate\Support\Collection;
 use Illuminate\View\View;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class UniteController extends Controller
 {
+    use ExporteListe;
+
+    private const ENTETES_EXPORT = ['Nom', 'Abréviation', 'Produits', 'Unités de vente', 'Statut'];
+
     public function index(): View
     {
-        $unites = Unite::withCount(['produits', 'uniteVentes'])->orderBy('nom')->get();
+        $unites = $this->requeteListe()->get();
 
         return view('unites.index', ['unites' => $unites]);
+    }
+
+    public function pdf(): Response
+    {
+        return $this->pdfDepuisListe('Unités', self::ENTETES_EXPORT, $this->lignesExport(), 'unites.pdf');
+    }
+
+    public function excel(): StreamedResponse
+    {
+        return $this->excelDepuisListe('Unités', self::ENTETES_EXPORT, $this->lignesExport(), 'unites.xlsx');
+    }
+
+    /**
+     * Requête de la liste, partagée par l'écran et ses exports.
+     */
+    private function requeteListe(): Builder
+    {
+        return Unite::withCount(['produits', 'uniteVentes'])->orderBy('nom');
+    }
+
+    private function lignesExport(): Collection
+    {
+        return $this->requeteListe()->get()->map(fn (Unite $unite) => [
+            $unite->nom,
+            $unite->abbreviation ?? '—',
+            $unite->produits_count,
+            $unite->unite_ventes_count,
+            $unite->actif ? 'Actif' : 'Inactif',
+        ]);
     }
 
     public function create(): View

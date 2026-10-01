@@ -1,14 +1,21 @@
-@props(['tout' => false, 'pdfRoute' => null])
+{{-- dansMenu : rendu comme entrée d'un menu déroulant (voir x-export-buttons)
+     plutôt que comme bouton autonome — même comportement, seules les classes
+     changent. --}}
+@props(['tout' => false, 'pdfRoute' => null, 'dansMenu' => false])
+@php
+    $classesBouton = $dansMenu ? 'dropdown-item' : 'btn btn-sm btn-outline-secondary d-print-none';
+    $classesIcone = $dansMenu ? 'bi bi-printer me-2' : 'bi bi-printer me-1';
+@endphp
 @if ($pdfRoute)
     {{-- Un pdfRoute fourni : "Imprimer" ouvre directement le dialogue
          d'impression sur le même PDF que le bouton "PDF" (voir
          ExporteListe::pdfDepuisListe(), ?imprimer=1 → stream() au lieu de
          download()) — jamais un window.print() du HTML de la page (qui
          rendait différemment : cards, formulaires…). --}}
-    <button type="button" class="btn btn-sm btn-outline-secondary d-print-none"
+    <button type="button" class="{{ $classesBouton }}"
         onclick="window.__imprimerPdf(this.dataset.pdfUrl)"
         data-pdf-url="{{ $pdfRoute . (str_contains($pdfRoute, '?') ? '&' : '?') . 'imprimer=1' }}">
-        <i class="bi bi-printer me-1"></i>Imprimer
+        <i class="{{ $classesIcone }}"></i>Imprimer
     </button>
     <script>
         window.__imprimerPdf = function (url) {
@@ -17,8 +24,8 @@
             // <iframe> caché, dont l'impression retombait sur la page visible
             // derrière au lieu du PDF (Electron ne cible pas correctement un
             // cadre caché avec printToPDF()).
-            if (window.gstock && window.gstock.printPdfUrl) {
-                window.gstock.printPdfUrl(url);
+            if (window.inmystore && window.inmystore.printPdfUrl) {
+                window.inmystore.printPdfUrl(url);
                 return;
             }
             // Navigateur classique : chargé dans un iframe caché plutôt
@@ -41,8 +48,8 @@
         };
     </script>
 @elseif ($tout)
-    <button type="button" class="btn btn-sm btn-outline-secondary d-print-none" onclick="window.__imprimerRapportComplet()">
-        <i class="bi bi-printer me-1"></i>Imprimer
+    <button type="button" class="{{ $classesBouton }}" onclick="window.__imprimerRapportComplet()">
+        <i class="{{ $classesIcone }}"></i>Imprimer
     </button>
     <script>
         window.__imprimerRapportComplet = function () {
@@ -52,13 +59,13 @@
         };
         @if (request()->boolean('tout'))
             window.addEventListener('load', () => setTimeout(() => {
-                (window.gstock && window.gstock.print) ? window.gstock.print() : window.print();
+                (window.inmystore && window.inmystore.print) ? window.inmystore.print() : window.print();
             }, 200));
         @endif
     </script>
 @else
-    <button type="button" class="btn btn-sm btn-outline-secondary d-print-none"
-        onclick="(window.gstock && window.gstock.print) ? window.gstock.print() : window.print()">
-        <i class="bi bi-printer me-1"></i>Imprimer
+    <button type="button" class="{{ $classesBouton }}"
+        onclick="(window.inmystore && window.inmystore.print) ? window.inmystore.print() : window.print()">
+        <i class="{{ $classesIcone }}"></i>Imprimer
     </button>
 @endif

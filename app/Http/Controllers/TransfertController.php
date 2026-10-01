@@ -3,26 +3,65 @@
 namespace App\Http\Controllers;
 
 use App\Exceptions\StockInsuffisantException;
+use App\Http\Controllers\Concerns\ExporteListe;
 use App\Models\Magasin;
 use App\Models\Produit;
 use App\Models\Stock;
 use App\Models\Transfert;
 use App\Services\TransfertService;
 use App\Support\Decimal;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
+use Illuminate\Support\Collection;
 use Illuminate\View\View;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class TransfertController extends Controller
 {
+    use ExporteListe;
+
+    private const ENTETES_EXPORT = ['Date', 'Produit', 'SKU', 'De', 'Vers', 'Quantité', 'Par'];
+
     public function index(): View
     {
-        $transferts = Transfert::query()
-            ->with(['produit', 'magasinSource', 'magasinDestination', 'auteur'])
-            ->orderByDesc('created_at')
-            ->paginate(20);
+        $transferts = $this->requeteListe()->paginate(20);
 
         return view('transferts.index', ['transferts' => $transferts]);
+    }
+
+    public function pdf(): Response
+    {
+        return $this->pdfDepuisListe('Transferts de stock', self::ENTETES_EXPORT, $this->lignesExport(), 'transferts-de-stock.pdf');
+    }
+
+    public function excel(): StreamedResponse
+    {
+        return $this->excelDepuisListe('Transferts de stock', self::ENTETES_EXPORT, $this->lignesExport(), 'transferts-de-stock.xlsx');
+    }
+
+    /**
+     * Requête de la liste, partagée par l'écran et ses exports.
+     */
+    private function requeteListe(): Builder
+    {
+        return Transfert::query()
+            ->with(['produit', 'magasinSource', 'magasinDestination', 'auteur'])
+            ->orderByDesc('created_at');
+    }
+
+    private function lignesExport(): Collection
+    {
+        return $this->requeteListe()->get()->map(fn (Transfert $transfert) => [
+            $transfert->created_at->format('d/m/Y H:i'),
+            $transfert->produit->libelle_affichage,
+            $transfert->produit->sku,
+            $transfert->magasinSource->nom,
+            $transfert->magasinDestination->nom,
+            quantite($transfert->quantite),
+            $transfert->auteur->name,
+        ]);
     }
 
     public function create(Request $request): View

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\ExporteListe;
 use App\Http\Controllers\Concerns\TrieListe;
 use App\Models\Magasin;
 use App\Models\Produit;
@@ -14,12 +15,11 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
-use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class StockController extends Controller
 {
-    use TrieListe;
+    use TrieListe, ExporteListe;
 
     public function index(Request $request): View
     {
@@ -112,11 +112,7 @@ class StockController extends Controller
             $feuille->getColumnDimension($colonne)->setAutoSize(true);
         }
 
-        $writer = new Xlsx($spreadsheet);
-
-        return response()->streamDownload(function () use ($writer) {
-            $writer->save('php://output');
-        }, 'etat-du-stock.xlsx', ['Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet']);
+        return $this->telechargerTableur($spreadsheet, 'etat-du-stock.xlsx');
     }
 
     /**

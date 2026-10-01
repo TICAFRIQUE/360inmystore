@@ -6,7 +6,7 @@ caisse** (voir `INSTALLATION-LOCALE.md` pour l'installation initiale et
 
 Rappel de l'architecture : le projet Laravel complet (Laragon, MySQL, code) ne
 vit **que sur le poste serveur**. Les postes caisse n'ont que la coquille
-desktop (`G-Stock Quincaillerie Setup X.Y.Z.exe`), sans PHP/MySQL, connectée
+desktop (`360inmystore Setup X.Y.Z.exe`), sans PHP/MySQL, connectée
 au poste serveur par le réseau local. **Dans tous les cas, ton geste se
 limite au poste serveur — jamais besoin de toucher les postes caisse un par
 un.**
@@ -58,9 +58,9 @@ l'application Laravel.
 3. Copier ces 3 fichiers depuis `desktop/dist/` vers
    `public/desktop-updates/` **sur le poste serveur**, en écrasant les
    anciens :
-   - `G-Stock Quincaillerie Setup X.Y.Z.exe`
+   - `360inmystore Setup X.Y.Z.exe`
    - `latest.yml`
-   - `G-Stock Quincaillerie Setup X.Y.Z.exe.blockmap`
+   - `360inmystore Setup X.Y.Z.exe.blockmap`
 
 → **Rien à faire sur les postes caisse non plus** : chaque poste (y compris
 le serveur, s'il utilise aussi la coquille) détecte et installe la mise à

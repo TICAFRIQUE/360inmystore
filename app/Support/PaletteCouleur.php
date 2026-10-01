@@ -9,23 +9,24 @@ namespace App\Support;
  * actif, focus, subtle...). Seul endroit qui calcule ces nuances — jamais
  * dupliqué dans une vue (voir CLAUDE.md, palette).
  *
- * Déviation assumée par rapport au CSS Bootstrap compilé par défaut : le
- * survol/actif de .btn-primary y est en réalité *éclairci*, car le calcul de
- * contraste automatique de Bootstrap (color-contrast()) choisit un texte noir
- * pour l'orange #e8590c, ce qui bascule sa formule sur tint-color au lieu de
- * shade-color. Reproduire cet algorithme de contraste pour une couleur admin
- * arbitraire serait fragile (et incohérent avec le texte blanc déjà forcé sur
- * .btn-primary, voir app.scss:243-251) — on fonce donc toujours au
- * survol/actif ici, quelle que soit la couleur choisie.
+ * Déviation assumée par rapport au CSS Bootstrap compilé : selon la couleur,
+ * le calcul de contraste automatique de Bootstrap (color-contrast()) choisit
+ * un texte noir ou blanc, ce qui bascule le survol/actif de .btn-primary
+ * entre tint-color (éclairci) et shade-color (foncé). Reproduire cet
+ * algorithme de contraste pour une couleur admin arbitraire serait fragile
+ * (et incohérent avec le texte blanc déjà forcé sur .btn-primary, voir
+ * app.scss) — on fonce donc toujours au survol/actif ici, quelle que soit la
+ * couleur choisie.
  *
- * Limitations acceptées (non couvertes par cette palette, restent sur
- * l'orange compilé) : .formule-pricing-card (abonnement/mon.blade.php) et
+ * Limitations acceptées (non couvertes par cette palette, restent sur la
+ * couleur primaire compilée) : .formule-pricing-card (abonnement/mon.blade.php) et
  * #factureImprimable (ticket imprimable, volontairement autonome de
  * Bootstrap) — voir app.scss.
  */
 class PaletteCouleur
 {
-    public const DEFAUT = '#e8590c';
+    /** Doit rester identique à $primary (resources/sass/app.scss). */
+    public const DEFAUT = '#2563eb';
 
     public static function estValide(?string $hex): bool
     {
@@ -49,7 +50,6 @@ class PaletteCouleur
             'texte_emphase' => self::ombre($hex, 60),
             'fond_attenue' => self::teinte($hex, 80),
             'bordure_attenuee' => self::teinte($hex, 60),
-            'bordure_champ' => self::teinte($hex, 70),
             'bordure_champ_focus' => self::teinte($hex, 50),
         ];
     }

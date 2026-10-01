@@ -1,8 +1,8 @@
 {
-  "name": "gstock-desktop",
+  "name": "360inmystore-desktop",
   "version": "1.0.9",
   "private": true,
-  "description": "Application desktop (coquille Electron) pour G-Stock Quincaillerie — poste serveur ou poste caisse.",
+  "description": "Application desktop (coquille Electron) pour 360inmystore — poste serveur ou poste caisse.",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
@@ -13,8 +13,8 @@
     "electron-builder": "^25.1.8"
   },
   "build": {
-    "appId": "com.gstock.quincaillerie.desktop",
-    "productName": "G-Stock Quincaillerie",
+    "appId": "com.360inmystore.desktop",
+    "productName": "360inmystore",
     "directories": {
       "output": "dist"
     },

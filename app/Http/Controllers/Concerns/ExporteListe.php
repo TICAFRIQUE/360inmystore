@@ -3,17 +3,26 @@
 namespace App\Http\Controllers\Concerns;
 
 use Illuminate\Http\Response;
+use PhpOffice\PhpSpreadsheet\Cell\DataType;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
+use PhpOffice\PhpSpreadsheet\Writer\Csv;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
- * Export PDF/Excel partagé par toutes les listes et rapports de l'app —
+ * Export PDF/Excel/CSV partagé par toutes les listes et rapports de l'app —
  * un seul gabarit PDF générique (resources/views/exports/liste.blade.php),
- * une seule implémentation Excel : chaque contrôleur ne fournit que ses
+ * une seule implémentation tableur : chaque contrôleur ne fournit que ses
  * en-têtes de colonnes et ses lignes déjà formatées (chaînes/nombres),
  * jamais de logique métier dupliquée (voir CLAUDE.md — rapports = agrégats,
  * sans dupliquer la logique).
+ *
+ * Les quatre entrées du menu « Exporter » (voir x-export-buttons) reposent
+ * sur deux routes seulement par liste : la route PDF (téléchargement, ou
+ * impression avec ?imprimer=1) et la route Excel (xlsx, ou CSV avec
+ * ?format=csv) — jamais une route ni une méthode de contrôleur de plus par
+ * format.
  */
 trait ExporteListe
 {
@@ -58,7 +67,7 @@ trait ExporteListe
 
         $ligneIndex = 2;
         foreach ($lignes as $ligne) {
-            $feuille->fromArray(array_values($ligne), null, 'A'.$ligneIndex);
+            $this->ecrireLigne($feuille, $ligne, $ligneIndex);
             $ligneIndex++;
         }
 
@@ -78,11 +87,62 @@ trait ExporteListe
             $feuille->getColumnDimension($colonne)->setAutoSize(true);
         }
 
+        return $this->telechargerTableur($spreadsheet, $nomFichier);
+    }
+
+    /**
+     * Envoie un classeur déjà construit, en Excel (par défaut) ou en CSV si
+     * la requête porte ?format=csv — même contenu dans les deux cas, seul
+     * le format d'écriture change. Point de sortie unique de tous les
+     * exports tableur de l'app, y compris ceux qui construisent leur propre
+     * classeur plutôt que de passer par excelDepuisListe().
+     *
+     * CSV au format attendu par un Excel français : séparateur « ; », UTF-8
+     * avec BOM (sinon les accents s'affichent mal à l'ouverture), fins de
+     * ligne Windows.
+     */
+    protected function telechargerTableur(Spreadsheet $spreadsheet, string $nomFichier): StreamedResponse
+    {
+        if (request()->string('format')->toString() === 'csv') {
+            $writer = (new Csv($spreadsheet))
+                ->setDelimiter(';')
+                ->setEnclosure('"')
+                ->setLineEnding("\r\n")
+                ->setUseBOM(true)
+                ->setSheetIndex(0);
+
+            return response()->streamDownload(function () use ($writer) {
+                $writer->save('php://output');
+            }, preg_replace('/\.xlsx$/i', '.csv', $nomFichier), ['Content-Type' => 'text/csv; charset=UTF-8']);
+        }
+
         $writer = new Xlsx($spreadsheet);
 
         return response()->streamDownload(function () use ($writer) {
             $writer->save('php://output');
         }, $nomFichier, ['Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet']);
+    }
+
+    /**
+     * Écrit une ligne de données en gardant en texte ce que le classeur
+     * réinterpréterait à tort : un numéro commençant par 0 ou + (téléphone,
+     * référence — sinon le 0 initial disparaît, « 0700… » devenant 700…) et
+     * un libellé libre commençant par « = » (motif, nom…), que le classeur
+     * prendrait pour une formule, jusqu'à faire échouer l'export.
+     *
+     * @param  array<int, string|int|float|null>  $valeurs
+     */
+    private function ecrireLigne(Worksheet $feuille, array $valeurs, int $ligneIndex): void
+    {
+        foreach (array_values($valeurs) as $index => $valeur) {
+            $cellule = $this->lettreColonne($index + 1).$ligneIndex;
+
+            if (is_string($valeur) && preg_match('/^(=|\+|0\d)/', $valeur) === 1) {
+                $feuille->setCellValueExplicit($cellule, $valeur, DataType::TYPE_STRING);
+            } else {
+                $feuille->setCellValue($cellule, $valeur);
+            }
+        }
     }
 
     /**

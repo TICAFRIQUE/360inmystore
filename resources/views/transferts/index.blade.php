@@ -10,6 +10,10 @@
         @endcan
     </div>
 
+    <div class="d-flex justify-content-end mb-3">
+        <x-export-buttons :pdf-route="route('transferts.pdf', request()->query())" :excel-route="route('transferts.excel', request()->query())" :tout="true" />
+    </div>
+
     <div class="card">
         <div class="table-responsive">
             <table class="table table-hover align-middle mb-0">

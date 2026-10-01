@@ -8,7 +8,7 @@
     @vite(['resources/sass/app.scss', 'resources/js/app.js'])
     @include('partials.couleur-primaire')
 </head>
-<body class="d-flex align-items-center" style="min-height: 100vh; background-color: var(--erp-sidebar-bg);">
+<body class="d-flex align-items-center" style="min-height: 100vh; background-color: var(--erp-ink);">
     <div class="container">
         <div class="row justify-content-center">
             <div class="col-12 col-sm-8 col-md-6 col-lg-5">

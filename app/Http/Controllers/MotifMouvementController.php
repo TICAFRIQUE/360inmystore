@@ -2,19 +2,47 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\ExporteListe;
 use App\Http\Controllers\Concerns\TrieListe;
 use App\Models\MotifMouvement;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\View\View;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class MotifMouvementController extends Controller
 {
-    use TrieListe;
+    use TrieListe, ExporteListe;
+
+    private const ENTETES_EXPORT = ['Nom', 'Statut'];
 
     public function index(Request $request): View
+    {
+        $motifs = $this->requeteListe($request)->paginate(20)->withQueryString();
+
+        return view('motifs-mouvement.index', ['motifs' => $motifs]);
+    }
+
+    public function pdf(Request $request): Response
+    {
+        return $this->pdfDepuisListe('Motifs de mouvement', self::ENTETES_EXPORT, $this->lignesExport($request), 'motifs-de-mouvement.pdf');
+    }
+
+    public function excel(Request $request): StreamedResponse
+    {
+        return $this->excelDepuisListe('Motifs de mouvement', self::ENTETES_EXPORT, $this->lignesExport($request), 'motifs-de-mouvement.xlsx');
+    }
+
+    /**
+     * Requête de la liste (filtres + tri), partagée par l'écran et ses exports :
+     * un export porte toujours sur ce que l'écran affiche, sans la pagination.
+     */
+    private function requeteListe(Request $request): Builder
     {
         $query = MotifMouvement::query()
             ->when($request->filled('recherche'), function ($q) use ($request) {
@@ -22,11 +50,15 @@ class MotifMouvementController extends Controller
                 $q->where('nom', 'like', "%{$recherche}%");
             });
 
-        $motifs = $this->appliquerTri($query, $request, ['nom', 'actif', 'created_at'])
-            ->paginate(20)
-            ->withQueryString();
+        return $this->appliquerTri($query, $request, ['nom', 'actif', 'created_at']);
+    }
 
-        return view('motifs-mouvement.index', ['motifs' => $motifs]);
+    private function lignesExport(Request $request): Collection
+    {
+        return $this->requeteListe($request)->get()->map(fn (MotifMouvement $motif) => [
+            $motif->nom,
+            $motif->actif ? 'Actif' : 'Inactif',
+        ]);
     }
 
     public function create(): View

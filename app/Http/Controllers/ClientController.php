@@ -21,7 +21,6 @@ use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
-use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ClientController extends Controller
@@ -277,12 +276,7 @@ class ClientController extends Controller
             $feuille->getColumnDimension($colonne)->setAutoSize(true);
         }
 
-        $writer = new Xlsx($spreadsheet);
-        $nomFichier = 'ventes-'.Str::slug($client->nom).'.xlsx';
-
-        return response()->streamDownload(function () use ($writer) {
-            $writer->save('php://output');
-        }, $nomFichier, ['Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet']);
+        return $this->telechargerTableur($spreadsheet, 'ventes-'.Str::slug($client->nom).'.xlsx');
     }
 
     public function devisPdf(Client $client): Response
@@ -324,12 +318,7 @@ class ClientController extends Controller
             $feuille->getColumnDimension($colonne)->setAutoSize(true);
         }
 
-        $writer = new Xlsx($spreadsheet);
-        $nomFichier = 'devis-'.Str::slug($client->nom).'.xlsx';
-
-        return response()->streamDownload(function () use ($writer) {
-            $writer->save('php://output');
-        }, $nomFichier, ['Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet']);
+        return $this->telechargerTableur($spreadsheet, 'devis-'.Str::slug($client->nom).'.xlsx');
     }
 
     public function edit(Client $client): View

@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Enums\MouvementStockType;
 use App\Exceptions\StockInsuffisantException;
 use App\Http\Controllers\Concerns\AutoriseMagasin;
+use App\Http\Controllers\Concerns\ExporteListe;
 use App\Models\Magasin;
 use App\Models\MouvementStock;
 use App\Models\Produit;
@@ -12,37 +13,92 @@ use App\Models\Stock;
 use App\Services\StockService;
 use App\Support\Decimal;
 use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
+use Illuminate\Support\Collection;
 use Illuminate\View\View;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class StockMouvementController extends Controller
 {
-    use AutoriseMagasin;
+    use AutoriseMagasin, ExporteListe;
+
+    private const ENTETES_EXPORT = ['Date', 'Type', 'Produit', 'SKU', 'Destination', 'Quantité', 'Auteur', 'Motif'];
 
     public function index(Request $request): View
     {
-        $debut = $request->filled('date_debut') ? Carbon::parse($request->string('date_debut')) : now()->startOfMonth();
-        $fin = $request->filled('date_fin') ? Carbon::parse($request->string('date_fin')) : now()->endOfMonth();
-        $type = MouvementStockType::tryFrom($request->string('type')->toString());
+        [$debut, $fin, $type] = $this->filtresListe($request);
 
-        $requeteMouvements = MouvementStock::query()
+        return view('stock.mouvements-index', [
+            'mouvements' => $this->requeteListe($request)->paginate(30)->withQueryString(),
+            'dateDebut' => $debut->toDateString(),
+            'dateFin' => $fin->toDateString(),
+            'type' => $type,
+            'types' => MouvementStockType::cases(),
+        ]);
+    }
+
+    public function pdf(Request $request): Response
+    {
+        return $this->pdfDepuisListe('Mouvements de stock', self::ENTETES_EXPORT, $this->lignesExport($request), 'mouvements-de-stock.pdf', $this->sousTitreFiltres($request));
+    }
+
+    public function excel(Request $request): StreamedResponse
+    {
+        return $this->excelDepuisListe('Mouvements de stock', self::ENTETES_EXPORT, $this->lignesExport($request), 'mouvements-de-stock.xlsx');
+    }
+
+    /**
+     * Filtres affichés par la liste : mois en cours tant qu'aucune date
+     * n'est choisie, tous types confondus par défaut.
+     *
+     * @return array{0: Carbon, 1: Carbon, 2: ?MouvementStockType}
+     */
+    private function filtresListe(Request $request): array
+    {
+        return [
+            $request->filled('date_debut') ? Carbon::parse($request->string('date_debut')) : now()->startOfMonth(),
+            $request->filled('date_fin') ? Carbon::parse($request->string('date_fin')) : now()->endOfMonth(),
+            MouvementStockType::tryFrom($request->string('type')->toString()),
+        ];
+    }
+
+    private function sousTitreFiltres(Request $request): string
+    {
+        [$debut, $fin, $type] = $this->filtresListe($request);
+
+        return 'Du '.$debut->format('d/m/Y').' au '.$fin->format('d/m/Y').($type ? ' · Type : '.$type->libelle() : '');
+    }
+
+    /**
+     * Requête de la liste (filtres + tri), partagée par l'écran et ses exports :
+     * un export porte toujours sur ce que l'écran affiche, sans la pagination.
+     */
+    private function requeteListe(Request $request): Builder
+    {
+        [$debut, $fin, $type] = $this->filtresListe($request);
+
+        return MouvementStock::query()
             ->with(['produit', 'magasin', 'auteur'])
             ->when($request->user()->magasin_id, fn ($q, $magasinId) => $q->where('magasin_id', $magasinId))
             ->whereBetween('created_at', [$debut->copy()->startOfDay(), $fin->copy()->endOfDay()])
             ->when($type, fn ($q) => $q->where('type', $type->value))
             ->orderByDesc('created_at');
+    }
 
-        $mouvements = $request->boolean('tout')
-            ? $requeteMouvements->get()
-            : $requeteMouvements->paginate(30)->withQueryString();
-
-        return view('stock.mouvements-index', [
-            'mouvements' => $mouvements,
-            'dateDebut' => $debut->toDateString(),
-            'dateFin' => $fin->toDateString(),
-            'type' => $type,
-            'types' => MouvementStockType::cases(),
+    private function lignesExport(Request $request): Collection
+    {
+        return $this->requeteListe($request)->get()->map(fn (MouvementStock $mouvement) => [
+            $mouvement->created_at->format('d/m/Y H:i'),
+            $mouvement->type->libelle(),
+            $mouvement->produit->libelle_affichage,
+            $mouvement->produit->sku,
+            $mouvement->magasin->nom,
+            ($mouvement->quantite >= 0 ? '+' : '').quantite($mouvement->quantite),
+            $mouvement->auteur->name,
+            $mouvement->motif ?? '—',
         ]);
     }
 

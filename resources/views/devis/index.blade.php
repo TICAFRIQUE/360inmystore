@@ -21,6 +21,9 @@
                 <option value="transforme" @selected(request('statut') === 'transforme')>Transformé en vente</option>
             </select>
         </div>
+        <x-slot:export>
+            <x-export-buttons :pdf-route="route('devis.liste.pdf', request()->query())" :excel-route="route('devis.liste.excel', request()->query())" :tout="true" />
+        </x-slot:export>
     </x-recherche-form>
 
     <div class="card">
