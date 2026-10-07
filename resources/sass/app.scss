@@ -1246,6 +1246,10 @@ $reglement-end-hover: #5b21b6;
 // de tarifs plutôt qu'un tableau plat, pour donner un vrai choix visuel.
 .formule-pricing-card {
     position: relative;
+    // Colonne : le bouton d'action reste en bas, quelle que soit la longueur
+    // de la liste de ce que la formule inclut (voir x-tarifs).
+    display: flex;
+    flex-direction: column;
     height: 100%;
     text-align: center;
     background-color: #fff;
@@ -1289,7 +1293,176 @@ $reglement-end-hover: #5b21b6;
     margin-bottom: 0.35rem;
 }
 
+.formule-pricing-card__avantages {
+    padding: 0;
+    margin: 1rem 0 0;
+    font-size: 0.875rem;
+    text-align: left;
+    list-style: none;
+
+    li {
+        display: flex;
+        gap: 0.5rem;
+        align-items: flex-start;
+        padding: 0.2rem 0;
+    }
+
+    .bi {
+        flex-shrink: 0;
+        margin-top: 0.15rem;
+        color: $success;
+    }
+}
+
 .formule-pricing-card__duree {
     color: $secondary;
     font-size: 0.9rem;
+}
+
+// --- Pages publiques de la plateforme (voir
+// layouts/plateforme.blade.php) : accueil, inscription, espace indisponible.
+.plateforme-public {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+}
+
+.plateforme-public__entete {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: var(--erp-topbar-height);
+    padding: 0 1rem;
+    background-color: var(--erp-surface);
+    border-bottom: 1px solid var(--erp-border);
+
+    @include media-breakpoint-up(lg) {
+        padding: 0 2rem;
+    }
+}
+
+.plateforme-public__marque {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.625rem;
+    font-size: 1rem;
+    font-weight: 600;
+    color: $body-color;
+    text-decoration: none;
+
+    img {
+        width: 2rem;
+        height: 2rem;
+    }
+}
+
+.plateforme-public__contenu {
+    display: flex;
+    flex: 1 1 auto;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 2rem 1rem;
+
+    @include media-breakpoint-up(lg) {
+        padding: 3.5rem 2rem;
+    }
+}
+
+.plateforme-public__carte {
+    width: 100%;
+    max-width: 26rem;
+    padding: 1.75rem;
+    background-color: var(--erp-surface);
+    border: 1px solid var(--erp-border);
+    border-radius: $border-radius-lg;
+    box-shadow: $box-shadow-sm;
+
+    &--large {
+        max-width: 36rem;
+    }
+}
+
+.plateforme-public__pied {
+    padding: 1rem;
+    font-size: 0.75rem;
+    color: $secondary;
+    text-align: center;
+}
+
+// Site vitrine (plateforme/accueil.blade.php) : sections empilées, centrées.
+.vitrine {
+    width: 100%;
+    max-width: 66rem;
+}
+
+.vitrine__hero {
+    max-width: 46rem;
+    padding: 1.5rem 0 1rem;
+    margin: 0 auto;
+    text-align: center;
+}
+
+.vitrine__titre {
+    font-size: clamp(1.85rem, 4vw, 2.75rem);
+    font-weight: 600;
+    line-height: 1.15;
+    letter-spacing: -0.015em;
+}
+
+.vitrine__accroche {
+    margin: 1rem 0 1.75rem;
+    font-size: 1.05rem;
+    color: $secondary;
+}
+
+.vitrine__section {
+    padding-top: 3.5rem;
+    // Ancre visée depuis la barre du haut : ne pas coller au bord de l'écran.
+    scroll-margin-top: 1rem;
+}
+
+.vitrine__sous-titre {
+    margin-bottom: 1.5rem;
+    font-size: 1.4rem;
+    font-weight: 600;
+    text-align: center;
+}
+
+.vitrine__atout,
+.vitrine__etape {
+    height: 100%;
+    padding: 1.25rem;
+    background-color: var(--erp-surface);
+    border: 1px solid var(--erp-border);
+    border-radius: $border-radius-lg;
+}
+
+.vitrine__atout > .bi {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-size: 1.5rem;
+    color: var(--bs-primary);
+}
+
+.vitrine__numero {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    margin-bottom: 0.625rem;
+    font-weight: 600;
+    color: var(--bs-primary-text-emphasis);
+    background-color: rgba(var(--bs-primary-rgb), 0.12);
+    border-radius: 50%;
+}
+
+// Champ piège anti-robot (voir App\Plateforme\AntiRobot) : sorti de l'écran
+// plutôt que display:none, que certains robots savent ignorer.
+.champ-piege {
+    position: absolute;
+    left: -9999px;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
 }

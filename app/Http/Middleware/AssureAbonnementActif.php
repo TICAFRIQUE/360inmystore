@@ -26,9 +26,17 @@ class AssureAbonnementActif
             return $next($request);
         }
 
+        // Accès de maintenance de l'éditeur (voir AccesEspaceController) :
+        // il doit pouvoir entrer dans un espace même expiré.
+        if ($request->session()->has(\App\Http\Controllers\AccesEspaceController::CLE_MAINTENANCE)) {
+            return $next($request);
+        }
+
         // Déjà sur l'écran de blocage (ou en train de se déconnecter) :
-        // laisser passer, sinon boucle de redirection infinie.
-        if ($request->routeIs('abonnement.mon', 'logout')) {
+        // laisser passer, sinon boucle de redirection infinie. Le paiement
+        // en ligne reste lui aussi accessible : c'est
+        // l'écran qui permet de lever le blocage.
+        if ($request->routeIs('abonnement.mon', 'abonnement.paiement.*', 'abonnement.essai', 'logout')) {
             return $next($request);
         }
 

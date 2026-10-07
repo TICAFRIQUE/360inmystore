@@ -122,6 +122,11 @@
                         (ex. « sauvegarde-2026-09-15-174534.sql »).
                     </p>
 
+                    {{-- Plateforme : pas de dossier de sauvegarde ni de
+                         restauration depuis l'espace d'une entreprise (voir
+                         ParametreController::interdireDansUnEspaceHeberge()) —
+                         seule la sauvegarde téléchargée reste proposée. --}}
+                    @unless (plateforme()->estEntreprise())
                     <form method="POST" action="{{ route('parametres.dossier-sauvegarde') }}" class="mb-3">
                         @csrf
                         @method('PUT')
@@ -147,6 +152,7 @@
                             @endif
                         </div>
                     </form>
+                    @endunless
 
                     <form method="POST" action="{{ route('parametres.backup') }}" data-telechargement>
                         @csrf
@@ -158,6 +164,7 @@
                 </div>
             </div>
 
+            @unless (plateforme()->estEntreprise())
             <div class="card border-danger-subtle">
                 <div class="card-body">
                     <h3 class="h6">Restauration de la base de données</h3>
@@ -188,6 +195,7 @@
                     </form>
                 </div>
             </div>
+            @endunless
         </div>
     </div>
 @endsection

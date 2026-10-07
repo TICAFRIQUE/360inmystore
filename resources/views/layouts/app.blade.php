@@ -71,6 +71,18 @@
             </header>
 
             <main class="erp-main">
+                {{-- Session ouverte par l'éditeur depuis sa console (voir
+                     AccesEspaceController) : toujours rappelé à l'écran. --}}
+                @if (session(\App\Http\Controllers\AccesEspaceController::CLE_MAINTENANCE))
+                    <div class="alert alert-warning d-print-none">
+                        <i class="bi bi-tools me-1"></i>
+                        <strong>Accès de maintenance.</strong>
+                        Vous êtes dans l'espace de ce client, connecté avec le compte de son propriétaire
+                        ({{ session(\App\Http\Controllers\AccesEspaceController::CLE_MAINTENANCE) }}).
+                        Déconnectez-vous une fois l'intervention terminée.
+                    </div>
+                @endif
+
                 @if (session('succes'))
                     <div class="alert alert-success alert-dismissible fade show" role="alert">
                         {{ session('succes') }}

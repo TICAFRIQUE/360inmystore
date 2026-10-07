@@ -15,18 +15,7 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        $this->call([
-            RolePermissionSeeder::class,
-            MoyenPaiementSeeder::class,
-            ParametreSeeder::class,
-            DeviseSeeder::class,
-            UniteSeeder::class,
-            TaxeSeeder::class,
-            CompteTresorerieSeeder::class,
-            MotifMouvementSeeder::class,
-            FormuleAbonnementSeeder::class,
-            ClientComptantDefautSeeder::class,
-        ]);
+        $this->call(ReferentielSeeder::class);
 
         if (app()->environment('local')) {
             $superadmin = User::firstOrCreate(

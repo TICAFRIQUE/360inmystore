@@ -66,3 +66,15 @@ if (! function_exists('telephone')) {
         return \App\Support\Telephone::formater($valeur);
     }
 }
+
+if (! function_exists('plateforme')) {
+    /**
+     * Contexte de la requête en cours sur la plateforme (voir
+     * App\Plateforme\Plateforme) : domaine principal ou espace d'une
+     * entreprise.
+     */
+    function plateforme(): \App\Plateforme\Plateforme
+    {
+        return app(\App\Plateforme\Plateforme::class);
+    }
+}

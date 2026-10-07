@@ -15,8 +15,8 @@ use Illuminate\Support\Facades\DB;
  * changement d'offre peut réduire la date de fin par rapport à une
  * activation antérieure.
  *
- * Aucune activation en base = accès non restreint (voir estBloquant()) :
- * évite un verrouillage accidentel avant la première activation explicite.
+ * Aucune activation en base : accès fermé dans l'espace d'une entreprise,
+ * jusqu'au choix d'une formule (voir estBloquant()).
  */
 class Abonnement
 {
@@ -54,7 +54,15 @@ class Abonnement
     {
         $etat = self::etat();
 
-        if (! $etat['existe'] || $etat['illimite']) {
+        // Espace d'une entreprise sans aucune activation : le propriétaire
+        // n'a pas encore choisi sa formule — tout l'espace se réduit à la
+        // page des tarifs. (Sur le domaine principal, la base de la
+        // plateforme n'a jamais d'activation : jamais bloquant.)
+        if (! $etat['existe']) {
+            return plateforme()->estEntreprise();
+        }
+
+        if ($etat['illimite']) {
             return false;
         }
 

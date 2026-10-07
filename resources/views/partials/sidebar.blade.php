@@ -108,6 +108,39 @@
         ],
     ];
 
+    // Domaine principal de la plateforme : la base ne contient les données
+    // d'aucun commerce — le menu est celui de l'éditeur (voir
+    // ReserveAuxCommerces, qui ferme les écrans de gestion à cet endroit).
+    if (plateforme()->estCentrale()) {
+        $editeur = $utilisateurMenu->estGestionnaireAbonnement();
+
+        $sectionsMenu = [
+            [
+                'titre' => null,
+                'entrees' => [
+                    ['libelle' => 'Tableau de bord', 'icone' => 'bi-speedometer2', 'url' => route('plateforme.console'),
+                        'actif' => ['plateforme.console'], 'visible' => $editeur],
+                ],
+            ],
+            [
+                'titre' => 'Clients',
+                'entrees' => [
+                    ['libelle' => 'Entreprises', 'icone' => 'bi-buildings', 'url' => route('plateforme.entreprises.index'),
+                        'actif' => ['plateforme.entreprises.*'], 'visible' => $editeur],
+                    ['libelle' => 'Paiements', 'icone' => 'bi-cash-coin', 'url' => route('plateforme.paiements.index'),
+                        'actif' => ['plateforme.paiements.*'], 'visible' => $editeur],
+                ],
+            ],
+            [
+                'titre' => 'Offre',
+                'entrees' => [
+                    ['libelle' => "Formules d'abonnement", 'icone' => 'bi-calendar-check', 'url' => route('plateforme.formules.index'),
+                        'actif' => ['plateforme.formules.*'], 'visible' => $editeur],
+                ],
+            ],
+        ];
+    }
+
     $estActif = fn (array $entree) => request()->routeIs(...$entree['actif']);
 @endphp
 

@@ -876,8 +876,11 @@ document.addEventListener('submit', (event) => {
         ?? (dernierDeclencheurConfirmation?.getAttribute('data-form-id') === form.id ? dernierDeclencheurConfirmation : null);
     dernierDeclencheurConfirmation = null;
 
-    if (bouton instanceof HTMLElement) {
-        demarrerSpinner(bouton);
+    // data-sans-spinner : formulaire dont la réponse s'ouvre ailleurs (nouvel
+    // onglet) — la page courante ne se recharge pas, le bouton resterait
+    // bloqué sur son indicateur d'attente.
+    if (bouton instanceof HTMLElement && form.dataset.sansSpinner === undefined) {
+        demarrerSpinner(bouton, form.dataset.attenteLongue !== undefined);
         if (form.dataset.telechargement !== undefined) {
             surveillerTelechargement(bouton);
         }
@@ -969,7 +972,11 @@ document.addEventListener('show.bs.modal', (event) => {
 // lui-même puisque toute la page est remplacée.
 const DELAI_SECURITE_SPINNER_MS = 20000;
 
-function demarrerSpinner(bouton) {
+// attenteLongue (formulaire marqué data-attente-longue) : traitement
+// légitimement long côté serveur (ex. création d'un espace : préparation
+// d'une base de données) — pas de délai de sécurité, qui réactiverait le
+// bouton et inviterait à renvoyer une seconde fois une demande déjà en cours.
+function demarrerSpinner(bouton, attenteLongue = false) {
     if (bouton.dataset.spinnerActif) {
         return;
     }
@@ -981,6 +988,10 @@ function demarrerSpinner(bouton) {
     const texte = bouton.textContent.trim();
     const spinner = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>';
     bouton.innerHTML = texte ? `${spinner} ${texte}` : spinner;
+
+    if (attenteLongue) {
+        return;
+    }
 
     window.setTimeout(() => {
         if (bouton.isConnected && bouton.dataset.spinnerActif) {

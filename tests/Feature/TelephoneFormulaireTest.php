@@ -21,6 +21,10 @@ class TelephoneFormulaireTest extends TestCase
         ]);
         $utilisateur->assignRole('Superadmin');
 
+        // Plateforme SaaS : les écrans de gestion n'existent que dans
+        // l'espace d'une entreprise.
+        $this->dansUnEspace($utilisateur);
+
         return $utilisateur;
     }
 

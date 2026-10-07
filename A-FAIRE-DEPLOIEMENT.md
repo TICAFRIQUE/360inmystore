@@ -10,6 +10,21 @@ pas supprimer les entrées cochées (historique).
 
 ---
 
+## 2026-10-07 — Plateforme SaaS (branche `multi-tenant`)
+
+Rien à faire sur une installation existante : la plateforme est un nouveau
+déploiement, sur un VPS (voir `PLATEFORME.md`, § 5 et § 6). Le déploiement
+automatisé depuis GitHub refuse cette branche.
+
+- [ ] Hébergement : sous-domaines génériques, droit de créer des bases,
+  processus en ligne de commande.
+- [ ] Mise en place : `migrate`, `db:seed --class=ReferentielSeeder`,
+  `app:creer-superadmin`, puis création des formules depuis l'espace éditeur.
+- [ ] À chaque mise à jour : `php artisan migrate --force` puis
+  `php artisan entreprises:executer -- migrate --force`.
+- [ ] Avant toute mise en vente : brancher un vrai prestataire de paiement —
+  le paiement en ligne est **simulé**.
+
 ## 2026-10-07 — 360inmystore : renommage, sidebar, exports, téléphone
 
 Branche `mono_client` (version installée). **Un push ne déploie plus rien** : la

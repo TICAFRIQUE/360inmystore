@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AbonnementController;
+use App\Http\Controllers\AccesEspaceController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\BonLivraisonController;
 use App\Http\Controllers\CaisseController;
@@ -18,7 +19,14 @@ use App\Http\Controllers\MagasinController;
 use App\Http\Controllers\MotifMouvementController;
 use App\Http\Controllers\MoyenPaiementController;
 use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\PaiementAbonnementController;
 use App\Http\Controllers\ParametreController;
+use App\Http\Controllers\Plateforme\AccueilController;
+use App\Http\Controllers\Plateforme\ConsoleController;
+use App\Http\Controllers\Plateforme\EntrepriseController;
+use App\Http\Controllers\Plateforme\FormuleController;
+use App\Http\Controllers\Plateforme\InscriptionController;
+use App\Http\Controllers\Plateforme\PaiementController;
 use App\Http\Controllers\ProduitController;
 use App\Http\Controllers\RapportController;
 use App\Http\Controllers\ReglementClientController;
@@ -42,7 +50,52 @@ use App\Http\Controllers\VenteController;
 use App\Http\Controllers\VenteEnAttenteController;
 use Illuminate\Support\Facades\Route;
 
-Route::redirect('/', '/dashboard');
+// Racine : le site vitrine sur le domaine principal, l'application elle-même
+// dans l'espace d'une entreprise.
+Route::get('/', AccueilController::class)->name('accueil');
+
+// Arrivée dans l'espace d'une entreprise par un lien à usage unique (après
+// une inscription, ou accès de maintenance de l'éditeur) — voir
+// AccesEspaceController. Hors de tout groupe « auth » : c'est ce lien qui
+// ouvre la session.
+Route::get('acces/{jeton}', AccesEspaceController::class)->middleware('throttle:20,1')->name('acces');
+
+// Plateforme (voir CLAUDE.md « Plateforme SaaS ») : ces routes n'existent que
+// sur le domaine principal — 404 dans l'espace d'une entreprise.
+Route::middleware('plateforme.centrale')->group(function () {
+    Route::middleware('guest')->group(function () {
+        Route::post('espace', [AccueilController::class, 'espace'])->middleware('throttle:30,1')->name('plateforme.espace');
+        Route::get('inscription', [InscriptionController::class, 'create'])->name('plateforme.inscription');
+        // Chaque inscription crée une base de données : envois limités par
+        // adresse IP, en plus des contrôles anti-robot et des plafonds
+        // quotidiens du contrôleur.
+        Route::post('inscription', [InscriptionController::class, 'store'])->middleware('throttle:10,60')->name('plateforme.inscription.store');
+    });
+
+    // Espace de l'éditeur : réservé au Superadmin de la plateforme et au
+    // compte développeur (voir User::estGestionnaireAbonnement()).
+    Route::middleware(['auth', 'abonnement.gestion'])->prefix('plateforme')->name('plateforme.')->group(function () {
+        Route::get('/', [ConsoleController::class, 'index'])->name('console');
+
+        Route::get('entreprises', [EntrepriseController::class, 'index'])->name('entreprises.index');
+        Route::get('entreprises/pdf', [EntrepriseController::class, 'pdf'])->name('entreprises.pdf');
+        Route::get('entreprises/excel', [EntrepriseController::class, 'excel'])->name('entreprises.excel');
+        Route::post('entreprises/{entreprise}/suspendre', [EntrepriseController::class, 'suspendre'])->name('entreprises.suspendre');
+        Route::post('entreprises/{entreprise}/reactiver', [EntrepriseController::class, 'reactiver'])->name('entreprises.reactiver');
+        Route::post('entreprises/{entreprise}/activer', [EntrepriseController::class, 'activer'])->name('entreprises.activer');
+        Route::post('entreprises/{entreprise}/ouvrir', [EntrepriseController::class, 'ouvrir'])->name('entreprises.ouvrir');
+
+        Route::get('paiements', [PaiementController::class, 'index'])->name('paiements.index');
+        Route::get('paiements/pdf', [PaiementController::class, 'pdf'])->name('paiements.pdf');
+        Route::get('paiements/excel', [PaiementController::class, 'excel'])->name('paiements.excel');
+
+        Route::get('formules', [FormuleController::class, 'index'])->name('formules.index');
+        Route::post('formules', [FormuleController::class, 'store'])->name('formules.store');
+        Route::put('formules/{formule}', [FormuleController::class, 'update'])->name('formules.update');
+        Route::patch('formules/{formule}/basculer', [FormuleController::class, 'basculer'])->name('formules.basculer');
+        Route::post('contact', [FormuleController::class, 'contact'])->name('contact.update');
+    });
+});
 
 Route::middleware('guest')->group(function () {
     Route::get('login', [AuthenticatedSessionController::class, 'create'])->name('login');
@@ -52,12 +105,22 @@ Route::middleware('guest')->group(function () {
     Route::post('login', [AuthenticatedSessionController::class, 'store'])->middleware('throttle:20,1');
 });
 
-Route::middleware(['auth', 'abonnement.actif'])->group(function () {
+// 'espace.commerce' : sur le domaine principal de la plateforme, ces écrans
+// de gestion d'un commerce n'ont pas d'objet — l'éditeur est ramené à sa
+// console (voir ReserveAuxCommerces).
+Route::middleware(['auth', 'abonnement.actif', 'espace.commerce'])->group(function () {
     Route::post('logout', [AuthenticatedSessionController::class, 'destroy'])->name('logout');
     Route::get('dashboard', DashboardController::class)->name('dashboard');
     Route::view('guide', 'guide.index')->name('guide');
 
     Route::get('abonnement', [AbonnementController::class, 'mon'])->name('abonnement.mon');
+
+    // Choix de la formule dans l'espace d'une entreprise : essai gratuit de
+    // démarrage ou paiement en ligne — voir PaiementAbonnementController
+    // pour qui y a accès.
+    Route::post('abonnement/essai/{formule}', [PaiementAbonnementController::class, 'essai'])->whereNumber('formule')->middleware('throttle:20,1')->name('abonnement.essai');
+    Route::get('abonnement/paiement/{formule}', [PaiementAbonnementController::class, 'create'])->whereNumber('formule')->name('abonnement.paiement.create');
+    Route::post('abonnement/paiement/{formule}', [PaiementAbonnementController::class, 'store'])->whereNumber('formule')->middleware('throttle:20,1')->name('abonnement.paiement.store');
 
     Route::middleware('abonnement.gestion')->group(function () {
         Route::get('abonnement/gestion', [AbonnementController::class, 'gestion'])->name('abonnement.gestion');

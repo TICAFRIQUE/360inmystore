@@ -23,7 +23,10 @@ class AbonnementController extends Controller
     {
         $derniere = AbonnementActivation::query()->with('formule')->latest('date_debut')->latest('id')->first();
 
-        return view('abonnement.mon', [
+        // Vue propre à la plateforme : choix de la formule et paiement par
+        // le propriétaire (« abonnement.mon » reste l'écran de la version
+        // installée, où l'éditeur active l'abonnement à la main).
+        return view('abonnement.espace', [
             'derniere' => $derniere,
             'bloquant' => Abonnement::estBloquant(),
             'joursRestants' => Abonnement::joursRestants(),
@@ -33,7 +36,14 @@ class AbonnementController extends Controller
             'estGestionnaire' => (bool) $request->user()?->estGestionnaireAbonnement(),
             // Pour la section "Formules disponibles" (choix indicatif, en
             // attendant un moyen de paiement en ligne — voir la vue).
-            'formules' => FormuleAbonnement::where('actif', true)->orderBy('jours')->get(),
+            // Catalogue de la plateforme. La formule gratuite (l'essai) n'est
+            // proposée qu'au démarrage : tant que l'espace n'a jamais eu
+            // d'abonnement.
+            'formules' => FormuleAbonnement::catalogue()->where('actif', true)
+                ->when($derniere !== null, fn ($q) => $q->where('prix', '>', 0))
+                ->orderBy('prix')->get(),
+            // Le propriétaire de l'espace choisit et paie sa formule lui-même.
+            'paiementEnLigne' => plateforme()->estEntreprise() && $request->user()->hasRole('Superadmin'),
         ]);
     }
 

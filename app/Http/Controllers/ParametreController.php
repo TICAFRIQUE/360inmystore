@@ -62,6 +62,8 @@ class ParametreController extends Controller
      */
     public function mettreAJourDossierSauvegarde(Request $request): RedirectResponse
     {
+        $this->interdireDansUnEspaceHeberge();
+
         $donnees = $request->validate([
             'dossier_sauvegarde' => ['nullable', 'string', 'max:500'],
         ]);
@@ -95,7 +97,9 @@ class ParametreController extends Controller
             return back()->with('erreur', 'Sauvegarde uniquement disponible pour une base MySQL.');
         }
 
-        $dossier = Parametre::actuel()->dossier_sauvegarde;
+        // Espace d'une entreprise : toujours un téléchargement,
+        // jamais une écriture dans un dossier du serveur.
+        $dossier = plateforme()->estEntreprise() ? null : Parametre::actuel()->dossier_sauvegarde;
 
         try {
             $cheminFichier = $this->executerMysqldump($connexion, $dossier, 'sauvegarde-');
@@ -136,6 +140,8 @@ class ParametreController extends Controller
      */
     public function restaurer(Request $request): RedirectResponse
     {
+        $this->interdireDansUnEspaceHeberge();
+
         $connexion = config('database.connections.'.config('database.default'));
 
         if (($connexion['driver'] ?? null) !== 'mysql') {
@@ -217,6 +223,21 @@ class ParametreController extends Controller
             ->log('Base de données restaurée depuis un fichier importé.');
 
         return back()->with('succes', "Restauration terminée avec succès. Une sauvegarde de l'état précédent (avant restauration) a été conservée : {$sauvegardeSecurite}.");
+    }
+
+    /**
+     * Deux réglages pensés pour la version installée, sur un poste local
+     * (le serveur EST le poste du commerçant) deviennent dangereux dans
+     * l'espace d'une entreprise hébergée, et y sont donc refusés :
+     *  - restaurer un fichier .sql exécuterait du SQL arbitraire avec le
+     *    compte MySQL de la plateforme, qui a accès aux bases de TOUTES les
+     *    entreprises ;
+     *  - choisir un dossier de sauvegarde ferait écrire des fichiers à un
+     *    emplacement quelconque du serveur.
+     */
+    private function interdireDansUnEspaceHeberge(): void
+    {
+        abort_if(plateforme()->estEntreprise(), 403);
     }
 
     /**

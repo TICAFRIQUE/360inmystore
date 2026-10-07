@@ -73,6 +73,15 @@ class User extends Authenticatable
      */
     public function estGestionnaireAbonnement(): bool
     {
+        // Dans l'espace d'une entreprise, personne ne
+        // gère l'abonnement — pas même son Superadmin, qui est le client
+        // lui-même. L'abonnement s'y renouvelle par paiement (voir
+        // PaiementAbonnementController), les formules se gèrent depuis la
+        // console de l'éditeur.
+        if (plateforme()->estEntreprise()) {
+            return false;
+        }
+
         return $this->hasRole('Superadmin')
             || (config('abonnement.developpeur_username') !== null
                 && $this->username === config('abonnement.developpeur_username'));

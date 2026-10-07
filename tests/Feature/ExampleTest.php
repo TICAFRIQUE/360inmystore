@@ -2,21 +2,20 @@
 
 namespace Tests\Feature;
 
-// use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 class ExampleTest extends TestCase
 {
-    /**
-     * La racine redirige vers le tableau de bord, qui exige une session
-     * authentifiée : un visiteur non connecté doit atterrir sur la page de
-     * connexion.
-     */
-    public function test_un_visiteur_non_connecte_est_redirige_vers_la_connexion(): void
-    {
-        $response = $this->get('/');
+    use RefreshDatabase;
 
-        $response->assertRedirect('/dashboard');
+    /**
+     * Sur le domaine principal, la racine est le site vitrine, ouvert à
+     * tous ; l'application elle-même exige une session authentifiée.
+     */
+    public function test_un_visiteur_voit_le_site_vitrine_mais_pas_l_application(): void
+    {
+        $this->get('/')->assertOk()->assertSee('Créer un compte');
         $this->get('/dashboard')->assertRedirect('/login');
     }
 }

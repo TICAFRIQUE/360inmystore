@@ -886,8 +886,9 @@ qui achètent **à crédit** sur compte client, réglé plus tard.
   affichée. Jamais de règle de format recopiée dans un contrôleur ou une vue.
 - **Enregistré au format international E.164** (`+2250700000001`), dans toutes les
   colonnes téléphone : `clients`, `fournisseurs`, `magasins`, `users`,
-  `parametres.numero`, `configuration_abonnements` (téléphone, WhatsApp). Une seule
-  écriture par numéro, quel que soit le pays ou la façon dont il a été tapé.
+  `parametres.numero`, `configuration_abonnements` (téléphone, WhatsApp), `entreprises`
+  (plateforme). Une seule écriture par numéro, quel que soit le pays ou la façon dont
+  il a été tapé.
 - **Saisi via `x-champ-telephone`** (sélecteur de pays + numéro sans indicatif),
   jamais un `<input>` texte libre. Le contrôleur appelle
   `Telephone::normaliserDansRequete($request)` AVANT la validation, puis valide avec
@@ -905,6 +906,83 @@ qui achètent **à crédit** sur compte client, réglé plus tard.
   s'affiche tel quel, et doit être corrigé à la prochaine modification de la fiche.
 - **Tests** : ils tournent sur MySQL (base `360inmystore_test`, voir `phpunit.xml`) —
   les migrations ne sont pas compatibles SQLite.
+
+---
+
+## Plateforme SaaS (branche `multi-tenant`)
+
+Cette branche est la plateforme en ligne, **toujours multi-client** — détail
+d'exploitation dans `PLATEFORME.md`. La version installée (un commerce par
+déploiement) est la branche `mono_client`, dont celle-ci hérite tout le métier.
+
+- **Aucun interrupteur mono/multi**, ni dans `.env` ni à l'écran. Le domaine de la
+  plateforme se déduit de `APP_URL` (`config/plateforme.php`) ; `DB_DATABASE` est la
+  base de la plateforme.
+- **Une base de données par entreprise** (`{préfixe}{sous_domaine}`) + la base de la
+  plateforme. **Aucune colonne `entreprise_id` dans les tables métier**, aucun filtre à
+  ajouter dans les requêtes : le cloisonnement est celui des bases. Les règles métier
+  sont identiques à celles de `mono_client`.
+- **Identification par sous-domaine**, avant le démarrage de l'application
+  (`PlateformeServiceProvider`, rappel « booting ») : la configuration de la connexion
+  par défaut est corrigée avant que quoi que ce soit ne soit créé — donc connexion,
+  cache et sessions en base, stockage des images (`storage/app/public/entreprises/{id}`)
+  pointent d'emblée vers l'entreprise. Ne jamais changer de base « à chaud » en cours
+  de requête.
+- **`plateforme()`** (`App\Plateforme\Plateforme`) est la seule source du contexte :
+  `centrale` (domaine principal, valeur par défaut), `entreprise`, `introuvable`,
+  `indisponible`. Ne jamais relire le nom d'hôte ou la configuration ailleurs.
+- **Parcours client** : site vitrine (`plateforme.accueil`, tarifs = formules actives
+  du catalogue) → inscription (`InscriptionController`, protégée par `AntiRobot`,
+  limitation par IP, plafonds quotidiens, un espace par téléphone, adresses
+  réservées) → création de l'espace (`CreationEntreprise`, tout ou rien) → arrivée
+  **déjà connecté** dans l'espace par un lien à usage unique (`LienAcces`,
+  `AccesEspaceController`) → **choix de la formule** (`abonnement.espace`) → usage.
+- **Pas de formule en cours = espace fermé** : `Abonnement::estBloquant()` est vrai
+  dans l'espace d'une entreprise tant qu'aucune activation n'existe (comme après
+  expiration) ; tout ramène alors à la page des formules.
+- **Formules = tarifs.** Le catalogue (`FormuleAbonnement::catalogue()`, base de la
+  plateforme) est géré par l'éditeur (`plateforme.formules.*`) et alimente seul la
+  page des tarifs et le choix dans chaque espace : nom, prix, durée, accroche,
+  avantages (une ligne par élément), mise en avant. **Une formule à 0 F est l'essai
+  gratuit**, prenable une seule fois, au démarrage (`AbonnementEnLigne::demarrerEssai()`).
+  Une activation référence toujours une copie locale de la formule
+  (`FormuleAbonnement::copieLocale()`).
+- **Paiement derrière `PasserellePaiement`** — aujourd'hui `PasserelleSimulation` :
+  **aucun argent encaissé**. Un paiement en ligne est toujours inscrit au registre
+  AVANT l'activation (`AbonnementEnLigne`) : les deux vivent dans deux bases, sans
+  transaction commune.
+- **Espace de l'éditeur** (`plateforme.*`, domaine principal, réservé à
+  `User::estGestionnaireAbonnement()`) : tableau de bord (`ConsoleController`),
+  entreprises (`EntrepriseController` : suspension, réouverture, **activation d'un
+  abonnement payé en direct** — `ActivationParEditeur`, paiement inscrit seulement
+  une fois l'abonnement activé —, **accès de maintenance** à un espace, tracé des
+  deux côtés), registre des paiements (`PaiementController`), formules et contact
+  (`FormuleController`). Les écrans de gestion d'un commerce y sont fermés
+  (`ReserveAuxCommerces`).
+- **Dans l'espace d'une entreprise** : `estGestionnaireAbonnement()` est toujours
+  faux (le propriétaire — rôle Superadmin de SON espace — choisit et paie sa
+  formule, il ne s'active rien) ; la restauration d'une base et le dossier de
+  sauvegarde sont refusés (`ParametreController::interdireDansUnEspaceHeberge()` — du
+  SQL arbitraire s'y exécuterait avec un compte MySQL qui voit toutes les
+  entreprises).
+- **Modèles de la plateforme** (`App\Models\Plateforme\*`, base `ModelePlateforme`) :
+  `Entreprise` (registre + copie de la formule et de l'échéance, pour la console
+  uniquement — la source de vérité reste les activations de l'espace),
+  `PaiementAbonnement` (registre immuable), `AccesEspace` (liens d'accès et registre
+  des accès de maintenance). Migrations dans `database/migrations/plateforme`,
+  exécutées uniquement sur la base de la plateforme.
+- **Toute commande artisan visant une entreprise tourne dans un processus séparé**
+  (`ProcessusEntreprise`, variable `PLATEFORME_ENTREPRISE`) : `entreprises:initialiser`,
+  `entreprises:activer-abonnement`, et `entreprises:executer -- <commande>` pour les
+  migrations et tâches planifiées. Une mise à jour = `migrate` sur la plateforme PUIS
+  `entreprises:executer -- migrate --force`.
+- **Limiter les modifications des fichiers partagés avec `mono_client`** : le code
+  propre à la plateforme va dans `app/Plateforme`, `App\Models\Plateforme`,
+  `Controllers/Plateforme`, `views/plateforme` — chaque retouche d'un fichier du
+  métier complique la fusion suivante depuis `mono_client`.
+- **Tests** : le contexte par défaut est le domaine principal ;
+  `$this->dansUnEspace($proprietaire)` (`Tests\TestCase`) place un test dans l'espace
+  d'une entreprise ; `plateforme()->definir(...)` simule les autres contextes.
 
 ---
 
@@ -1050,3 +1128,13 @@ se fait dans `mono_client`, puis `mono_client` est fusionnée dans `multi-tenant
 jamais l'inverse : aucun code de plateforme ne doit arriver dans la version installée.
 **Déploiement** : un push ne met plus rien en production ; le déploiement se lance à
 la main depuis GitHub (voir `.github/workflows/deploy.yml`).
+
+Nouvelle extension (plateforme SaaS, branche `multi-tenant` uniquement) : une base
+par entreprise et un sous-domaine chacun ; site vitrine avec tarifs, inscription en
+libre-service protégée contre les robots, arrivée directe dans l'espace sur le choix
+de la formule, essai gratuit (formule à 0 F, une seule fois), **paiement en ligne
+simulé** (aucun prestataire pour l'instant) ; espace de l'éditeur (tableau de bord,
+entreprises, paiements, formules, activation manuelle, accès de maintenance) — voir
+« Plateforme SaaS ». L'idée initiale d'un interrupteur mono/multi dans un même code a
+été abandonnée au profit de deux branches. L'e-mail n'est volontairement pas demandé
+à l'inscription : le téléphone est l'identifiant de contact d'une entreprise.

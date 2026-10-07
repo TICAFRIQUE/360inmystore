@@ -80,8 +80,13 @@
                     <div class="mb-4" x-data="{ visible: false }">
                         <label for="code" class="form-label">Mot de passe</label>
                         <div class="input-group">
+                            {{-- En ligne, un compte peut avoir un vrai mot de passe
+                                 (le propriétaire en choisit un à l'inscription) : aucune
+                                 contrainte de forme ni de longueur à la saisie,
+                                 contrairement au code à 4 chiffres de la version
+                                 installée. --}}
                             <input :type="visible ? 'text' : 'password'" name="code" id="code" class="form-control"
-                                   inputmode="numeric" pattern="[0-9]*" maxlength="4" required>
+                                   autocomplete="current-password" required>
                             <button type="button" class="btn btn-outline-secondary" @click="visible = !visible"
                                     :title="visible ? 'Masquer le code' : 'Afficher le code'">
                                 <i class="bi" :class="visible ? 'bi-eye-slash' : 'bi-eye'"></i>

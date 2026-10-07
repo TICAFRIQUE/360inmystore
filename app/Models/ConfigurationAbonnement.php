@@ -27,6 +27,15 @@ class ConfigurationAbonnement extends Model
 
     public static function actuel(): self
     {
+        // Depuis l'espace d'une entreprise, le contact à
+        // afficher est celui de l'éditeur, saisi sur la plateforme — pas la
+        // ligne (vide) de la base de l'entreprise. Lu sans cache : l'espace
+        // n'aurait aucun moyen de savoir que la plateforme l'a modifié, et
+        // cette page n'est consultée qu'occasionnellement.
+        if (plateforme()->estEntreprise()) {
+            return static::on('plateforme')->first() ?? new self;
+        }
+
         $attributs = Cache::rememberForever(self::CACHE_KEY, function () {
             return self::query()->firstOrCreate(['id' => 1])->getAttributes();
         });
