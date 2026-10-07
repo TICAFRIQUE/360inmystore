@@ -1039,7 +1039,10 @@ window.ouvrirClientRapide = function (selectId) {
     const nomInput = document.getElementById('clientRapideNom');
     nomInput.value = '';
     nomInput.classList.remove('is-invalid');
-    document.getElementById('clientRapideTelephone').value = '';
+    const telephoneInput = document.getElementById('clientRapideTelephone');
+    telephoneInput.value = '';
+    telephoneInput.classList.remove('is-invalid');
+    document.getElementById('clientRapideTelephoneErreur').textContent = '';
     document.getElementById('clientRapideNomErreur').textContent = '';
 
     window.bootstrap.Modal.getOrCreateInstance(document.getElementById('clientRapideModal')).show();
@@ -1050,11 +1053,16 @@ window.soumettreClientRapide = function () {
     const erreurEl = document.getElementById('clientRapideNomErreur');
     const bouton = document.getElementById('clientRapideBouton');
     const nom = nomInput.value.trim();
-    const telephone = document.getElementById('clientRapideTelephone').value.trim();
+    const telephoneInput = document.getElementById('clientRapideTelephone');
+    const telephoneErreurEl = document.getElementById('clientRapideTelephoneErreur');
+    const telephone = telephoneInput.value.trim();
+    const telephonePays = document.getElementById('clientRapideTelephonePays').value;
     const typeClientId = document.getElementById('clientRapideTypeClient').value;
 
     nomInput.classList.remove('is-invalid');
     erreurEl.textContent = '';
+    telephoneInput.classList.remove('is-invalid');
+    telephoneErreurEl.textContent = '';
 
     if (!nom) {
         nomInput.classList.add('is-invalid');
@@ -1072,14 +1080,22 @@ window.soumettreClientRapide = function () {
             Accept: 'application/json',
             'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
         },
-        body: JSON.stringify({ nom, telephone: telephone || null, type_client_id: typeClientId || null }),
+        body: JSON.stringify({ nom, telephone: telephone || null, telephone_pays: telephonePays, type_client_id: typeClientId || null }),
     })
         .then(async (response) => {
             const data = await response.json();
 
             if (!response.ok) {
-                nomInput.classList.add('is-invalid');
-                erreurEl.textContent = data.errors?.nom?.[0] ?? data.message ?? 'Impossible de créer le client.';
+                // Numéro refusé pour le pays choisi : signalé sur son propre
+                // champ, pas sur le nom.
+                if (data.errors?.telephone) {
+                    telephoneInput.classList.add('is-invalid');
+                    telephoneErreurEl.textContent = data.errors.telephone[0];
+                }
+                if (data.errors?.nom || !data.errors?.telephone) {
+                    nomInput.classList.add('is-invalid');
+                    erreurEl.textContent = data.errors?.nom?.[0] ?? data.message ?? 'Impossible de créer le client.';
+                }
                 return;
             }
 

@@ -456,7 +456,7 @@ class CommandeAchatController extends Controller
 
         $feuille->setCellValue('A6', 'Fournisseur');
         $feuille->setCellValue('A7', $commandeAchat->fournisseur->nom);
-        $feuille->setCellValue('A8', $commandeAchat->fournisseur->telephone ?? '');
+        $feuille->setCellValue('A8', telephone($commandeAchat->fournisseur->telephone));
         $feuille->setCellValue('A9', $commandeAchat->fournisseur->adresse ?? '');
 
         $ligneEnTete = 11;

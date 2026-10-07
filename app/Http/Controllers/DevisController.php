@@ -258,7 +258,7 @@ class DevisController extends Controller
 
         $feuille->setCellValue('A6', 'Client');
         $feuille->setCellValue('A7', $devis->client->nom);
-        $feuille->setCellValue('A8', $devis->client->telephone);
+        $feuille->setCellValue('A8', telephone($devis->client->telephone));
         $feuille->setCellValue('A9', $devis->client->adresse);
 
         $ligneEnTete = 11;

@@ -550,7 +550,7 @@
                     <div>{{ $parametre->slogan }}</div>
                 @endif
                 @if ($parametre->numero)
-                    <div>{{ $parametre->numero }}</div>
+                    <div>{{ telephone($parametre->numero) }}</div>
                 @endif
                 @if ($parametre->adresse)
                     <div>{{ $parametre->adresse }}</div>
@@ -576,7 +576,7 @@
                     @endif
                     <span class="entreprise-nom">{{ $parametre->nom }}</span><br>
                     @if ($parametre->adresse) {{ $parametre->adresse }}<br> @endif
-                    @if ($parametre->numero) Tél : {{ $parametre->numero }} @endif
+                    @if ($parametre->numero) Tél : {{ telephone($parametre->numero) }} @endif
                 </td>
                 <td style="width: 45%;">
                     <div class="facture-titre">{{ \Illuminate\Support\Str::upper($vente->type->libelle()) }}</div>
@@ -594,7 +594,7 @@
         <div class="bloc-client">
             <div class="label">Client</div>
             <strong>{{ $vente->client->nom ?? 'Client comptant' }}</strong><br>
-            @if ($vente->client?->telephone) Tél : {{ $vente->client->telephone }}<br> @endif
+            @if ($vente->client?->telephone) Tél : {{ telephone($vente->client->telephone) }}<br> @endif
             @if ($vente->client?->adresse) {{ $vente->client->adresse }} @endif
         </div>
 
@@ -912,7 +912,7 @@
                                                 <option value="">— Choisir —</option>
                                                 @foreach ($clientsPourRetour as $c)
                                                     <option value="{{ $c->id }}" @selected($c->comptant_defaut)>
-                                                        {{ $c->nom }}{{ $c->telephone ? ' — '.$c->telephone : '' }}{{ $c->comptant_defaut ? ' (identité inconnue)' : '' }}
+                                                        {{ $c->nom }}{{ $c->telephone ? ' — '.telephone($c->telephone) : '' }}{{ $c->comptant_defaut ? ' (identité inconnue)' : '' }}
                                                     </option>
                                                 @endforeach
                                             </select>

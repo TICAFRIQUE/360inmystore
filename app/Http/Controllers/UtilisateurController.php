@@ -6,6 +6,8 @@ use App\Http\Controllers\Concerns\ExporteListe;
 use App\Http\Controllers\Concerns\TrieListe;
 use App\Models\Magasin;
 use App\Models\User;
+use App\Rules\TelephoneValide;
+use App\Support\Telephone;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\RedirectResponse;
@@ -188,11 +190,13 @@ class UtilisateurController extends Controller
      */
     private function valider(Request $request, ?User $utilisateur = null, bool $ignorerRoleEtStatut = false): array
     {
+        Telephone::normaliserDansRequete($request);
+
         $donnees = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'username' => ['required', 'string', 'max:50', 'unique:users,username,'.($utilisateur?->id)],
             'email' => ['nullable', 'email', 'max:255', 'unique:users,email,'.($utilisateur?->id)],
-            'telephone' => ['nullable', 'string', 'max:30'],
+            'telephone' => ['nullable', 'string', 'max:30', new TelephoneValide],
             'magasin_id' => ['nullable', 'exists:magasins,id'],
             'role' => [$ignorerRoleEtStatut ? 'sometimes' : 'required', 'nullable', 'exists:roles,name', 'not_in:Superadmin'],
             'actif' => ['boolean'],

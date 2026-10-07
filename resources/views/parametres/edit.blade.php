@@ -59,9 +59,20 @@
 
                         <div class="mb-3">
                             <label for="numero" class="form-label">Numéro de téléphone</label>
-                            <input type="text" name="numero" id="numero" class="form-control @error('numero') is-invalid @enderror"
-                                   value="{{ old('numero', $parametre->numero) }}">
-                            @error('numero') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                            <x-champ-telephone nom="numero" :valeur="old('numero', $parametre->numero)" />
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="pays" class="form-label">Pays<span class="required-marker">*</span></label>
+                            <select name="pays" id="pays" class="form-select @error('pays') is-invalid @enderror" required>
+                                @foreach (\App\Support\Telephone::options() as $option)
+                                    <option value="{{ $option['code'] }}" @selected(old('pays', $parametre->pays ?? \App\Support\Telephone::PAYS_DEFAUT) === $option['code'])>
+                                        {{ $option['nom'] }} ({{ $option['indicatif'] }})
+                                    </option>
+                                @endforeach
+                            </select>
+                            @error('pays') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                            <div class="form-text">Indicatif proposé par défaut dans tous les champs téléphone (clients, fournisseurs, magasins…).</div>
                         </div>
 
                         <div class="mb-3">

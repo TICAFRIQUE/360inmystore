@@ -39,7 +39,7 @@
                                 @endif
                             </td>
                             <td>{{ $magasin->adresse ?? '—' }}</td>
-                            <td>{{ $magasin->telephone ?? '—' }}</td>
+                            <td>{{ telephone($magasin->telephone) ?: '—' }}</td>
                             <td>
                                 @if ($magasin->actif)
                                     <span class="badge text-bg-success">Actif</span>

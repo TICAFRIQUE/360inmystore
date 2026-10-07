@@ -278,7 +278,7 @@
                                     <select id="client-picker" class="form-select form-select-sm" x-model="clientId">
                                         <option value="">— Vente comptant (aucun client) —</option>
                                         @foreach ($clients as $c)
-                                            <option value="{{ $c->id }}">{{ $c->nom }}{{ $c->telephone ? ' — '.$c->telephone : '' }}</option>
+                                            <option value="{{ $c->id }}">{{ $c->nom }}{{ $c->telephone ? ' — '.telephone($c->telephone) : '' }}</option>
                                         @endforeach
                                     </select>
                                     @can('client.gerer')

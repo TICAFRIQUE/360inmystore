@@ -4,10 +4,13 @@ namespace App\Http\Controllers;
 
 use App\Models\Devise;
 use App\Models\Parametre;
+use App\Rules\TelephoneValide;
+use App\Support\Telephone;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 use Spatie\Permission\PermissionRegistrar;
 use Symfony\Component\HttpFoundation\Cookie;
@@ -26,11 +29,14 @@ class ParametreController extends Controller
 
     public function update(Request $request): RedirectResponse
     {
+        Telephone::normaliserDansRequete($request, 'numero');
+
         $donnees = $request->validate([
             'nom' => ['required', 'string', 'max:255'],
             'slogan' => ['nullable', 'string', 'max:255'],
             'couleur_primaire' => ['nullable', 'regex:/^#[0-9A-Fa-f]{6}$/'],
-            'numero' => ['nullable', 'string', 'max:50'],
+            'numero' => ['nullable', 'string', 'max:50', new TelephoneValide],
+            'pays' => ['required', Rule::in(array_keys(Telephone::PAYS))],
             'adresse' => ['nullable', 'string', 'max:255'],
             'duree_validite_devis_jours' => ['required', 'integer', 'min:1', 'max:365'],
             'devise_id' => ['nullable', 'exists:devises,id'],

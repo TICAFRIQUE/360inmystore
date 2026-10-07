@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use App\Http\Controllers\Concerns\ExporteListe;
 use App\Http\Controllers\Concerns\TrieListe;
 use App\Models\Magasin;
+use App\Rules\TelephoneValide;
+use App\Support\Telephone;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -57,7 +59,7 @@ class MagasinController extends Controller
             $magasin->nom,
             $magasin->estDepot() ? 'Dépôt' : 'Magasin',
             $magasin->adresse ?? '—',
-            $magasin->telephone ?? '—',
+            telephone($magasin->telephone) ?: '—',
             $magasin->actif ? 'Actif' : 'Inactif',
         ]);
     }
@@ -99,11 +101,13 @@ class MagasinController extends Controller
 
     private function valider(Request $request, ?Magasin $magasin = null): array
     {
+        Telephone::normaliserDansRequete($request);
+
         return $request->validate([
             'nom' => ['required', 'string', 'max:255', 'unique:magasins,nom,'.($magasin?->id)],
             'type' => ['required', 'in:magasin,depot'],
             'adresse' => ['nullable', 'string', 'max:255'],
-            'telephone' => ['nullable', 'string', 'max:50'],
+            'telephone' => ['nullable', 'string', 'max:50', new TelephoneValide],
             'actif' => ['boolean'],
         ]) + ['actif' => $request->boolean('actif', true)];
     }

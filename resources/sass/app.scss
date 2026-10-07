@@ -844,6 +844,13 @@ code {
     }
 }
 
+// Champ téléphone (x-champ-telephone) : le sélecteur de pays garde une
+// largeur fixe raisonnable, le numéro prend le reste.
+.champ-telephone__pays {
+    flex: 0 1 12.5rem;
+    min-width: 7rem;
+}
+
 .required-marker {
     color: $danger;
     margin-left: 0.15rem;

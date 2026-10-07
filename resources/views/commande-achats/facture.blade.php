@@ -112,7 +112,7 @@
                 @endif
                 <span class="entreprise-nom">{{ $parametre->nom }}</span><br>
                 @if ($parametre->adresse) {{ $parametre->adresse }}<br> @endif
-                @if ($parametre->numero) Tél : {{ $parametre->numero }} @endif
+                @if ($parametre->numero) Tél : {{ telephone($parametre->numero) }} @endif
             </td>
             <td style="width: 45%;">
                 <div class="facture-titre">BON DE COMMANDE</div>
@@ -128,7 +128,7 @@
     <div class="bloc-client">
         <div class="label">Fournisseur</div>
         <strong>{{ $commande->fournisseur->nom }}</strong><br>
-        @if ($commande->fournisseur->telephone) Tél : {{ $commande->fournisseur->telephone }}<br> @endif
+        @if ($commande->fournisseur->telephone) Tél : {{ telephone($commande->fournisseur->telephone) }}<br> @endif
         @if ($commande->fournisseur->adresse) {{ $commande->fournisseur->adresse }} @endif
     </div>
 

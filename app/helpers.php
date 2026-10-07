@@ -53,3 +53,16 @@ if (! function_exists('montantAchat')) {
         return (str_ends_with($formate, ',00') ? substr($formate, 0, -3) : $formate).' '.Devise::abreviationActuelle();
     }
 }
+
+if (! function_exists('telephone')) {
+    /**
+     * Affichage centralisé d'un numéro de téléphone enregistré au format
+     * international (voir App\Support\Telephone) : « +225 07 00 00 00 01 ».
+     * Chaîne vide si aucun numéro — l'appelant choisit son propre repli
+     * (« — », « Aucun téléphone »…).
+     */
+    function telephone(?string $valeur): string
+    {
+        return \App\Support\Telephone::formater($valeur);
+    }
+}

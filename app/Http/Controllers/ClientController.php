@@ -12,6 +12,8 @@ use App\Models\RetourVente;
 use App\Models\SessionCaisse;
 use App\Models\TypeClient;
 use App\Models\Vente;
+use App\Rules\TelephoneValide;
+use App\Support\Telephone;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -35,7 +37,7 @@ class ClientController extends Controller
                 $recherche = $request->string('recherche');
                 $q->where(function ($sub) use ($recherche) {
                     $sub->where('nom', 'like', "%{$recherche}%")
-                        ->orWhere('telephone', 'like', "%{$recherche}%");
+                        ->when(Telephone::pourRecherche($recherche) !== '', fn ($t) => $t->orWhere('telephone', 'like', '%'.Telephone::pourRecherche($recherche).'%'));
                 });
             });
 
@@ -83,7 +85,7 @@ class ClientController extends Controller
                 $recherche = $request->string('recherche');
                 $q->where(function ($sub) use ($recherche) {
                     $sub->where('nom', 'like', "%{$recherche}%")
-                        ->orWhere('telephone', 'like', "%{$recherche}%");
+                        ->when(Telephone::pourRecherche($recherche) !== '', fn ($t) => $t->orWhere('telephone', 'like', '%'.Telephone::pourRecherche($recherche).'%'));
                 });
             });
 
@@ -101,7 +103,7 @@ class ClientController extends Controller
                 $c->code,
                 $c->nom,
                 $c->typeClient->nom ?? '—',
-                $c->telephone ?? '—',
+                telephone($c->telephone) ?: '—',
                 montant(max($solde, 0)),
                 montant(max(-$solde, 0)),
                 $c->limite_credit !== null ? montant($c->limite_credit) : 'Illimitée',
@@ -144,9 +146,11 @@ class ClientController extends Controller
      */
     public function storeRapide(Request $request): JsonResponse
     {
+        Telephone::normaliserDansRequete($request);
+
         $validateur = Validator::make($request->all(), [
             'nom' => ['required', 'string', 'max:255'],
-            'telephone' => ['nullable', 'string', 'max:50'],
+            'telephone' => ['nullable', 'string', 'max:50', new TelephoneValide],
             'type_client_id' => ['nullable', 'exists:type_clients,id'],
         ]);
 
@@ -159,7 +163,7 @@ class ClientController extends Controller
         return response()->json([
             'id' => $client->id,
             'nom' => $client->nom,
-            'telephone' => $client->telephone,
+            'telephone' => telephone($client->telephone),
         ], 201);
     }
 
@@ -363,11 +367,13 @@ class ClientController extends Controller
 
     private function valider(Request $request, ?Client $client = null): array
     {
+        Telephone::normaliserDansRequete($request);
+
         $donnees = $request->validate([
             'nom' => ['required', 'string', 'max:255'],
             'code' => ['nullable', 'string', 'max:50', Rule::unique('clients', 'code')->ignore($client?->id)],
             'type_client_id' => ['nullable', 'exists:type_clients,id'],
-            'telephone' => ['nullable', 'string', 'max:50'],
+            'telephone' => ['nullable', 'string', 'max:50', new TelephoneValide],
             'adresse' => ['nullable', 'string', 'max:255'],
             'limite_credit' => ['nullable', 'integer', 'min:0'],
             'actif' => ['boolean'],

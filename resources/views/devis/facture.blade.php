@@ -102,7 +102,7 @@
                 @endif
                 <span class="entreprise-nom">{{ $parametre->nom }}</span><br>
                 @if ($parametre->adresse) {{ $parametre->adresse }}<br> @endif
-                @if ($parametre->numero) Tél : {{ $parametre->numero }} @endif
+                @if ($parametre->numero) Tél : {{ telephone($parametre->numero) }} @endif
             </td>
             <td style="width: 45%;">
                 <div class="devis-titre">DEVIS</div>
@@ -118,7 +118,7 @@
     <div class="bloc-client">
         <div class="label">Client</div>
         <strong>{{ $devis->client->nom }}</strong><br>
-        @if ($devis->client->telephone) Tél : {{ $devis->client->telephone }}<br> @endif
+        @if ($devis->client->telephone) Tél : {{ telephone($devis->client->telephone) }}<br> @endif
         @if ($devis->client->adresse) {{ $devis->client->adresse }} @endif
     </div>
 

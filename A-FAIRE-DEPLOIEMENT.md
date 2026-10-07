@@ -10,6 +10,36 @@ pas supprimer les entrées cochées (historique).
 
 ---
 
+## 2026-10-07 — 360inmystore : renommage, sidebar, exports, téléphone
+
+Branche `mono_client` (version installée). **Un push ne déploie plus rien** : la
+mise en production se lance à la main depuis GitHub (Actions → « Tests et
+déploiement » → « Run workflow », branche `mono_client`).
+
+- [ ] **Nouvelle dépendance PHP** (`giggsey/libphonenumber-for-php-lite`,
+  numéros de téléphone) et nouveaux assets (sidebar, police Inter) :
+  ```
+  composer install --no-dev --optimize-autoloader
+  php artisan migrate --force
+  npm install
+  npm run build
+  php artisan config:cache
+  php artisan route:cache
+  php artisan view:cache
+  ```
+- [ ] **Migrations** : le nom d'application resté sur l'ancienne valeur par
+  défaut (« Gérer Mon Stock ») devient « 360inmystore » ; nouvelle colonne
+  `parametres.pays` (Côte d'Ivoire par défaut) ; les numéros de téléphone
+  déjà saisis et valides passent au format international (`+225…`) — un
+  numéro non reconnu est laissé tel quel.
+- [ ] **Vérifier le pays du commerce** dans Paramètres (indicatif proposé par
+  défaut dans tous les champs téléphone).
+- [ ] **Coquille desktop** : c'est une nouvelle application (« 360inmystore »,
+  nouvel identifiant) — elle ne met pas à jour une ancienne installation
+  « G-Stock Quincaillerie », à désinstaller à la main sur chaque poste.
+- [ ] **Tests** : ils tournent désormais sur MySQL — créer une fois la base
+  `360inmystore_test` sur le poste de développement.
+
 ## 2026-09-15 (suite 12) — sauvegarde vers un dossier + restauration de la base
 
 - [ ] **Nouveau : dossier de sauvegarde configurable** (`Paramètres`, carte

@@ -24,9 +24,7 @@
 
 <div class="mb-3">
     <label for="telephone" class="form-label">Téléphone</label>
-    <input type="text" name="telephone" id="telephone" class="form-control @error('telephone') is-invalid @enderror"
-           value="{{ old('telephone', $magasin->telephone ?? '') }}">
-    @error('telephone') <div class="invalid-feedback">{{ $message }}</div> @enderror
+    <x-champ-telephone :valeur="old('telephone', $magasin->telephone ?? '')" />
 </div>
 
 <x-actif-toggle :checked="$magasin->actif ?? true" />

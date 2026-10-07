@@ -23,9 +23,7 @@
 
 <div class="mb-3">
     <label for="telephone" class="form-label">Téléphone (optionnel)</label>
-    <input type="text" name="telephone" id="telephone" class="form-control @error('telephone') is-invalid @enderror"
-           value="{{ old('telephone', $utilisateur->telephone ?? '') }}" maxlength="30">
-    @error('telephone') <div class="invalid-feedback">{{ $message }}</div> @enderror
+    <x-champ-telephone :valeur="old('telephone', $utilisateur->telephone ?? '')" />
 </div>
 
 @unless (isset($utilisateur))

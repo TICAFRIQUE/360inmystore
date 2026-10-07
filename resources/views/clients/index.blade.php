@@ -49,7 +49,7 @@
                             <td><code>{{ $client->code }}</code></td>
                             <td><a href="{{ route('clients.show', $client) }}">{{ $client->nom }}</a></td>
                             <td>{{ $client->typeClient->nom ?? '—' }}</td>
-                            <td>{{ $client->telephone ?? '—' }}</td>
+                            <td>{{ telephone($client->telephone) ?: '—' }}</td>
                             <td class="{{ $soldeDu > 0 ? 'text-danger fw-medium' : '' }}">{{ montant($soldeDu) }}</td>
                             <td class="{{ $avoir > 0 ? 'text-success fw-medium' : '' }}">{{ montant($avoir) }}</td>
                             <td>{{ $client->limite_credit !== null ? montant($client->limite_credit) : 'Illimitée' }}</td>

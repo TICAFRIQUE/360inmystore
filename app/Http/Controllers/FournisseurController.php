@@ -11,6 +11,8 @@ use App\Models\MoyenPaiement;
 use App\Models\ReglementFournisseur;
 use App\Models\RemboursementAvoirFournisseur;
 use App\Models\RetourAchat;
+use App\Rules\TelephoneValide;
+use App\Support\Telephone;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -29,7 +31,7 @@ class FournisseurController extends Controller
                 $recherche = $request->string('recherche');
                 $q->where(function ($sub) use ($recherche) {
                     $sub->where('nom', 'like', "%{$recherche}%")
-                        ->orWhere('telephone', 'like', "%{$recherche}%")
+                        ->when(Telephone::pourRecherche($recherche) !== '', fn ($t) => $t->orWhere('telephone', 'like', '%'.Telephone::pourRecherche($recherche).'%'))
                         ->orWhere('email', 'like', "%{$recherche}%");
                 });
             });
@@ -77,7 +79,7 @@ class FournisseurController extends Controller
                 $recherche = $request->string('recherche');
                 $q->where(function ($sub) use ($recherche) {
                     $sub->where('nom', 'like', "%{$recherche}%")
-                        ->orWhere('telephone', 'like', "%{$recherche}%")
+                        ->when(Telephone::pourRecherche($recherche) !== '', fn ($t) => $t->orWhere('telephone', 'like', '%'.Telephone::pourRecherche($recherche).'%'))
                         ->orWhere('email', 'like', "%{$recherche}%");
                 });
             });
@@ -95,7 +97,7 @@ class FournisseurController extends Controller
             return [
                 $f->code,
                 $f->nom,
-                $f->telephone ?? '—',
+                telephone($f->telephone) ?: '—',
                 $f->email ?? '—',
                 montant(max($solde, 0)),
                 montant(max(-$solde, 0)),
@@ -247,10 +249,12 @@ class FournisseurController extends Controller
 
     private function valider(Request $request, ?Fournisseur $fournisseur = null): array
     {
+        Telephone::normaliserDansRequete($request);
+
         $donnees = $request->validate([
             'nom' => ['required', 'string', 'max:255'],
             'code' => ['nullable', 'string', 'max:50', Rule::unique('fournisseurs', 'code')->ignore($fournisseur?->id)],
-            'telephone' => ['nullable', 'string', 'max:50'],
+            'telephone' => ['nullable', 'string', 'max:50', new TelephoneValide],
             'email' => ['nullable', 'email', 'max:255'],
             'adresse' => ['nullable', 'string', 'max:255'],
             'actif' => ['boolean'],

@@ -444,7 +444,7 @@ class VenteController extends Controller
 
         $feuille->setCellValue('A6', 'Client');
         $feuille->setCellValue('A7', $vente->client->nom ?? 'Client comptant');
-        $feuille->setCellValue('A8', $vente->client->telephone ?? '');
+        $feuille->setCellValue('A8', telephone($vente->client?->telephone));
         $feuille->setCellValue('A9', $vente->client->adresse ?? '');
 
         $ligneEnTete = 11;

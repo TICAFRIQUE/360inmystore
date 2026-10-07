@@ -41,6 +41,8 @@ qui achètent **à crédit** sur compte client, réglé plus tard.
 - `spatie/laravel-medialibrary` — images produits.
 - `spatie/laravel-activitylog` — journaux d'activité.
 - `yajra/laravel-datatables-oracle` — tableaux de données (mode serveur).
+- `giggsey/libphonenumber-for-php-lite` — validation et format des numéros de
+  téléphone (voir « Téléphone »).
 
 ---
 
@@ -876,6 +878,36 @@ qui achètent **à crédit** sur compte client, réglé plus tard.
 
 ---
 
+## Téléphone
+
+- **Un seul endroit connaît les règles** : `App\Support\Telephone` (bibliothèque
+  `giggsey/libphonenumber-for-php-lite`) — pays proposés (les 54 pays d'Afrique),
+  validation selon le plan de numérotation de chaque pays, forme enregistrée, forme
+  affichée. Jamais de règle de format recopiée dans un contrôleur ou une vue.
+- **Enregistré au format international E.164** (`+2250700000001`), dans toutes les
+  colonnes téléphone : `clients`, `fournisseurs`, `magasins`, `users`,
+  `parametres.numero`, `configuration_abonnements` (téléphone, WhatsApp). Une seule
+  écriture par numéro, quel que soit le pays ou la façon dont il a été tapé.
+- **Saisi via `x-champ-telephone`** (sélecteur de pays + numéro sans indicatif),
+  jamais un `<input>` texte libre. Le contrôleur appelle
+  `Telephone::normaliserDansRequete($request)` AVANT la validation, puis valide avec
+  la règle `TelephoneValide` : un numéro invalide pour le pays choisi est refusé,
+  jamais enregistré tel quel. Un numéro d'un pays absent du sélecteur (fournisseur à
+  l'étranger) reste accepté s'il est tapé en entier avec son « + ».
+- **Affiché via le helper `telephone()`** (`+225 07 00 00 00 01`), y compris dans les
+  documents imprimables et les exports.
+- **Pays par défaut = pays du commerce** (`Parametre.pays`, code ISO, Côte d'Ivoire
+  tant qu'il n'est pas réglé) : il fixe l'indicatif présélectionné dans tous les
+  formulaires.
+- **Recherche par téléphone** sur les chiffres seuls (`Telephone::pourRecherche()`) :
+  « 07 00-00 » retrouve `+2250700000001`.
+- Un ancien numéro saisi librement et non reconnu n'est ni modifié ni masqué : il
+  s'affiche tel quel, et doit être corrigé à la prochaine modification de la fiche.
+- **Tests** : ils tournent sur MySQL (base `360inmystore_test`, voir `phpunit.xml`) —
+  les migrations ne sont pas compatibles SQLite.
+
+---
+
 ## Traçabilité
 
 - **activitylog** sur entités sensibles (produits, prix, mouvements, ventes, sessions,
@@ -1007,3 +1039,14 @@ sont inchangées. Le pont desktop exposé aux vues s'appelle désormais
 `window.inmystore` (anciennement `window.gstock`) : vues et `desktop/preload.js`
 doivent toujours évoluer ensemble. `QuincaillerieTestSeeder` reste un simple jeu de
 données de démonstration (environnement local uniquement), pas une hypothèse produit.
+
+Nouvelle extension (téléphone, organisation des branches) : **téléphone** géré par pays
+(sélecteur des pays d'Afrique, +225 par défaut, enregistrement au format
+international — voir « Téléphone »). **Deux branches, deux produits** : `mono_client`
+est la version installée (un commerce par déploiement, hébergement mutualisé ou VPS,
+personnalisable client par client) ; `multi-tenant` est la plateforme SaaS, construite
+PAR-DESSUS `mono_client`. Toute correction du métier (vente, stock, caisse, comptes)
+se fait dans `mono_client`, puis `mono_client` est fusionnée dans `multi-tenant` —
+jamais l'inverse : aucun code de plateforme ne doit arriver dans la version installée.
+**Déploiement** : un push ne met plus rien en production ; le déploiement se lance à
+la main depuis GitHub (voir `.github/workflows/deploy.yml`).

@@ -10,7 +10,7 @@
                 <h2 class="h4 mb-0">{{ $fournisseur->nom }} <code class="fs-6 text-secondary">{{ $fournisseur->code }}</code></h2>
             </div>
             <p class="text-secondary small mb-0 ms-5 ps-1">
-                {{ $fournisseur->telephone ?? 'Aucun téléphone' }}
+                {{ telephone($fournisseur->telephone) ?: 'Aucun téléphone' }}
                 @if ($fournisseur->email) — {{ $fournisseur->email }} @endif
                 @if ($fournisseur->adresse) — {{ $fournisseur->adresse }} @endif
             </p>

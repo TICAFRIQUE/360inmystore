@@ -114,11 +114,11 @@
                         @csrf
                         <div class="mb-3">
                             <label class="form-label">Téléphone</label>
-                            <input type="text" name="telephone" class="form-control" value="{{ $configuration->telephone }}" maxlength="50">
+                            <x-champ-telephone :valeur="old('telephone', $configuration->telephone)" id="configuration-telephone" />
                         </div>
                         <div class="mb-3">
                             <label class="form-label">WhatsApp</label>
-                            <input type="text" name="whatsapp" class="form-control" value="{{ $configuration->whatsapp }}" maxlength="50">
+                            <x-champ-telephone nom="whatsapp" :valeur="old('whatsapp', $configuration->whatsapp)" />
                         </div>
                         <div class="mb-3">
                             <label class="form-label">Message personnalisé (optionnel)</label>

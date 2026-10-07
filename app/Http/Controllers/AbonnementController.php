@@ -6,6 +6,8 @@ use App\Models\Abonnement;
 use App\Models\AbonnementActivation;
 use App\Models\ConfigurationAbonnement;
 use App\Models\FormuleAbonnement;
+use App\Rules\TelephoneValide;
+use App\Support\Telephone;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -127,9 +129,12 @@ class AbonnementController extends Controller
 
     public function updateConfiguration(Request $request): RedirectResponse
     {
+        Telephone::normaliserDansRequete($request);
+        Telephone::normaliserDansRequete($request, 'whatsapp');
+
         $donnees = $request->validate([
-            'telephone' => ['nullable', 'string', 'max:50'],
-            'whatsapp' => ['nullable', 'string', 'max:50'],
+            'telephone' => ['nullable', 'string', 'max:50', new TelephoneValide],
+            'whatsapp' => ['nullable', 'string', 'max:50', new TelephoneValide],
             'message' => ['nullable', 'string', 'max:1000'],
         ]);
 

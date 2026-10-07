@@ -28,10 +28,10 @@
             @if ($configuration->telephone || $configuration->whatsapp)
                 <ul class="mb-0">
                     @if ($configuration->telephone)
-                        <li>Téléphone : <strong>{{ $configuration->telephone }}</strong></li>
+                        <li>Téléphone : <strong>{{ telephone($configuration->telephone) }}</strong></li>
                     @endif
                     @if ($configuration->whatsapp)
-                        <li>WhatsApp : <strong>{{ $configuration->whatsapp }}</strong></li>
+                        <li>WhatsApp : <strong>{{ telephone($configuration->whatsapp) }}</strong></li>
                     @endif
                 </ul>
             @endif
@@ -117,10 +117,10 @@
                     choisir une formule ou reconduire votre abonnement actuel,
                     contactez l'administrateur
                     @if ($configuration->telephone)
-                        au <strong>{{ $configuration->telephone }}</strong>
+                        au <strong>{{ telephone($configuration->telephone) }}</strong>
                     @endif
                     @if ($configuration->whatsapp)
-                        (WhatsApp : <strong>{{ $configuration->whatsapp }}</strong>)
+                        (WhatsApp : <strong>{{ telephone($configuration->whatsapp) }}</strong>)
                     @endif
                     @if (! $configuration->telephone && ! $configuration->whatsapp)
                         ou le développeur

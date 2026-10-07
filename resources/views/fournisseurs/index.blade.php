@@ -47,7 +47,7 @@
                         <tr>
                             <td><code>{{ $fournisseur->code }}</code></td>
                             <td><a href="{{ route('fournisseurs.show', $fournisseur) }}">{{ $fournisseur->nom }}</a></td>
-                            <td>{{ $fournisseur->telephone ?? '—' }}</td>
+                            <td>{{ telephone($fournisseur->telephone) ?: '—' }}</td>
                             <td>{{ $fournisseur->email ?? '—' }}</td>
                             <td class="{{ $soldeDu > 0 ? 'text-danger fw-medium' : '' }}">{{ montant($soldeDu) }}</td>
                             <td class="{{ $avoir > 0 ? 'text-success fw-medium' : '' }}">{{ montant($avoir) }}</td>

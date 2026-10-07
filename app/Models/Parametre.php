@@ -17,7 +17,7 @@ use Spatie\MediaLibrary\InteractsWithMedia;
  * pour bénéficier du cache (lu sur presque chaque page : sidebar, connexion,
  * tickets, e-mails).
  */
-#[Fillable(['nom', 'slogan', 'couleur_primaire', 'numero', 'adresse', 'duree_validite_devis_jours', 'devise_id', 'dossier_sauvegarde'])]
+#[Fillable(['nom', 'slogan', 'couleur_primaire', 'numero', 'pays', 'adresse', 'duree_validite_devis_jours', 'devise_id', 'dossier_sauvegarde'])]
 class Parametre extends Model implements HasMedia
 {
     use InteractsWithMedia, LogsActivity;

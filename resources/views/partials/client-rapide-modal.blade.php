@@ -13,7 +13,17 @@
                 </div>
                 <div class="mb-3">
                     <label for="clientRapideTelephone" class="form-label">Téléphone</label>
-                    <input type="text" id="clientRapideTelephone" class="form-control">
+                    {{-- Même champ que x-champ-telephone, sans attributs name : ce
+                         formulaire est envoyé en AJAX (voir soumettreClientRapide()). --}}
+                    <div class="input-group champ-telephone">
+                        <select id="clientRapideTelephonePays" class="form-select champ-telephone__pays" aria-label="Pays (indicatif)">
+                            @foreach (\App\Support\Telephone::options() as $option)
+                                <option value="{{ $option['code'] }}" @selected($option['code'] === \App\Support\Telephone::paysParDefaut())>{{ $option['nom'] }} ({{ $option['indicatif'] }})</option>
+                            @endforeach
+                        </select>
+                        <input type="tel" id="clientRapideTelephone" class="form-control" inputmode="tel" maxlength="30">
+                        <div class="invalid-feedback" id="clientRapideTelephoneErreur"></div>
+                    </div>
                 </div>
                 <div class="mb-3">
                     <label for="clientRapideTypeClient" class="form-label">Type de client</label>

@@ -144,7 +144,7 @@
                 @endif
                 <span class="entreprise-nom">{{ $parametre->nom }}</span><br>
                 @if ($parametre->adresse) {{ $parametre->adresse }}<br> @endif
-                @if ($parametre->numero) Tél : {{ $parametre->numero }} @endif
+                @if ($parametre->numero) Tél : {{ telephone($parametre->numero) }} @endif
             </td>
             <td style="width: 45%;">
                 <div class="facture-titre">{{ \Illuminate\Support\Str::upper($vente->type->libelle()) }}</div>
@@ -162,7 +162,7 @@
     <div class="bloc-client">
         <div class="label">Client</div>
         <strong>{{ $vente->client->nom ?? 'Client comptant' }}</strong><br>
-        @if ($vente->client?->telephone) Tél : {{ $vente->client->telephone }}<br> @endif
+        @if ($vente->client?->telephone) Tél : {{ telephone($vente->client->telephone) }}<br> @endif
         @if ($vente->client?->adresse) {{ $vente->client->adresse }} @endif
     </div>
 

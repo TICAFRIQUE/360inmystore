@@ -28,7 +28,7 @@
                                     <select name="client_id" id="client_id" class="form-select @error('client_id') is-invalid @enderror" required>
                                         <option value="">— Choisir un client —</option>
                                         @foreach ($clients as $c)
-                                            <option value="{{ $c->id }}">{{ $c->nom }}{{ $c->telephone ? ' — '.$c->telephone : '' }}</option>
+                                            <option value="{{ $c->id }}">{{ $c->nom }}{{ $c->telephone ? ' — '.telephone($c->telephone) : '' }}</option>
                                         @endforeach
                                     </select>
                                     @can('client.gerer')
