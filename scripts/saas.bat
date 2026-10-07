@@ -49,14 +49,17 @@ echo [3/7] Base de la plateforme...
 call php artisan optimize:clear >nul
 call php artisan migrate --force
 if errorlevel 1 goto :erreur
-call php artisan db:seed --class=ReferentielSeeder --force
-if errorlevel 1 goto :erreur
 
 echo.
 echo [4/7] Compte de l'editeur...
+rem Base sans aucun compte = premier lancement : on y pose le referentiel de
+rem depart (dont les formules d'exemple) et le compte de l'editeur. Jamais
+rem aux lancements suivants : cela recreerait les formules d'exemple que
+rem l'editeur a renommees entre-temps.
 call php artisan tinker --execute="echo App\Models\User::exists() ? 'COMPTE_OK' : 'AUCUN_COMPTE';" | findstr AUCUN_COMPTE >nul
 if not errorlevel 1 (
-    echo Premier lancement : creation de votre compte d'editeur.
+    echo Premier lancement : referentiel de depart et creation de votre compte.
+    call php artisan db:seed --class=ReferentielSeeder --force
     call php artisan app:creer-superadmin
 ) else (
     echo Deja cree.
@@ -68,8 +71,13 @@ call php artisan entreprises:executer -- migrate --force
 
 echo.
 echo [6/7] Compilation des assets...
-call npm run build
-if errorlevel 1 goto :erreur
+rem Sortie detournee vers un fichier : elle est noyee d'avertissements sans
+rem consequence, qui masqueraient les etapes du lancement.
+call npm run build > storage\logs\compilation-assets.log 2>&1
+if errorlevel 1 (
+    echo La compilation a echoue : voir storage\logs\compilation-assets.log
+    goto :erreur
+)
 
 echo.
 echo [7/7] Demarrage du serveur.
