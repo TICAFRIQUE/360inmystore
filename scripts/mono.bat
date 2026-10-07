@@ -29,8 +29,13 @@ call php artisan optimize:clear >nul
 
 echo.
 echo [3/3] Compilation des assets...
-call npm run build
-if errorlevel 1 goto :erreur
+rem Sortie detournee vers un fichier : elle est noyee d'avertissements sans
+rem consequence, qui masqueraient les etapes.
+call npm run build > storage\logs\compilation-assets.log 2>&1
+if errorlevel 1 (
+    echo La compilation a echoue : voir storage\logs\compilation-assets.log
+    goto :erreur
+)
 
 echo.
 echo Pret : la version installee est de nouveau servie par votre site local.
