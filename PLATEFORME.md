@@ -146,6 +146,24 @@ après l'autre, et se termine en erreur si une seule échoue (`--toutes` avant
 (`schedule:run`) ne tourne que sur la plateforme : il lance lui-même les
 alertes de chaque entreprise.
 
+### Code de connexion oublié
+
+```
+php artisan app:reinitialiser-code superadmin          # votre compte d'éditeur
+```
+
+Pour le compte d'un client qui a perdu le sien, la même commande se lance dans
+son espace, désigné par son sous-domaine (PowerShell, puis variable à retirer) :
+
+```
+$env:PLATEFORME_ENTREPRISE = 'sous-domaine'
+php artisan app:reinitialiser-code nom-utilisateur
+Remove-Item Env:PLATEFORME_ENTREPRISE
+```
+
+Le nouveau code est demandé deux fois, saisie masquée, et l'action est tracée
+dans l'espace concerné.
+
 Un push sur GitHub ne déploie rien (voir `.github/workflows/deploy.yml`) ; le
 déploiement automatisé existant vise l'hébergement de la version installée et
 refuse cette branche.
