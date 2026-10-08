@@ -18,10 +18,21 @@ use Spatie\Activitylog\Traits\LogsActivity;
  * Soit un nombre de jours, soit illimité (jours alors nul) — voir
  * Abonnement::activer().
  */
-#[Fillable(['nom', 'jours', 'illimite', 'prix', 'description', 'avantages', 'mise_en_avant', 'actif'])]
+#[Fillable(['nom', 'jours', 'illimite', 'prix', 'description', 'avantages', 'max_magasins', 'max_caisses', 'max_utilisateurs', 'max_produits', 'mise_en_avant', 'actif'])]
 class FormuleAbonnement extends Model
 {
     use HasFactory, LogsActivity, MetEnFormePhrase;
+
+    /**
+     * Ce qu'une formule peut limiter (voir App\Plateforme\LimitesFormule) :
+     * ressource => colonne et libellés. Une colonne vide = sans limite.
+     */
+    public const LIMITES = [
+        'magasins' => ['colonne' => 'max_magasins', 'singulier' => 'magasin', 'pluriel' => 'magasins'],
+        'caisses' => ['colonne' => 'max_caisses', 'singulier' => 'caisse', 'pluriel' => 'caisses'],
+        'utilisateurs' => ['colonne' => 'max_utilisateurs', 'singulier' => 'utilisateur', 'pluriel' => 'utilisateurs'],
+        'produits' => ['colonne' => 'max_produits', 'singulier' => 'produit', 'pluriel' => 'produits'],
+    ];
 
     protected function casts(): array
     {
@@ -29,6 +40,10 @@ class FormuleAbonnement extends Model
             'jours' => 'integer',
             'illimite' => 'boolean',
             'prix' => 'integer',
+            'max_magasins' => 'integer',
+            'max_caisses' => 'integer',
+            'max_utilisateurs' => 'integer',
+            'max_produits' => 'integer',
             'mise_en_avant' => 'boolean',
             'actif' => 'boolean',
         ];
@@ -49,15 +64,54 @@ class FormuleAbonnement extends Model
      * Copie, dans la base de l'entreprise courante, d'une formule du
      * catalogue : une activation référence une formule locale (clé
      * étrangère), jamais directement celle de la plateforme. Inactive — elle
-     * ne sert qu'à l'historique, et garde les conditions (durée, prix) en
-     * vigueur au moment de la souscription.
+     * ne sert qu'à l'historique, et garde les conditions (durée, prix,
+     * limites) en vigueur au moment de la souscription.
+     *
+     * @param  array<string, ?int>  $limites  max_magasins, max_caisses… (voir LIMITES)
      */
-    public static function copieLocale(string $nom, ?int $jours, bool $illimite, int $prix): self
+    public static function copieLocale(string $nom, ?int $jours, bool $illimite, int $prix, array $limites = []): self
     {
-        return static::query()->firstOrCreate(
+        $copie = static::query()->firstOrCreate(
             ['nom' => $nom, 'jours' => $illimite ? null : $jours, 'illimite' => $illimite, 'prix' => $prix],
             ['actif' => false],
         );
+
+        // À chaque souscription, les limites du moment remplacent celles
+        // de la souscription précédente à la même formule.
+        $copie->update(array_intersect_key($limites, array_flip(array_column(self::LIMITES, 'colonne'))));
+
+        return $copie;
+    }
+
+    /**
+     * Limites de la formule (colonne => valeur), pour les recopier.
+     *
+     * @return array<string, ?int>
+     */
+    public function limites(): array
+    {
+        return $this->only(array_column(self::LIMITES, 'colonne'));
+    }
+
+    /**
+     * Les limites en clair (« 2 magasins », « 500 produits »), pour la page
+     * des tarifs. Une ressource sans limite n'y figure pas.
+     *
+     * @return list<string>
+     */
+    public function limitesLisibles(): array
+    {
+        $lignes = [];
+
+        foreach (self::LIMITES as $limite) {
+            $maximum = $this->{$limite['colonne']};
+
+            if ($maximum !== null) {
+                $lignes[] = number_format($maximum, 0, ',', ' ').' '.$limite[$maximum > 1 ? 'pluriel' : 'singulier'];
+            }
+        }
+
+        return $lignes;
     }
 
     /** Formule à 0 F : l'essai gratuit, proposé une seule fois au démarrage d'un espace. */

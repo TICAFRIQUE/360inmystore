@@ -22,9 +22,9 @@
     <div class="row g-3"
          x-data="{
             routes: { creer: '{{ route('plateforme.formules.store') }}', modifier: '{{ route('plateforme.formules.update', ['formule' => '__ID__']) }}' },
-            vide() { return { id: null, nom: '', jours: '', illimite: false, prix: '', description: '', avantages: '', mise_en_avant: false }; },
-            edition: { id: null, nom: '', jours: '', illimite: false, prix: '', description: '', avantages: '', mise_en_avant: false },
-            ouvrir(formule) { this.edition = { ...formule, jours: formule.jours ?? '', description: formule.description ?? '', avantages: formule.avantages ?? '' }; $refs.nom.focus(); },
+            vide() { return { id: null, nom: '', jours: '', illimite: false, prix: '', description: '', avantages: '', max_magasins: '', max_caisses: '', max_utilisateurs: '', max_produits: '', mise_en_avant: false }; },
+            edition: { id: null, nom: '', jours: '', illimite: false, prix: '', description: '', avantages: '', max_magasins: '', max_caisses: '', max_utilisateurs: '', max_produits: '', mise_en_avant: false },
+            ouvrir(formule) { this.edition = { ...formule, jours: formule.jours ?? '', description: formule.description ?? '', avantages: formule.avantages ?? '', max_magasins: formule.max_magasins ?? '', max_caisses: formule.max_caisses ?? '', max_utilisateurs: formule.max_utilisateurs ?? '', max_produits: formule.max_produits ?? '' }; $refs.nom.focus(); },
             reinitialiser() { this.edition = this.vide(); },
          }">
         <div class="col-lg-7">
@@ -52,6 +52,9 @@
                                         @if ($formule->description)
                                             <div class="small text-secondary">{{ $formule->description }}</div>
                                         @endif
+                                        <div class="small text-secondary">
+                                            <i class="bi bi-sliders me-1"></i>{{ $formule->limitesLisibles() ? implode(' · ', $formule->limitesLisibles()) : 'Sans limite' }}
+                                        </div>
                                     </td>
                                     <td>{{ $formule->illimite ? 'Illimitée' : $formule->jours.' jours' }}</td>
                                     <td class="text-end">{{ montant($formule->prix) }}</td>
@@ -64,7 +67,7 @@
                                     </td>
                                     <td class="text-end">
                                         <button type="button" class="btn btn-sm btn-icon btn-outline-secondary" title="Modifier"
-                                                @click="ouvrir({{ Js::from($formule->only(['id', 'nom', 'jours', 'illimite', 'prix', 'description', 'avantages', 'mise_en_avant'])) }})">
+                                                @click="ouvrir({{ Js::from($formule->only(['id', 'nom', 'jours', 'illimite', 'prix', 'description', 'avantages', 'max_magasins', 'max_caisses', 'max_utilisateurs', 'max_produits', 'mise_en_avant'])) }})">
                                             <i class="bi bi-pencil"></i>
                                             <span class="visually-hidden">Modifier</span>
                                         </button>
@@ -134,6 +137,23 @@
                             <textarea name="avantages" id="avantages" class="form-control" rows="4" maxlength="2000" x-model="edition.avantages"
                                       placeholder="Un élément par ligne"></textarea>
                         </div>
+                        {{-- Limites de la formule (voir App\Plateforme\LimitesFormule) :
+                             appliquées tout de suite aux entreprises qui ont cette formule. --}}
+                        <fieldset class="mb-3">
+                            <legend class="form-label fs-6 mb-1">Limites</legend>
+                            <div class="form-text mt-0 mb-2">Laissez vide pour ne pas limiter. Une limite vaut tout de suite pour les entreprises qui ont cette formule ; rien de ce qu'elles ont déjà créé n'est retiré.</div>
+                            <div class="row g-2">
+                                @foreach (['max_magasins' => 'Magasins', 'max_caisses' => 'Caisses', 'max_utilisateurs' => 'Utilisateurs', 'max_produits' => 'Produits'] as $champ => $libelleLimite)
+                                    <div class="col-6">
+                                        <label for="{{ $champ }}" class="form-label small mb-1">{{ $libelleLimite }}</label>
+                                        <input type="number" name="{{ $champ }}" id="{{ $champ }}" class="form-control form-control-sm @error($champ) is-invalid @enderror"
+                                               min="1" placeholder="Sans limite" x-model="edition.{{ $champ }}">
+                                        @error($champ) <div class="invalid-feedback">{{ $message }}</div> @enderror
+                                    </div>
+                                @endforeach
+                            </div>
+                        </fieldset>
+
                         <div class="form-check mb-3">
                             <input type="checkbox" name="mise_en_avant" value="1" class="form-check-input" id="mise_en_avant" x-model="edition.mise_en_avant">
                             <label class="form-check-label" for="mise_en_avant">Mettre en avant sur la page des tarifs</label>
@@ -146,9 +166,13 @@
             </div>
 
             <div class="card">
-                <div class="card-header">Contact affiché aux entreprises</div>
+                <div class="card-header">Contact du support</div>
                 <div class="card-body">
-                    <p class="text-secondary small">Affiché dans l'espace d'une entreprise dont l'abonnement a expiré.</p>
+                    <p class="text-secondary small">
+                        Affiché sur le site, sur la page de connexion de chaque espace (accès perdu) et quand un abonnement a expiré.
+                        Un propriétaire qui a perdu son mot de passe vous contactera : entrez dans son espace par l'accès de
+                        maintenance (Entreprises), puis Administration → Utilisateurs → son compte → « Réinitialiser le code ».
+                    </p>
                     <form method="POST" action="{{ route('plateforme.contact.update') }}">
                         @csrf
                         <div class="mb-3">
@@ -158,6 +182,12 @@
                         <div class="mb-3">
                             <label for="whatsapp" class="form-label">WhatsApp</label>
                             <x-champ-telephone nom="whatsapp" :valeur="old('whatsapp', $contact->whatsapp)" />
+                        </div>
+                        <div class="mb-3">
+                            <label for="contact-email" class="form-label">E-mail</label>
+                            <input type="email" name="email" id="contact-email" class="form-control @error('email') is-invalid @enderror"
+                                   value="{{ old('email', $contact->email) }}" maxlength="255" placeholder="support@exemple.com">
+                            @error('email') <div class="invalid-feedback">{{ $message }}</div> @enderror
                         </div>
                         <div class="mb-3">
                             <label for="message" class="form-label">Message (optionnel)</label>

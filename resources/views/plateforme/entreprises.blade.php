@@ -116,6 +116,11 @@
                                                     </button>
                                                 </li>
                                                 <li>
+                                                    <a href="{{ route('plateforme.sauvegardes.index', $entreprise) }}" class="dropdown-item">
+                                                        <i class="bi bi-database me-2"></i>Sauvegardes et restauration
+                                                    </a>
+                                                </li>
+                                                <li>
                                                     {{-- data-sans-spinner : la réponse s'ouvre dans un nouvel
                                                          onglet, cette page-ci ne se recharge pas. --}}
                                                     <form method="POST" action="{{ route('plateforme.entreprises.ouvrir', $entreprise) }}" target="_blank" data-sans-spinner>

@@ -1,132 +1,116 @@
-<div class="mb-3">
-    <select id="produit-picker" class="form-select" @change="ajouterDepuisSelect($event)">
-        <option value="">— Rechercher un produit à ajouter —</option>
-        @foreach ($produits as $produit)
-            <option value="{{ $produit['id'] }}" data-produit-id="{{ $produit['id'] }}">
-                {{ $produit['libelle_affichage'] }}
-            </option>
-        @endforeach
-    </select>
-</div>
-
-<div class="card">
+{{-- Lignes du devis, partagées par la création et la modification : même
+     présentation que le panier de l'écran de caisse (voir ventes/create),
+     sans lieu de prélèvement ni paiement — un devis ne mouvemente rien. Le
+     stock de chaque lieu est rappelé à titre indicatif. --}}
+<div class="card border-0 shadow-sm mb-3">
     <div class="card-body">
-        <h3 class="h6">Lignes du devis</h3>
-        <p class="text-secondary small">Montants indicatifs, calculés au prix courant du catalogue — jamais figés.</p>
+        <div class="carte-titre mb-3">
+            <div>
+                <h3 class="carte-titre__texte">
+                    Lignes du devis
+                    <span class="badge rounded-pill text-bg-primary ms-1" x-show="panier.length > 0" x-text="panier.length" x-cloak></span>
+                </h3>
+                <p class="carte-titre__aide">Montants indicatifs, au prix courant du catalogue — jamais figés.</p>
+            </div>
+        </div>
 
-        <div class="table-responsive">
-            @php $colonnesPanier = 5 + (auth()->user()->can('vente.remise') ? 1 : 0) + ($taxes->isNotEmpty() ? 1 : 0); @endphp
-            <table class="table table-sm align-middle mb-0">
-                <thead>
-                    <tr>
-                        <th>Désignation</th>
-                        <th>Stock</th>
-                        <th>Qté</th>
-                        <th>Unité</th>
+        <div class="etat-vide" x-show="panier.length === 0">
+            <i class="bi bi-file-earmark-text"></i>
+            <p>Le devis est vide. Choisissez un produit pour commencer.</p>
+        </div>
+
+        <template x-for="(ligne, index) in panier" :key="index">
+            <div class="panier-ligne" x-init="chargerSources(ligne)">
+                <div class="panier-ligne__tete">
+                    <div class="panier-ligne__nom">
+                        <strong x-text="ligne.produitLibelle"></strong>
+                        <span x-show="(sourcesParProduit[ligne.produit_id] || []).length > 0"
+                              x-text="'Stock : ' + (sourcesParProduit[ligne.produit_id] || []).map((source) => source.nom + (source.type === 'depot' ? ' (dépôt)' : '') + ' ' + source.quantite).join(' · ')"></span>
+                    </div>
+                    <span class="panier-ligne__total" x-text="montant(totalLigne(ligne))"></span>
+                    <button type="button" class="btn btn-sm btn-icon btn-outline-danger flex-shrink-0" @click="retirerLigne(index)" title="Retirer du devis">
+                        <i class="bi bi-x-lg"></i>
+                        <span class="visually-hidden">Retirer du devis</span>
+                    </button>
+                </div>
+
+                <div class="panier-ligne__reglages panier-ligne__reglages--devis">
+                    <div class="panier-ligne__quantite">
+                        <button type="button" class="btn btn-sm btn-outline-secondary btn-icon" :disabled="atteintMin(ligne)" @click="changerQuantite(ligne, -1)" aria-label="Diminuer la quantité">−</button>
+                        <input type="number" class="form-control form-control-sm text-center p-1" min="1" aria-label="Quantité"
+                               :value="ligne.quantite" @input="definirQuantite(ligne, $event.target.value, $event.target)"
+                               @blur="validerQuantite(ligne, $event.target.value, $event.target)">
+                        <button type="button" class="btn btn-sm btn-outline-secondary btn-icon" @click="changerQuantite(ligne, 1)" aria-label="Augmenter la quantité">+</button>
+                    </div>
+
+                    <select class="form-select form-select-sm" aria-label="Unité"
+                            :class="{ 'is-invalid': estDoublon(index) || ligne.unite_vente_id === undefined }"
+                            @change="changerVarianteDepuisSelect(ligne, $event.target.value)" required>
+                        <option value="" :selected="ligne.unite_vente_id === undefined">— Unité —</option>
+                        <option value="piece" :selected="ligne.unite_vente_id === null" x-text="produitDe(ligne).unite_base_libelle_complet + ' — ' + montant(produitDe(ligne).prix_piece)"></option>
+                        <template x-for="unite in produitDe(ligne).unites" :key="unite.id">
+                            <option :value="unite.id" :selected="unite.id === ligne.unite_vente_id" x-text="unite.libelle + ' — ' + montant(unite.prix)"></option>
+                        </template>
+                    </select>
+                </div>
+
+                <div class="text-danger small mt-1" x-show="estDoublon(index)" x-cloak>Déjà dans le devis avec la même unité.</div>
+
+                @if (auth()->user()->can('vente.remise') || $taxes->isNotEmpty())
+                    {{-- Remise et taxe : repliées tant qu'elles ne servent pas,
+                         toujours dépliées dès qu'une valeur est posée. --}}
+                    <button type="button" class="panier-ligne__bascule" @click="ligne.optionsOuvertes = ! ligne.optionsOuvertes"
+                            x-show="! (ligne.remise_type || ligne.taxe_id)">
+                        <i class="bi" :class="ligne.optionsOuvertes ? 'bi-chevron-up' : 'bi-plus-lg'"></i>
+                        {{ auth()->user()->can('vente.remise') ? ($taxes->isNotEmpty() ? 'Remise, taxe' : 'Remise') : 'Taxe' }}
+                    </button>
+
+                    <div class="panier-ligne__options" x-show="ligne.optionsOuvertes || ligne.remise_type || ligne.taxe_id" x-cloak>
                         @can('vente.remise')
-                            <th>Remise</th>
+                            <select x-model="ligne.remise_type" class="form-select form-select-sm" aria-label="Remise">
+                                <option value="">Sans remise</option>
+                                <option value="montant">Remise ({{ App\Models\Devise::abreviationActuelle() }})</option>
+                                <option value="pourcentage">Remise (%)</option>
+                            </select>
+                            <input type="number" x-model.number="ligne.remise_valeur" aria-label="Valeur de la remise"
+                                   @input="if (ligne.remise_type === 'pourcentage' && ligne.remise_valeur > 100) ligne.remise_valeur = 100"
+                                   x-show="ligne.remise_type" min="0" :max="ligne.remise_type === 'pourcentage' ? 100 : null" class="form-control form-control-sm" placeholder="Valeur">
                         @endcan
                         @if ($taxes->isNotEmpty())
-                            <th>Taxe</th>
+                            <select x-model="ligne.taxe_id" class="form-select form-select-sm" aria-label="Taxe">
+                                <option value="">Aucune taxe</option>
+                                @foreach ($taxes as $taxe)
+                                    <option value="{{ $taxe->id }}">{{ $taxe->nom }} ({{ $taxe->taux }}%)</option>
+                                @endforeach
+                            </select>
                         @endif
-                        <th class="text-end">Total</th>
-                        <th></th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <template x-if="panier.length === 0">
-                        <tr>
-                            <td colspan="{{ $colonnesPanier }}" class="text-secondary fst-italic small text-center py-3">Le devis est vide. Sélectionnez un produit ci-dessus.</td>
-                        </tr>
-                    </template>
-                    <template x-for="(ligne, index) in panier" :key="index">
-                        <tr>
-                            <td class="small" x-text="ligne.produitLibelle"></td>
-                            <td x-init="chargerSources(ligne)">
-                                <div class="d-flex flex-column">
-                                    <template x-for="source in (sourcesParProduit[ligne.produit_id] || [])" :key="source.id">
-                                        <span class="small">
-                                            <span class="text-secondary" x-text="source.nom + (source.type === 'depot' ? ' (dépôt)' : '') + ' : '"></span><span :class="source.quantite === 0 ? 'text-danger' : 'text-secondary'" x-text="source.quantite"></span>
-                                        </span>
-                                    </template>
-                                </div>
-                            </td>
-                            <td>
-                                <div class="d-flex align-items-center gap-1">
-                                    <button type="button" class="btn btn-sm btn-outline-secondary btn-icon" :disabled="atteintMin(ligne)" @click="changerQuantite(ligne, -1)">−</button>
-                                    <input type="number" class="form-control form-control-sm text-center p-1" style="width: 3.5rem;" min="1"
-                                           :value="ligne.quantite" @input="definirQuantite(ligne, $event.target.value, $event.target)"
-                                           @blur="validerQuantite(ligne, $event.target.value, $event.target)">
-                                    <button type="button" class="btn btn-sm btn-outline-secondary btn-icon" @click="changerQuantite(ligne, 1)">+</button>
-                                </div>
-                            </td>
-                            <td>
-                                <select class="form-select form-select-sm" style="min-width: 150px;"
-                                        :class="{ 'is-invalid': estDoublon(index) || ligne.unite_vente_id === undefined }"
-                                        @change="changerVarianteDepuisSelect(ligne, $event.target.value)" required>
-                                    <option value="" :selected="ligne.unite_vente_id === undefined">— Choisir —</option>
-                                    <option value="piece" :selected="ligne.unite_vente_id === null" x-text="produitDe(ligne).unite_base_libelle_complet + ' — ' + produitDe(ligne).prix_piece + ' ' + window.DEVISE_ABREVIATION"></option>
-                                    <template x-for="unite in produitDe(ligne).unites" :key="unite.id">
-                                        <option :value="unite.id" :selected="unite.id === ligne.unite_vente_id" x-text="unite.libelle + ' — ' + unite.prix + ' ' + window.DEVISE_ABREVIATION"></option>
-                                    </template>
-                                </select>
-                                <div class="text-danger small mt-1" x-show="estDoublon(index)" x-cloak>Déjà dans le devis avec la même variante.</div>
-                            </td>
-                            @can('vente.remise')
-                                <td>
-                                    <div class="d-flex flex-column gap-1" style="min-width: 130px;">
-                                        <select x-model="ligne.remise_type" class="form-select form-select-sm">
-                                            <option value="">Sans remise</option>
-                                            <option value="montant">Remise ({{ App\Models\Devise::abreviationActuelle() }})</option>
-                                            <option value="pourcentage">Remise (%)</option>
-                                        </select>
-                                        <input type="number" x-model.number="ligne.remise_valeur"
-                                               @input="if (ligne.remise_type === 'pourcentage' && ligne.remise_valeur > 100) ligne.remise_valeur = 100"
-                                               x-show="ligne.remise_type" min="0" :max="ligne.remise_type === 'pourcentage' ? 100 : null" class="form-control form-control-sm" placeholder="Valeur">
-                                    </div>
-                                </td>
-                            @endcan
-                            @if ($taxes->isNotEmpty())
-                                <td>
-                                    <select x-model="ligne.taxe_id" class="form-select form-select-sm" style="min-width: 120px;">
-                                        <option value="">Aucune</option>
-                                        @foreach ($taxes as $taxe)
-                                            <option value="{{ $taxe->id }}">{{ $taxe->nom }} ({{ $taxe->taux }}%)</option>
-                                        @endforeach
-                                    </select>
-                                </td>
-                            @endif
-                            <td class="text-end fw-medium" x-text="totalLigne(ligne) + ' ' + window.DEVISE_ABREVIATION"></td>
-                            <td>
-                                <button type="button" class="btn btn-sm btn-icon btn-outline-danger" @click="retirerLigne(index)">
-                                    <i class="bi bi-x-lg"></i>
-                                </button>
-                            </td>
-                        </tr>
-                    </template>
-                </tbody>
-                <tfoot>
-                    <tr>
-                        <th colspan="{{ $colonnesPanier - 1 }}" class="text-end">Sous-total (HT)</th>
-                        <th x-text="sousTotal + ' ' + window.DEVISE_ABREVIATION"></th>
-                    </tr>
-                    <tr x-show="totalTaxes > 0" x-cloak>
-                        <th colspan="{{ $colonnesPanier - 1 }}" class="text-end">Total taxes</th>
-                        <th x-text="totalTaxes + ' ' + window.DEVISE_ABREVIATION"></th>
-                    </tr>
-                    <tr x-show="totalTaxes > 0" x-cloak>
-                        <th colspan="{{ $colonnesPanier - 1 }}" class="text-end">Total net (indicatif)</th>
-                        <th x-text="totalNet + ' ' + window.DEVISE_ABREVIATION"></th>
-                    </tr>
-                </tfoot>
-            </table>
+                    </div>
+                @endif
+            </div>
+        </template>
+
+        <div class="panier-totaux">
+            <dl class="panier-totaux__lignes">
+                <div>
+                    <dt>Sous-total (HT)</dt>
+                    <dd x-text="montant(sousTotal)"></dd>
+                </div>
+                <div x-show="totalTaxes > 0" x-cloak>
+                    <dt>Total taxes</dt>
+                    <dd x-text="montant(totalTaxes)"></dd>
+                </div>
+                <div class="panier-totaux__net">
+                    <dt>Total (indicatif)</dt>
+                    <dd x-text="montant(totalNet)"></dd>
+                </div>
+            </dl>
         </div>
     </div>
 </div>
 
-<div class="text-danger small mt-2" x-show="aUneLigneNonChoisie" x-cloak>
+<div class="text-danger small mb-2" x-show="aUneLigneNonChoisie" x-cloak>
     <i class="bi bi-exclamation-triangle-fill me-1"></i>Choisissez une unité pour chaque ligne.
 </div>
-<div class="text-danger small mt-2" x-show="aUnDoublon" x-cloak>
+<div class="text-danger small mb-2" x-show="aUnDoublon" x-cloak>
     <i class="bi bi-exclamation-triangle-fill me-1"></i>Un même produit ne peut pas apparaître deux fois avec la même unité : corrigez avant d'enregistrer.
 </div>

@@ -38,6 +38,9 @@ class CommandeAchatController extends Controller
 {
     use TrieListe, ExporteListe;
 
+    /** Nombre maximal de lignes proposées par le réapprovisionnement en un clic. */
+    private const LIGNES_REAPPRO_MAX = 60;
+
     private const ENTETES_EXPORT_LISTE = ['Numéro', 'Fournisseur', 'Date', 'Statut', 'Type', 'Réception', 'Retours', 'Montant facturé', 'Déjà réglé', 'Reste à régler'];
 
     public function index(Request $request): View
@@ -185,7 +188,48 @@ class CommandeAchatController extends Controller
                 ->pluck('total', 'produit_id'),
             'peutValider' => request()->user()->can('achat.valider'),
             'peutReceptionner' => request()->user()->can('achat.receptionner'),
+            // Réapprovisionnement en un clic (?reappro=1, depuis le tableau de
+            // bord) : le bon de commande s'ouvre prérempli des produits sous
+            // leur seuil. Vide dans tous les autres cas.
+            'lignesReappro' => request()->boolean('reappro')
+                ? $this->lignesReapprovisionnement(request()->user()->magasin_id)
+                : collect(),
         ]);
+    }
+
+    /**
+     * Une ligne par produit sous son seuil d'alerte, dans le magasin ou le
+     * dépôt où il manque (celui de l'utilisateur, ou tous pour qui n'est
+     * rattaché à aucun). Quantité proposée : de quoi remonter au double du
+     * seuil, dans l'unité de base. Prix indicatif : le dernier coût moyen
+     * connu. Ce n'est qu'une proposition — chaque ligne reste modifiable ou
+     * supprimable avant l'enregistrement.
+     */
+    private function lignesReapprovisionnement(?int $magasinId): \Illuminate\Support\Collection
+    {
+        return Stock::query()
+            ->join('produits', 'produits.id', '=', 'stocks.produit_id')
+            ->join('magasins', 'magasins.id', '=', 'stocks.magasin_id')
+            ->where('produits.actif', true)
+            ->whereNull('produits.deleted_at')
+            ->where('magasins.actif', true)
+            ->whereNull('magasins.deleted_at')
+            ->when($magasinId, fn ($q) => $q->where('stocks.magasin_id', $magasinId))
+            ->whereColumn('stocks.quantite', '<=', 'produits.seuil_alerte')
+            ->orderBy('stocks.quantite')
+            ->orderBy('produits.nom')
+            // Au-delà, le formulaire deviendrait trop lourd : les plus bas d'abord.
+            ->limit(self::LIGNES_REAPPRO_MAX)
+            ->get(['stocks.produit_id', 'stocks.magasin_id', 'stocks.quantite', 'stocks.cout_moyen_pondere', 'produits.seuil_alerte'])
+            ->map(fn ($stock) => [
+                'produit_id' => (string) $stock->produit_id,
+                'unite_vente_id' => '',
+                'taxe_id' => '',
+                'magasin_destination_id' => (string) $stock->magasin_id,
+                'quantite' => (string) max(1, (int) ceil(2 * $stock->seuil_alerte - (float) $stock->quantite)),
+                'prix_achat' => (string) (int) $stock->cout_moyen_pondere,
+            ])
+            ->values();
     }
 
     public function store(Request $request, AchatService $achatService, ReceptionAchatService $receptionService): RedirectResponse

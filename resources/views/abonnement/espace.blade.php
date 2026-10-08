@@ -74,10 +74,11 @@
             @else
                 Seul le propriétaire de l'espace peut choisir ou renouveler la formule.
             @endif
-            @if ($configuration->telephone || $configuration->whatsapp)
+            @if ($configuration->telephone || $configuration->whatsapp || $configuration->email)
                 Une question ? Contactez {{ config('app.name') }}
                 @if ($configuration->telephone) au <strong>{{ telephone($configuration->telephone) }}</strong>@endif
-                @if ($configuration->whatsapp) (WhatsApp : <strong>{{ telephone($configuration->whatsapp) }}</strong>)@endif.
+                @if ($configuration->whatsapp) (WhatsApp : <strong>{{ telephone($configuration->whatsapp) }}</strong>)@endif
+                @if ($configuration->email) — <a href="mailto:{{ $configuration->email }}">{{ $configuration->email }}</a>@endif.
             @endif
             @if ($configuration->message)
                 <br>{{ $configuration->message }}

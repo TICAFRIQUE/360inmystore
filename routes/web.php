@@ -13,6 +13,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DeviseController;
 use App\Http\Controllers\DevisController;
 use App\Http\Controllers\FournisseurController;
+use App\Http\Controllers\ImportProduitController;
 use App\Http\Controllers\InventaireController;
 use App\Http\Controllers\JournalActiviteController;
 use App\Http\Controllers\MagasinController;
@@ -27,6 +28,7 @@ use App\Http\Controllers\Plateforme\EntrepriseController;
 use App\Http\Controllers\Plateforme\FormuleController;
 use App\Http\Controllers\Plateforme\InscriptionController;
 use App\Http\Controllers\Plateforme\PaiementController;
+use App\Http\Controllers\Plateforme\SauvegardeController;
 use App\Http\Controllers\ProduitController;
 use App\Http\Controllers\RapportController;
 use App\Http\Controllers\ReglementClientController;
@@ -84,6 +86,13 @@ Route::middleware('plateforme.centrale')->group(function () {
         Route::post('entreprises/{entreprise}/reactiver', [EntrepriseController::class, 'reactiver'])->name('entreprises.reactiver');
         Route::post('entreprises/{entreprise}/activer', [EntrepriseController::class, 'activer'])->name('entreprises.activer');
         Route::post('entreprises/{entreprise}/ouvrir', [EntrepriseController::class, 'ouvrir'])->name('entreprises.ouvrir');
+
+        // Sauvegardes de la base d'une entreprise : liste, sauvegarde à la
+        // demande, téléchargement, restauration.
+        Route::get('entreprises/{entreprise}/sauvegardes', [SauvegardeController::class, 'index'])->name('sauvegardes.index');
+        Route::post('entreprises/{entreprise}/sauvegardes', [SauvegardeController::class, 'store'])->name('sauvegardes.store');
+        Route::get('entreprises/{entreprise}/sauvegardes/{fichier}', [SauvegardeController::class, 'telecharger'])->name('sauvegardes.telecharger');
+        Route::post('entreprises/{entreprise}/sauvegardes/{fichier}/restaurer', [SauvegardeController::class, 'restaurer'])->name('sauvegardes.restaurer');
 
         Route::get('paiements', [PaiementController::class, 'index'])->name('paiements.index');
         Route::get('paiements/pdf', [PaiementController::class, 'pdf'])->name('paiements.pdf');
@@ -154,6 +163,15 @@ Route::middleware(['auth', 'abonnement.actif', 'espace.commerce'])->group(functi
     Route::middleware('can:produit.voir')->group(function () {
         Route::get('produits/pdf', [ProduitController::class, 'pdf'])->name('produits.pdf');
         Route::get('produits/excel', [ProduitController::class, 'excel'])->name('produits.excel');
+
+        // Import du catalogue depuis Excel ou CSV — avant la ressource
+        // « produits », pour que « import » ne soit jamais pris pour un produit.
+        Route::middleware('can:produit.creer')->group(function () {
+            Route::get('produits/import', [ImportProduitController::class, 'create'])->name('produits.import');
+            Route::get('produits/import/modele', [ImportProduitController::class, 'modele'])->name('produits.import.modele');
+            Route::post('produits/import', [ImportProduitController::class, 'store'])->name('produits.import.store');
+        });
+
         Route::resource('produits', ProduitController::class)->except(['show']);
 
         Route::post('produits/{produit}/unite-ventes', [UniteVenteController::class, 'store'])->name('produits.unite-ventes.store');

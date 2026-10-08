@@ -5,6 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>@yield('titre', 'Erreur') — {{ $parametre->nom }}</title>
     <link rel="icon" href="{{ $parametre->logoUrl() }}">
+    {{-- Police Inter compilée par Vite (voir vite.config.js) : sans cette
+         directive, la page retombe sur la police du système. --}}
+    @fonts
     @vite(['resources/sass/app.scss', 'resources/js/app.js'])
     @include('partials.couleur-primaire')
 </head>

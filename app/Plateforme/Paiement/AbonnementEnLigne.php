@@ -89,7 +89,7 @@ class AbonnementEnLigne
     private function activer(Entreprise $entreprise, FormuleAbonnement $formule, User $auteur, string $note): AbonnementActivation
     {
         $activation = Abonnement::activer(
-            formule: FormuleAbonnement::copieLocale($formule->nom, $formule->jours, $formule->illimite, $formule->prix),
+            formule: FormuleAbonnement::copieLocale($formule->nom, $formule->jours, $formule->illimite, $formule->prix, $formule->limites()),
             montant: $formule->prix,
             jours: $formule->illimite ? null : $formule->jours,
             illimite: $formule->illimite,

@@ -7,6 +7,7 @@
         <h2 class="h4 mb-0">Produits</h2>
         <div class="d-flex gap-2 flex-wrap">
             @can('produit.creer')
+                <a href="{{ route('produits.import') }}" class="btn btn-outline-secondary"><i class="bi bi-file-earmark-spreadsheet me-2"></i>Importer</a>
                 <a href="{{ route('produits.create') }}" class="btn btn-primary">Nouveau produit</a>
             @endcan
         </div>

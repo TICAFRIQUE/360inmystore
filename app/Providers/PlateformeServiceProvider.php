@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use App\Plateforme\Paiement\PasserellePaiement;
 use App\Plateforme\Paiement\PasserelleSimulation;
+use App\Plateforme\LimitesFormule;
 use App\Plateforme\Plateforme;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\ServiceProvider;
@@ -33,6 +34,12 @@ class PlateformeServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->singleton(Plateforme::class);
+
+        // Point d'extension lu par le code partagé avec la version installée
+        // (voir ImportProduitController) : il ne connaît pas la plateforme, et
+        // demande seulement « puis-je en créer N de plus ? ». Réponse : le
+        // message de refus, ou null.
+        $this->app->bind('limite.creation', fn () => fn (string $ressource, int $nombre): ?string => LimitesFormule::refus($ressource, $nombre));
 
         $this->app->bind(PasserellePaiement::class, function () {
             return match (config('plateforme.paiement.pilote')) {

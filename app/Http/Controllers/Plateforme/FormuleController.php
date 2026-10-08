@@ -60,6 +60,7 @@ class FormuleController extends Controller
         $donnees = $request->validate([
             'telephone' => ['nullable', 'string', 'max:50', new TelephoneValide],
             'whatsapp' => ['nullable', 'string', 'max:50', new TelephoneValide],
+            'email' => ['nullable', 'email', 'max:255'],
             'message' => ['nullable', 'string', 'max:1000'],
         ]);
 
@@ -82,6 +83,11 @@ class FormuleController extends Controller
             'prix' => ['required', 'integer', 'min:0'],
             'description' => ['nullable', 'string', 'max:255'],
             'avantages' => ['nullable', 'string', 'max:2000'],
+            // Limites de la formule : vide = sans limite.
+            'max_magasins' => ['nullable', 'integer', 'min:1'],
+            'max_caisses' => ['nullable', 'integer', 'min:1'],
+            'max_utilisateurs' => ['nullable', 'integer', 'min:1'],
+            'max_produits' => ['nullable', 'integer', 'min:1'],
         ]);
 
         return [
@@ -91,6 +97,10 @@ class FormuleController extends Controller
             'prix' => (int) $donnees['prix'],
             'description' => $donnees['description'] ?? null,
             'avantages' => $donnees['avantages'] ?? null,
+            'max_magasins' => $donnees['max_magasins'] ?? null,
+            'max_caisses' => $donnees['max_caisses'] ?? null,
+            'max_utilisateurs' => $donnees['max_utilisateurs'] ?? null,
+            'max_produits' => $donnees['max_produits'] ?? null,
             'mise_en_avant' => $request->boolean('mise_en_avant'),
         ];
     }

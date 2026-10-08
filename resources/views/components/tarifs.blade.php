@@ -28,8 +28,13 @@
                     <p class="text-secondary small mt-3 mb-0">{{ $formule->description }}</p>
                 @endif
 
-                @if ($formule->listeAvantages())
+                {{-- Les limites réglées par l'éditeur s'affichent d'elles-mêmes,
+                     avant ce qu'il a rédigé : le tarif dit toujours ce qui est permis. --}}
+                @if ($formule->listeAvantages() || $formule->limitesLisibles())
                     <ul class="formule-pricing-card__avantages">
+                        @foreach ($formule->limitesLisibles() as $limite)
+                            <li><i class="bi bi-check2"></i><span>Jusqu'à {{ $limite }}</span></li>
+                        @endforeach
                         @foreach ($formule->listeAvantages() as $avantage)
                             <li><i class="bi bi-check2"></i><span>{{ $avantage }}</span></li>
                         @endforeach

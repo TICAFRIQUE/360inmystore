@@ -2,6 +2,7 @@
 
 use App\Http\Middleware\AssureAbonnementActif;
 use App\Http\Middleware\AssureGestionnaireAbonnement;
+use App\Http\Middleware\Plateforme\AppliqueLimitesFormule;
 use App\Http\Middleware\Plateforme\BloqueEspaceIndisponible;
 use App\Http\Middleware\Plateforme\ReserveALaPlateforme;
 use App\Http\Middleware\Plateforme\ReserveAuxCommerces;
@@ -27,7 +28,9 @@ return Application::configure(basePath: dirname(__DIR__))
         // ou fermé est arrêté avant tout le reste, et une session ne vaut que
         // pour l'espace où elle a été ouverte.
         $middleware->prepend(BloqueEspaceIndisponible::class);
-        $middleware->web(append: [VerifieSessionEntreprise::class]);
+        // … et une entreprise ne crée pas plus de magasins, de caisses,
+        // d'utilisateurs ou de produits que sa formule ne le permet.
+        $middleware->web(append: [VerifieSessionEntreprise::class, AppliqueLimitesFormule::class]);
 
         $middleware->alias([
             'abonnement.actif' => AssureAbonnementActif::class,

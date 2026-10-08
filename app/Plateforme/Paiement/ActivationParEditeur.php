@@ -55,7 +55,7 @@ class ActivationParEditeur
 
         $resultat = $this->processus->artisan($entreprise->sous_domaine, ['entreprises:activer-abonnement'], [
             self::VARIABLE_DONNEES => json_encode([
-                'formule' => $formule?->only(['nom', 'jours', 'illimite', 'prix']),
+                'formule' => $formule?->only(['nom', 'jours', 'illimite', 'prix', 'max_magasins', 'max_caisses', 'max_utilisateurs', 'max_produits']),
                 'montant' => $montant,
                 'jours' => $illimite ? null : $jours,
                 'illimite' => $illimite,

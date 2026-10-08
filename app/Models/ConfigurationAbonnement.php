@@ -13,7 +13,7 @@ use Spatie\Activitylog\Traits\LogsActivity;
  * sur "Mon abonnement" quand l'abonnement a expiré. Toujours passer par
  * actuel(), jamais un ::find(1) direct — même principe que Parametre::actuel().
  */
-#[Fillable(['telephone', 'whatsapp', 'message'])]
+#[Fillable(['telephone', 'whatsapp', 'email', 'message'])]
 class ConfigurationAbonnement extends Model
 {
     use LogsActivity;

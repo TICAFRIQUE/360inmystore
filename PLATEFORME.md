@@ -146,6 +146,24 @@ après l'autre, et se termine en erreur si une seule échoue (`--toutes` avant
 (`schedule:run`) ne tourne que sur la plateforme : il lance lui-même les
 alertes de chaque entreprise.
 
+### Sauvegardes
+
+Le planificateur sauvegarde chaque soir la base de la plateforme (23 h 30) puis celle
+de chaque entreprise (23 h 40), dans `storage/app/sauvegardes/{base}` ; les 10 plus
+récentes sont gardées. Il faut donc que `schedule:run` tourne chaque minute, et que
+`mysqldump` et `mysql` soient accessibles (sinon, `MYSQLDUMP_PATH` et `MYSQL_PATH`
+dans `.env`). Pour lancer une sauvegarde à la main :
+
+```
+php artisan app:sauvegarder                                  # la plateforme
+php artisan entreprises:executer --toutes app:sauvegarder    # chaque entreprise
+```
+
+La restauration d'une entreprise se fait depuis votre espace : Entreprises →
+« Sauvegardes et restauration ». L'état actuel est sauvegardé juste avant. Ce dossier
+est sur le serveur lui-même : copiez-le régulièrement ailleurs (autre disque, autre
+machine), une panne du serveur emporterait sinon les sauvegardes avec les bases.
+
 ### Code de connexion oublié
 
 ```

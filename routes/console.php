@@ -14,3 +14,9 @@ Artisan::command('inspire', function () {
 // jamais « dans » une entreprise.
 Schedule::command('entreprises:executer app:alerter-sessions-ouvertes-trop-longtemps')->hourly();
 Schedule::command('entreprises:executer app:alerter-stock-sous-seuil')->hourly();
+
+// Sauvegarde de chaque soir, 10 gardées (voir app:sauvegarder) : la base de
+// la plateforme, puis celle de chaque entreprise — suspendues comprises, leurs
+// données sont conservées. Une sauvegarde qui échoue n'arrête pas les suivantes.
+Schedule::command('app:sauvegarder')->dailyAt('23:30');
+Schedule::command('entreprises:executer --toutes app:sauvegarder')->dailyAt('23:40');

@@ -817,6 +817,25 @@ qui achètent **à crédit** sur compte client, réglé plus tard.
   avant. La même donnée alimente la pastille « Caisse ouverte » de la barre supérieure
   (`partials/topbar.blade.php`), visible depuis n'importe quel écran, y compris menu
   réduit.
+- **Aperçus d'écran** (`views/apercus/*`, cadre `x-apercu-ecran`) : écrans stylisés de
+  l'application, dessinés en vectoriel en ligne, montrés sur la **page de connexion**
+  (présentation à gauche du formulaire, masquée sous lg) et sur le site vitrine de la
+  plateforme. Toutes leurs couleurs viennent des classes de `.illu`
+  (`resources/sass/app.scss`) : jamais une couleur écrite dans la vue. Les données
+  montrées sont des exemples sans secteur précis.
+- **Tableaux de bord** (`views/dashboard/*`, et `plateforme/tableau-de-bord` pour
+  l'éditeur) : même grammaire partout — `x-kpi-card stacked` pour un indicateur
+  (libellé, valeur jamais tronquée, précision ou évolution, lien vers l'écran concerné),
+  `x-liste-barres` pour comparer des montants (à la place d'un camembert ou d'un
+  tableau), `.carte-titre`, `.etat-vide`. Les couleurs d'état (vert, ambre, rouge) y
+  sont **réservées à ce qui signale un état** ; le reste porte la primaire ou un gris.
+  Une évolution (« vs semaine/mois dernier ») compare toujours à la période précédente
+  **arrêtée au même point**, jamais à une période entière. La **période d'analyse**
+  (`?periode=jour|7j|30j|mois|mois_dernier`, « ce mois » par défaut) porte sur la courbe
+  (heure par heure pour « aujourd'hui »), les moyens de paiement, l'aperçu financier,
+  les meilleures ventes et le comparatif par magasin — **pas** sur les trois chiffres
+  du haut (jour, semaine, mois), qui ont chacun la leur. Jamais deux échelles sur un
+  même graphique : deux mesures sans rapport = deux graphiques.
 - **Dashboard adapté au rôle** : caissier → sa session ; gérant → son magasin (CA, panier
   moyen, top produits, stock sous seuil, écarts de caisse, **total des créances clients**,
   clients en dépassement de limite) ; superadmin → consolidé multi-magasin. Graphiques
@@ -840,8 +859,9 @@ qui achètent **à crédit** sur compte client, réglé plus tard.
   identique à `$primary`. `$warning` est un **ambre foncé** (`#92650a`), pas un jaune
   franc : un jaune type `#f5b800` tombe sous le seuil WCAG AA (~1.6:1 de contraste sur
   les surfaces claires du thème) — quasi illisible en texte comme en libellé de bouton.
-- **Police fine** : Inter (chargée via `vite.config.js`, graisses 400/500/600
-  uniquement), base 14 px, titres en 500, « gras » plafonné à 600 par les variables
+- **Police fine** : Inter (compilée via `vite.config.js`, graisses 400/500/600
+  uniquement — chaque gabarit doit porter la directive `@fonts` avant `@vite`, sans
+  quoi la page retombe sur la police du système), base 14 px, titres en 500, « gras » plafonné à 600 par les variables
   Bootstrap (`$font-weight-*`) — donc appliqué partout sans toucher aux vues. Ne pas
   réintroduire de graisse 700 ni de taille de base 16 px vue par vue.
 - Listes en **DataTables serveur** (jamais charger toute une table en mémoire).
@@ -860,6 +880,54 @@ qui achètent **à crédit** sur compte client, réglé plus tard.
   sort par `ExporteListe::telechargerTableur()`, y compris ceux qui construisent leur
   propre classeur.
 - Feedback explicite (toasts), sentence case, responsive (menu coulissant sur mobile).
+- **Jamais d'impasse sur une page vide.** Un commerce qui démarre n'a ni magasin, ni
+  caisse, ni produit. Tant qu'il reste une étape avant la première vente, le tableau
+  de bord affiche le guide « Mise en route » (`App\Support\PremiersPas`, étapes
+  déduites des données, mémorisé une fois terminé). Un écran qui dépend d'un
+  prérequis absent dit ce qui manque et y conduit par un bouton (`.etat-vide`) : choix
+  d'une caisse sans caisse ou sans magasin, création d'une caisse sans magasin,
+  création d'un produit sans catégorie, écran de caisse sans catalogue. Sans la
+  permission nécessaire, le message renvoie vers le responsable au lieu du bouton.
+- **Écran de caisse et devis** (`ventes/create.blade.php`, `devis/create|edit` ; logique
+  dans `posApp` et `devisApp`, `resources/js/app.js`) : même disposition pour les deux.
+  Le catalogue en vignettes est **un seul partiel** (`partials/catalogue-vignettes`) et
+  **un seul morceau de JavaScript** (`avecCatalogue`, posé sur les deux composants) —
+  jamais une copie par écran. Sur un devis, aucune vignette n'est bloquée par le stock
+  (un devis ne mouvemente rien) et la ligne rappelle le stock de chaque lieu. À la
+  caisse : produits en **vignettes** à gauche (recherche sans accents
+  sur nom, référence et code-barres ; filtre par catégorie, sur une rangée à flèches
+  de défilement — `rangeeDefilante`, une flèche seulement du côté où il reste des
+  catégories ; au plus 36 vignettes
+  dessinées d'un coup, la suite à la demande), panier et encaissement à droite ; sous
+  lg les colonnes s'empilent et un rappel du panier reste fixé en bas d'écran. La
+  touche Entrée ajoute directement une référence ou un code-barres exact (douchette).
+  Un produit qui n'a **qu'une seule unité possible** (son unité de base) reçoit cette
+  unité d'office et un second clic augmente sa quantité ; le **lieu de prélèvement
+  reste toujours un choix explicite**, jamais posé par défaut. Remise et taxe d'une
+  ligne sont repliées tant qu'elles ne servent pas. Les champs envoyés au serveur
+  sont ceux des deux formulaires en bas de vue, et eux seuls. Le catalogue mis en
+  cache (`Produit::catalogueVente()`) porte catégorie, code-barres et image : renommer
+  une catégorie l'invalide aussi.
+- **Image d'un produit** (`App\Support\ImageProduit`) : jamais plus de **1 Mo**
+  enregistré. L'image envoyée (jusqu'à 8 Mo) est réduite à l'enregistrement —
+  dimensions puis qualité — plutôt que refusée ; une miniature « vignette » (320 × 240)
+  est produite en plus, et c'est elle que sert le catalogue de vente. Sans GD ni
+  Imagick sur le serveur, l'image est gardée telle quelle si elle fait moins de 1 Mo,
+  refusée sinon.
+- **Import des produits** (`ImportProduitController`, `App\Services\ImportProduits`,
+  Catalogue → Produits → Importer, permission `produit.creer`) : Excel ou CSV, à partir
+  d'un modèle à télécharger ; colonnes reconnues à leur intitulé, dans n'importe quel
+  ordre. **Tout ou rien** : le fichier est vérifié en entier, et à la moindre erreur
+  rien n'est enregistré — chaque ligne fautive est signalée par son numéro. Catégories
+  et unités absentes sont créées ; un produit existant n'est **jamais modifié** (une
+  référence déjà prise est une erreur). Le stock initial, s'il est renseigné, entre par
+  un mouvement (règle 1), au prix d'achat indiqué.
+- **Réapprovisionnement en un clic** : depuis « Stock à réapprovisionner » du tableau
+  de bord, `commande-achats.create?reappro=1` ouvre un bon de commande prérempli d'une
+  ligne par produit sous son seuil (dans le magasin ou dépôt où il manque ; le seul
+  magasin d'un gérant), quantité = de quoi remonter au double du seuil, prix = dernier
+  coût moyen. Simple proposition : rien n'est enregistré tant que l'utilisateur ne
+  valide pas, et un brouillon ne mouvemente rien.
 - **Rupture de stock** : produit ou unité de vente en stock insuffisant affiché **grisé**
   avec mention « rupture de stock », non sélectionnable au panier (blocage en amont dans
   l'UI, pas d'erreur après coup).
@@ -937,6 +1005,14 @@ déploiement) est la branche `mono_client`, dont celle-ci hérite tout le métie
   réservées) → création de l'espace (`CreationEntreprise`, tout ou rien) → arrivée
   **déjà connecté** dans l'espace par un lien à usage unique (`LienAcces`,
   `AccesEspaceController`) → **choix de la formule** (`abonnement.espace`) → usage.
+- **Site vitrine** (`plateforme/accueil.blade.php`, gabarit `layouts/plateforme`,
+  styles dans `resources/sass/_plateforme-public.scss`) : chaque module y est présenté
+  avec ses sous-modules et une illustration. La liste `$modules` de la vue **reprend le
+  menu de l'application** (`partials/sidebar.blade.php`) — un écran ajouté ou retiré du
+  menu doit l'être aussi là. Les illustrations sont les aperçus d'écran partagés avec
+  la page de connexion (voir « Interface »). Le logo du
+  produit est dans `public/images/logo/` (déclinaisons couleur, fond sombre, favicon).
+  Rien de chiffré n'y est inventé (pas de nombre de clients ni de témoignage).
 - **Pas de formule en cours = espace fermé** : `Abonnement::estBloquant()` est vrai
   dans l'espace d'une entreprise tant qu'aucune activation n'existe (comme après
   expiration) ; tout ramène alors à la page des formules.
@@ -947,6 +1023,26 @@ déploiement) est la branche `mono_client`, dont celle-ci hérite tout le métie
   gratuit**, prenable une seule fois, au démarrage (`AbonnementEnLigne::demarrerEssai()`).
   Une activation référence toujours une copie locale de la formule
   (`FormuleAbonnement::copieLocale()`).
+- **Limites d'une formule** (`App\Plateforme\LimitesFormule`) : nombre maximal de
+  magasins (les dépôts ne comptent pas), de caisses, d'utilisateurs et de produits,
+  réglé par l'éditeur sur chaque formule (vide = sans limite) et affiché de lui-même
+  sur la page des tarifs. La limite qui vaut est celle du **catalogue de l'éditeur**
+  pour la formule en cours — un réglage vaut donc tout de suite pour ses clients ; si
+  la formule a disparu du catalogue, celle gardée à la souscription. Elle ne fait que
+  **refuser une création de plus** : rien de ce qui existe n'est retiré. Appliquée par
+  le middleware `AppliqueLimitesFormule`, sur les routes par leur nom — pas dans les
+  contrôleurs, partagés avec `mono_client` — et, pour l'import, par le point
+  d'extension `limite.creation` du conteneur (absent de la version installée).
+- **Sauvegardes des entreprises** (`Plateforme\SauvegardeController`, Entreprises →
+  « Sauvegardes et restauration ») : chaque soir, la base de la plateforme puis celle de
+  chaque entreprise, suspendues comprises (`entreprises:executer --toutes
+  app:sauvegarder`) ; l'éditeur peut en lancer une, la télécharger, ou **restaurer** un
+  espace — depuis la plateforme, avec `mysql` visant la base de l'entreprise (aucune
+  connexion de l'application ne change de base), puis vidage du cache de l'espace dans
+  son propre processus. Tracé sur l'entreprise.
+- **Accès perdu d'un propriétaire** : il contacte l'éditeur (coordonnées du support
+  affichées sur sa page de connexion), qui entre dans son espace par l'accès de
+  maintenance et réinitialise son code depuis Administration → Utilisateurs.
 - **Paiement derrière `PasserellePaiement`** — aujourd'hui `PasserelleSimulation` :
   **aucun argent encaissé**. Un paiement en ligne est toujours inscrit au registre
   AVANT l'activation (`AbonnementEnLigne`) : les deux vivent dans deux bases, sans
@@ -985,6 +1081,31 @@ déploiement) est la branche `mono_client`, dont celle-ci hérite tout le métie
   d'une entreprise ; `plateforme()->definir(...)` simule les autres contextes.
 
 ---
+
+## Sauvegardes
+
+- **Un seul endroit construit les commandes** `mysqldump` / `mysql` :
+  `App\Services\SauvegardeBase` (sauvegarde à la demande des Paramètres, sauvegarde
+  automatique, restauration). Un fichier de sauvegarde s'appelle toujours
+  `{auto|manuelle|avant-restauration}-AAAA-MM-JJ-HHMMSS.sql` : la purge, le
+  téléchargement et la restauration n'acceptent que ce motif, jamais un nom de fichier
+  fourni tel quel.
+- **Chaque soir** (`app:sauvegarder`, planifiée dans `routes/console.php`) : une
+  sauvegarde, et seules les **10 plus récentes** de chaque type sont gardées. Dossier :
+  celui réglé dans Paramètres s'il existe (version installée), sinon
+  `storage/app/sauvegardes/{base}`.
+- **Une restauration sauvegarde toujours l'état actuel d'abord** (« avant-restauration ») ;
+  si cette sauvegarde de sécurité échoue, rien n'est restauré.
+
+## Accès perdu
+
+- **Aucune réinitialisation en libre-service** : elle demanderait un code envoyé par
+  SMS, qui n'est pas branché — et un code simplement affiché à l'écran laisserait
+  n'importe qui prendre un compte. La page de connexion (« Mot de passe oublié ? »)
+  dit qui contacter : un employé son responsable (Administration → Utilisateurs →
+  « Réinitialiser le code ») ; le responsable, le support, dont les coordonnées
+  (téléphone, WhatsApp, e-mail — `ConfigurationAbonnement`) sont saisies par l'éditeur.
+- En dernier recours, depuis le serveur : `php artisan app:reinitialiser-code {username}`.
 
 ## Traçabilité
 

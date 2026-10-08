@@ -160,6 +160,7 @@
     <label for="image" class="form-label">Image</label>
     <input type="file" name="image" id="image" class="form-control @error('image') is-invalid @enderror" accept="image/*">
     @error('image') <div class="invalid-feedback">{{ $message }}</div> @enderror
+    <div class="form-text">Une photo prise au téléphone convient : elle est réduite automatiquement (1 Mo au plus une fois enregistrée).</div>
 </div>
 
 <x-actif-toggle :checked="$produit->actif ?? true" />

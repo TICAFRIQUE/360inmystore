@@ -45,7 +45,7 @@ class ActiverAbonnementEntreprise extends Command
         }
 
         $formule = $donnees['formule']
-            ? FormuleAbonnement::copieLocale($donnees['formule']['nom'], $donnees['formule']['jours'], (bool) $donnees['formule']['illimite'], (int) $donnees['formule']['prix'])
+            ? FormuleAbonnement::copieLocale($donnees['formule']['nom'], $donnees['formule']['jours'], (bool) $donnees['formule']['illimite'], (int) $donnees['formule']['prix'], $donnees['formule'])
             : null;
 
         $activation = Abonnement::activer(

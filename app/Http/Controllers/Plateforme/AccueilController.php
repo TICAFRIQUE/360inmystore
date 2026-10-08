@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Plateforme;
 
 use App\Http\Controllers\Controller;
+use App\Models\ConfigurationAbonnement;
 use App\Models\FormuleAbonnement;
 use App\Models\Plateforme\Entreprise;
 use Illuminate\Http\RedirectResponse;
@@ -36,6 +37,8 @@ class AccueilController extends Controller
             // Formule gratuite du catalogue, s'il y en a une : l'essai.
             'essai' => $formules->first(fn (FormuleAbonnement $formule) => $formule->estGratuite()),
             'domaine' => config('plateforme.domaine'),
+            // Téléphone et WhatsApp de l'éditeur, s'ils sont renseignés.
+            'contact' => ConfigurationAbonnement::actuel(),
         ]);
     }
 
@@ -51,7 +54,9 @@ class AccueilController extends Controller
         $entreprise = Entreprise::where('sous_domaine', $sousDomaine)->where('statut', '!=', Entreprise::CREATION)->first();
 
         if (! $entreprise) {
-            return back()->withInput()->withErrors(['sous_domaine' => "Aucun espace ne porte cette adresse."]);
+            // Le formulaire est en bas du site vitrine : y revenir, sinon
+            // l'erreur s'afficherait hors de l'écran.
+            return back()->withFragment('acces')->withInput()->withErrors(['sous_domaine' => "Aucun espace ne porte cette adresse."]);
         }
 
         return redirect()->away($entreprise->url('login'));

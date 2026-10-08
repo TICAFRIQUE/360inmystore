@@ -9,6 +9,7 @@ use App\Models\Magasin;
 use App\Models\Produit;
 use App\Models\Unite;
 use App\Services\StockService;
+use App\Support\ImageProduit;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -145,7 +146,7 @@ class ProduitController extends Controller
         });
 
         if ($request->hasFile('image')) {
-            $produit->addMediaFromRequest('image')->toMediaCollection('image');
+            ImageProduit::attacher($produit, $request->file('image'));
         }
 
         $message = 'Produit créé.'.($skuGenere ? " SKU généré automatiquement : {$produit->sku}." : '');
@@ -189,7 +190,7 @@ class ProduitController extends Controller
         $produit->update($donnees);
 
         if ($request->hasFile('image')) {
-            $produit->addMediaFromRequest('image')->toMediaCollection('image');
+            ImageProduit::attacher($produit, $request->file('image'));
         }
 
         $message = 'Produit mis à jour.'.($skuGenere ? " SKU généré automatiquement : {$produit->sku}." : '');
@@ -274,7 +275,11 @@ class ProduitController extends Controller
             'unite_base_id' => ['required', 'exists:unites,id'],
             'seuil_alerte' => ['required', 'integer', 'min:0'],
             'actif' => ['boolean'],
-            'image' => ['nullable', 'image', 'max:4096'],
+            // Jusqu'à 8 Mo à l'envoi : l'image est ensuite réduite sous 1 Mo
+            // à l'enregistrement (voir ImageProduit).
+            'image' => ['nullable', 'image', 'max:'.ImageProduit::ENVOI_MAX_KO],
+        ], [
+            'image.max' => "L'image ne doit pas dépasser 8 Mo à l'envoi.",
         ]);
 
         $donnees['actif'] = $request->boolean('actif', true);
