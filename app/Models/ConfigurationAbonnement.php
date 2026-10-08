@@ -37,7 +37,10 @@ class ConfigurationAbonnement extends Model
         }
 
         $attributs = Cache::rememberForever(self::CACHE_KEY, function () {
-            return self::query()->firstOrCreate(['id' => 1])->getAttributes();
+            // La table n'a qu'une ligne : la première, quel que soit son
+            // numéro (chercher « id = 1 » en recréait une vide dès que la
+            // ligne existante en portait un autre).
+            return (self::query()->orderBy('id')->first() ?? self::query()->create())->getAttributes();
         });
 
         return (new self)->newFromBuilder($attributs);
