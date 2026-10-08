@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\MouvementStockType;
 use App\Models\Caisse;
+use App\Models\Depense;
 use App\Models\EcritureCompteClient;
 use App\Models\EcritureCompteFournisseur;
 use App\Models\Magasin;
@@ -205,6 +207,12 @@ class DashboardController extends Controller
             'periode' => $periode,
             'periodes' => self::PERIODES,
             'caPeriode' => (int) (clone $ventesPeriode)->sum('total_net'),
+            // Résultat de la période : ce que les ventes ont rapporté une fois
+            // payées les marchandises vendues, les dépenses et les pertes.
+            'margePeriode' => $margePeriode = $this->margeBrute($magasinId, $debut, $fin),
+            'depensesPeriode' => $depensesPeriode = $this->depenses($magasinId, $debut, $fin),
+            'pertesStockPeriode' => $pertesStockPeriode = $this->pertesStock($magasinId, $debut, $fin),
+            'resultatPeriode' => $margePeriode - $depensesPeriode - $pertesStockPeriode,
             'caJour' => $caVentes($debutJour),
             'nombreVentesJour' => Vente::query()
                 ->when($magasinId, fn ($q) => $q->where('magasin_id', $magasinId))
@@ -246,6 +254,55 @@ class DashboardController extends Controller
             'repartitionMoyens' => $this->repartitionMoyensPaiement($magasinId, $debut, $fin),
             'mouvementsCaisseJour' => $this->mouvementsCaisseParMotif($magasinId, $debutJour),
         ];
+    }
+
+    /**
+     * Marge brute de la période : ventes moins coût des marchandises
+     * vendues (coût figé sur chaque ligne au moment de la vente) — le même
+     * calcul que le rapport de marge, pour que les deux écrans disent le
+     * même chiffre.
+     */
+    private function margeBrute(?int $magasinId, Carbon $debut, Carbon $fin): int
+    {
+        return (int) DB::table('ligne_ventes')
+            ->join('ventes', 'ventes.id', '=', 'ligne_ventes.vente_id')
+            ->when($magasinId, fn ($q) => $q->where('ventes.magasin_id', $magasinId))
+            ->whereBetween('ventes.created_at', [$debut, $fin])
+            ->whereNull('ventes.deleted_at')
+            ->selectRaw('COALESCE(SUM(ligne_ventes.total_ligne - ligne_ventes.cout_applique * ligne_ventes.quantite_pieces), 0) as marge')
+            ->value('marge');
+    }
+
+    /**
+     * Dépenses payées sur la période, hors dépenses annulées. Pour un
+     * magasin : les siennes seulement — une dépense de toute l'entreprise
+     * (sans magasin) n'apparaît que dans la vue consolidée.
+     */
+    private function depenses(?int $magasinId, Carbon $debut, Carbon $fin): int
+    {
+        return (int) Depense::query()
+            ->effectives()
+            ->when($magasinId, fn ($q) => $q->where('magasin_id', $magasinId))
+            ->whereBetween('created_at', [$debut, $fin])
+            ->sum('montant');
+    }
+
+    /**
+     * Valeur de la marchandise perdue (casse) sur la période, au coût moyen
+     * actuel du produit dans le magasin concerné : le mouvement de casse ne
+     * garde pas le coût du jour, c'est donc une estimation.
+     */
+    private function pertesStock(?int $magasinId, Carbon $debut, Carbon $fin): int
+    {
+        return (int) round((float) DB::table('mouvement_stocks')
+            ->join('stocks', fn ($jointure) => $jointure
+                ->on('stocks.produit_id', '=', 'mouvement_stocks.produit_id')
+                ->on('stocks.magasin_id', '=', 'mouvement_stocks.magasin_id'))
+            ->where('mouvement_stocks.type', MouvementStockType::Casse->value)
+            ->when($magasinId, fn ($q) => $q->where('mouvement_stocks.magasin_id', $magasinId))
+            ->whereBetween('mouvement_stocks.created_at', [$debut, $fin])
+            ->selectRaw('COALESCE(SUM(-mouvement_stocks.quantite * stocks.cout_moyen_pondere), 0) as valeur')
+            ->value('valeur'));
     }
 
     /**

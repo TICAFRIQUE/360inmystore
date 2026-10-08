@@ -1256,7 +1256,7 @@ window.soumettreClientRapide = function () {
 // rechargé. Le motif reste une chaîne libre côté MouvementCaisse/
 // EcritureCompteTresorerie (règle 19) : ce référentiel ne fait qu'alimenter
 // le <select>, la valeur soumise est le nom, jamais un identifiant.
-window.ajouterMotifRapide = function (selectEl, inputEl, fermerCallback) {
+window.ajouterMotifRapide = function (selectEl, inputEl, fermerCallback, estDepense = false) {
     const nom = inputEl.value.trim();
     if (!nom) {
         inputEl.focus();
@@ -1270,7 +1270,7 @@ window.ajouterMotifRapide = function (selectEl, inputEl, fermerCallback) {
             Accept: 'application/json',
             'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
         },
-        body: JSON.stringify({ nom }),
+        body: JSON.stringify({ nom, est_depense: estDepense }),
     })
         .then(async (response) => {
             const data = await response.json();
@@ -1281,6 +1281,9 @@ window.ajouterMotifRapide = function (selectEl, inputEl, fermerCallback) {
             }
 
             const option = new Option(data.nom, data.nom, true, true);
+            // La nature du motif suit l'option : le formulaire s'en sert pour
+            // proposer le bénéficiaire (voir partials/champ-motif-mouvement).
+            if (data.est_depense) option.dataset.depense = '1';
             selectEl.add(option, selectEl.options.length > 0 ? 1 : null);
             selectEl.value = data.nom;
             selectEl.dispatchEvent(new Event('change', { bubbles: true }));

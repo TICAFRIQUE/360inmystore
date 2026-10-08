@@ -21,6 +21,7 @@ use App\Models\SessionCaisse;
 use App\Models\Vente;
 use App\Services\CaisseMouvementService;
 use App\Services\CaisseSessionService;
+use App\Services\DepenseService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -169,7 +170,11 @@ class SessionCaisseController extends Controller
             'soldeTheorique' => $detailTheorique['theorique'] ?? null,
             'totalEntreesCaisse' => $detailTheorique['entrees'] ?? $session->total_entrees_especes,
             'totalSortiesCaisse' => $detailTheorique['sorties'] ?? $session->total_sorties_especes,
-            'motifs' => MotifMouvement::where('actif', true)->orderBy('nom')->get(),
+            // Un motif marqué « dépense » n'est proposé qu'à qui peut
+            // enregistrer une dépense (voir storeMouvement()).
+            'motifs' => MotifMouvement::where('actif', true)
+                ->when(! $request->user()->can('depense.creer'), fn ($q) => $q->where('est_depense', false))
+                ->orderBy('nom')->get(),
         ]);
     }
 
@@ -179,7 +184,7 @@ class SessionCaisseController extends Controller
      * caisse) : plus d'onglet séparé, une session de caisse ouverte reste
      * l'unique pré-requis (règle 19).
      */
-    public function storeMouvement(Request $request, SessionCaisse $session, CaisseMouvementService $mouvementService): RedirectResponse
+    public function storeMouvement(Request $request, SessionCaisse $session, CaisseMouvementService $mouvementService, DepenseService $depenseService): RedirectResponse
     {
         $this->assurerMagasin($session->caisse->magasin_id);
         $this->assurerProprietaireOuGerant($session);
@@ -188,7 +193,31 @@ class SessionCaisseController extends Controller
             'type' => ['required', Rule::in(['entree', 'sortie'])],
             'montant' => ['required', 'integer', 'min:1'],
             'motif' => ['required', 'string', 'max:255'],
+            'beneficiaire' => ['nullable', 'string', 'max:255'],
         ]);
+
+        // Une sortie se fait toujours sous un motif de la liste : c'est lui
+        // qui dit si c'est une dépense (voir MotifMouvement). Un texte libre
+        // laisserait une dépense échapper au classement.
+        if ($donnees['type'] === 'sortie') {
+            $motif = MotifMouvement::where('nom', $donnees['motif'])->first();
+
+            if (! $motif) {
+                return redirect()->route('sessions.show', $session)->with('erreur', 'Choisissez le motif de la sortie dans la liste (le bouton « + » permet d\'en créer un).');
+            }
+
+            if ($motif->est_depense) {
+                abort_unless($request->user()->can('depense.creer'), 403, "Vous n'êtes pas autorisé à enregistrer une dépense.");
+
+                try {
+                    $depenseService->payerDepuisSession($session, $motif, $donnees['montant'], $request->user(), $donnees['beneficiaire'] ?? null);
+                } catch (SoldeCaisseInsuffisantException|InvalidArgumentException|RuntimeException $e) {
+                    return redirect()->route('sessions.show', $session)->with('erreur', $e->getMessage());
+                }
+
+                return redirect()->route('sessions.show', $session)->with('succes', 'Dépense enregistrée.');
+            }
+        }
 
         try {
             $mouvementService->enregistrer(

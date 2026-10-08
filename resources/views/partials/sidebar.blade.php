@@ -66,6 +66,8 @@
             'entrees' => [
                 ['libelle' => 'Trésorerie', 'icone' => 'bi-bank', 'url' => route('comptabilite.caisses.index'),
                     'actif' => ['comptabilite.*'], 'visible' => $peut('tresorerie.voir')],
+                ['libelle' => 'Dépenses', 'icone' => 'bi-wallet2', 'url' => route('depenses.index'),
+                    'actif' => ['depenses.*'], 'visible' => $peut('depense.voir')],
                 ['libelle' => 'Rapports', 'icone' => 'bi-bar-chart-line', 'url' => route('rapports.index'),
                     'actif' => ['rapports.*', 'journal.*'], 'visible' => $peut('rapport.voir')],
             ],

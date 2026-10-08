@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Concerns;
 
+use App\Models\Depense;
 use App\Models\RemboursementAvoirClient;
 use Carbon\Carbon;
 use Illuminate\Database\Query\Builder;
@@ -235,6 +236,11 @@ trait JournalCaisse
         // manuelle quelconque dans la colonne "Type".
         if ($ligne->type === 'sortie' && ($ligne->reference_type ?? null) === RemboursementAvoirClient::class) {
             $ligne->type_libelle = 'Remboursement avoir';
+        }
+        // Même principe pour une dépense (voir DepenseService) et pour le
+        // retour d'argent de son annulation.
+        if (($ligne->reference_type ?? null) === (new Depense)->getMorphClass()) {
+            $ligne->type_libelle = $ligne->type === 'sortie' ? 'Dépense' : 'Annulation de dépense';
         }
         $ligne->type_badge = match ($ligne->type) {
             'entree', 'vente', 'reglement' => 'text-bg-success',

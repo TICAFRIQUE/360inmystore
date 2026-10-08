@@ -31,7 +31,10 @@
                 <tbody>
                     @forelse ($motifs as $motif)
                         <tr>
-                            <td>{{ $motif->nom }}</td>
+                            <td>
+                                {{ $motif->nom }}
+                                @if ($motif->est_depense) <span class="badge text-bg-info ms-1">Dépense</span> @endif
+                            </td>
                             <td>
                                 @if ($motif->actif)
                                     <span class="badge text-bg-success">Actif</span>

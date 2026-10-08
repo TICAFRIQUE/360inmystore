@@ -70,29 +70,7 @@
                                     <label for="montant" class="form-label small mb-1">Montant ({{ App\Models\Devise::abreviationActuelle() }})</label>
                                     <input type="number" name="montant" id="montant" min="1" class="form-control form-control-sm" required>
                                 </div>
-                                <div class="col-12 col-md-6">
-                                    <label for="motif" class="form-label small mb-1">Motif</label>
-                                    <div class="d-flex gap-1">
-                                        <select name="motif" id="motif" x-ref="motifSelect" class="form-select form-select-sm" required>
-                                            <option value="">— Choisir —</option>
-                                            @foreach ($motifs as $m)
-                                                <option value="{{ $m->nom }}">{{ $m->nom }}</option>
-                                            @endforeach
-                                        </select>
-                                        <button type="button" class="btn btn-outline-secondary btn-sm flex-shrink-0" title="Nouveau motif"
-                                                @click="ajoutMotifOuvert = !ajoutMotifOuvert">
-                                            <i class="bi bi-plus-lg"></i>
-                                        </button>
-                                    </div>
-                                    <div class="input-group input-group-sm mt-1" x-show="ajoutMotifOuvert" x-cloak>
-                                        <input type="text" x-ref="motifNouveau" class="form-control" placeholder="Nouveau motif…" maxlength="255"
-                                               @keydown.enter.prevent="window.ajouterMotifRapide($refs.motifSelect, $refs.motifNouveau, () => ajoutMotifOuvert = false)">
-                                        <button type="button" class="btn btn-outline-primary"
-                                                @click="window.ajouterMotifRapide($refs.motifSelect, $refs.motifNouveau, () => ajoutMotifOuvert = false)">
-                                            Ajouter
-                                        </button>
-                                    </div>
-                                </div>
+                                @include('partials.champ-motif-mouvement')
                             </div>
                             <div class="d-flex gap-2 mt-2">
                                 <button type="submit" class="btn btn-outline-secondary btn-sm">Enregistrer</button>

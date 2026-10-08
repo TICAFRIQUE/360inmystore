@@ -19,7 +19,7 @@ class MotifMouvementController extends Controller
 {
     use TrieListe, ExporteListe;
 
-    private const ENTETES_EXPORT = ['Nom', 'Statut'];
+    private const ENTETES_EXPORT = ['Nom', 'Nature', 'Statut'];
 
     public function index(Request $request): View
     {
@@ -57,6 +57,7 @@ class MotifMouvementController extends Controller
     {
         return $this->requeteListe($request)->get()->map(fn (MotifMouvement $motif) => [
             $motif->nom,
+            $motif->est_depense ? 'Dépense' : 'Mouvement de fonds',
             $motif->actif ? 'Actif' : 'Inactif',
         ]);
     }
@@ -113,12 +114,14 @@ class MotifMouvementController extends Controller
             return response()->json(['errors' => $validateur->errors()], 422);
         }
 
+        // Un motif qui existe déjà garde sa nature : on ne la change pas
+        // au détour d'une saisie rapide.
         $motif = MotifMouvement::firstOrCreate(
             ['nom' => $validateur->validated()['nom']],
-            ['actif' => true]
+            ['actif' => true, 'est_depense' => $request->boolean('est_depense')]
         );
 
-        return response()->json(['id' => $motif->id, 'nom' => $motif->nom], 201);
+        return response()->json(['id' => $motif->id, 'nom' => $motif->nom, 'est_depense' => $motif->est_depense], 201);
     }
 
     private function valider(Request $request, ?MotifMouvement $motifMouvement = null): array
@@ -128,6 +131,7 @@ class MotifMouvementController extends Controller
         ]);
 
         $donnees['actif'] = $request->boolean('actif', true);
+        $donnees['est_depense'] = $request->boolean('est_depense');
 
         return $donnees;
     }

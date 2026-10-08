@@ -1741,6 +1741,102 @@ $reglement-end-hover: #5b21b6;
     border-radius: 0.25rem;
 }
 
+// Récapitulatif des sorties d'argent (écran Dépenses) : une carte basse — le
+// total à gauche, les postes en lignes serrées à droite (motif, montant),
+// sans barre ni pourcentage. Le rouge et la flèche disent « argent sorti »,
+// comme le « − » des sorties dans les journaux de caisse.
+.recap-flux {
+    display: grid;
+    gap: 0.75rem 2rem;
+    align-items: start;
+
+    @include media-breakpoint-up(lg) {
+        grid-template-columns: minmax(13rem, max-content) minmax(0, 1fr);
+    }
+}
+
+.recap-flux__total {
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+
+    @include media-breakpoint-up(lg) {
+        padding-right: 2rem;
+        border-right: 1px solid $border-color;
+    }
+}
+
+.recap-flux__icone {
+    display: grid;
+    flex-shrink: 0;
+    place-items: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    font-size: 1rem;
+    color: $danger;
+    background-color: rgba($danger, 0.1);
+    border-radius: 50%;
+}
+
+.recap-flux__libelle {
+    font-size: 0.8125rem;
+    color: $secondary;
+}
+
+.recap-flux__montant {
+    font-size: 1.25rem;
+    font-weight: 600;
+    line-height: 1.3;
+    color: $danger;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.recap-flux__postes {
+    padding: 0;
+    margin: 0;
+    list-style: none;
+    // Autant de colonnes que la largeur en offre, chacune assez large pour
+    // qu'un nom de motif courant ne soit pas coupé.
+    column-width: 20rem;
+    column-gap: 2rem;
+}
+
+.recap-flux__poste {
+    display: flex;
+    gap: 0.5rem;
+    align-items: baseline;
+    padding: 0.1875rem 0;
+    break-inside: avoid;
+
+    > .bi {
+        flex-shrink: 0;
+        font-size: 0.75rem;
+        color: $danger;
+    }
+}
+
+.recap-flux__poste--autres > .bi {
+    color: $secondary;
+}
+
+.recap-flux__nom {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    color: $body-color;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.recap-flux__valeur {
+    flex-shrink: 0;
+    font-weight: 600;
+    color: $dark;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
 // Chiffres côte à côte, séparés par un filet : une même carte pour montrer
 // qu'ils se lisent ensemble sans se confondre.
 .apercu-financier {
