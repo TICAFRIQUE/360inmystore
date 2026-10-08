@@ -188,6 +188,49 @@
     </div>
 </div>
 
+{{-- Résultat : ce qu'il reste des ventes une fois payées les marchandises
+     vendues, les dépenses et les pertes de stock. Un résultat simplifié, pas
+     une comptabilité : les achats encore en stock n'y sont pas, ils ne sont
+     comptés qu'à la vente. --}}
+<div class="card border-0 shadow-sm mb-3">
+    <div class="card-body">
+        <div class="carte-titre">
+            <div>
+                <h3 class="carte-titre__texte">Résultat</h3>
+                <p class="carte-titre__aide">{{ $periode['libelle'] }} · ce que l'activité a réellement rapporté, dépenses payées</p>
+            </div>
+            @if ($peut('depense.voir'))
+                <a href="{{ route('depenses.index') }}" class="btn btn-sm btn-outline-secondary">Voir les dépenses</a>
+            @endif
+        </div>
+
+        <div class="apercu-financier">
+            <div class="apercu-financier__bloc">
+                <span class="apercu-financier__libelle"><i class="bi bi-graph-up-arrow text-primary"></i>Marge brute</span>
+                <span class="apercu-financier__valeur">{{ montant($margePeriode) }}</span>
+                <span class="apercu-financier__aide">Ventes moins le coût des marchandises vendues.</span>
+            </div>
+            <div class="apercu-financier__bloc">
+                <span class="apercu-financier__libelle"><i class="bi bi-wallet2 text-secondary"></i>Dépenses</span>
+                <span class="apercu-financier__valeur">{{ $depensesPeriode > 0 ? '− ' : '' }}{{ montant($depensesPeriode) }}</span>
+                <span class="apercu-financier__aide">Loyer, salaires, factures… réellement payés.</span>
+            </div>
+            <div class="apercu-financier__bloc">
+                <span class="apercu-financier__libelle"><i class="bi bi-trash3 text-secondary"></i>Pertes de stock</span>
+                <span class="apercu-financier__valeur">{{ $pertesStockPeriode > 0 ? '− ' : '' }}{{ montant($pertesStockPeriode) }}</span>
+                <span class="apercu-financier__aide">Casse, estimée au coût moyen actuel.</span>
+            </div>
+            <div class="apercu-financier__bloc">
+                <span class="apercu-financier__libelle">
+                    <i class="bi {{ $resultatPeriode >= 0 ? 'bi-check-circle text-success' : 'bi-exclamation-circle text-danger' }}"></i>{{ $resultatPeriode >= 0 ? 'Bénéfice' : 'Perte' }}
+                </span>
+                <span class="apercu-financier__valeur {{ $resultatPeriode >= 0 ? 'text-success' : 'text-danger' }}">{{ montant(abs($resultatPeriode)) }}</span>
+                <span class="apercu-financier__aide">Marge brute, moins dépenses et pertes.</span>
+            </div>
+        </div>
+    </div>
+</div>
+
 {{-- À surveiller --}}
 <div class="row row-cols-2 row-cols-xl-4 g-3 mb-3">
     <div class="col">

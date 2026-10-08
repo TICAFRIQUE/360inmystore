@@ -13,6 +13,7 @@ use App\Models\MotifMouvement;
 use App\Models\User;
 use App\Services\CaisseSessionService;
 use App\Services\CompteTresorerieService;
+use App\Services\DepenseService;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Http\RedirectResponse;
@@ -93,7 +94,11 @@ class ComptabiliteController extends Controller
             'totalSorties' => (int) abs((clone $requeteFiltree)->where('montant', '<', 0)->sum('montant')),
             'ecritures' => $ecritures,
             'autresComptes' => $autresComptes,
-            'motifs' => MotifMouvement::where('actif', true)->orderBy('nom')->get(),
+            // Un motif marqué « dépense » n'est proposé qu'à qui peut
+            // enregistrer une dépense (voir storeMouvement()).
+            'motifs' => MotifMouvement::where('actif', true)
+                ->when(! $request->user()->can('depense.creer'), fn ($q) => $q->where('est_depense', false))
+                ->orderBy('nom')->get(),
         ]);
     }
 
@@ -208,13 +213,36 @@ class ComptabiliteController extends Controller
         ]);
     }
 
-    public function storeMouvement(Request $request, CompteTresorerie $compte, CompteTresorerieService $service): RedirectResponse
+    public function storeMouvement(Request $request, CompteTresorerie $compte, CompteTresorerieService $service, DepenseService $depenseService): RedirectResponse
     {
         $donnees = $request->validate([
             'type' => ['required', Rule::in(['entree', 'sortie'])],
             'montant' => ['required', 'integer', 'min:1'],
             'motif' => ['required', 'string', 'max:255'],
+            'beneficiaire' => ['nullable', 'string', 'max:255'],
         ]);
+
+        // Même règle que pour une caisse (voir SessionCaisseController) : une
+        // sortie se fait sous un motif de la liste, qui dit si c'est une dépense.
+        if ($donnees['type'] === 'sortie') {
+            $motif = MotifMouvement::where('nom', $donnees['motif'])->first();
+
+            if (! $motif) {
+                return back()->withInput()->with('erreur', 'Choisissez le motif de la sortie dans la liste (le bouton « + » permet d\'en créer un).');
+            }
+
+            if ($motif->est_depense) {
+                abort_unless($request->user()->can('depense.creer'), 403, "Vous n'êtes pas autorisé à enregistrer une dépense.");
+
+                try {
+                    $depenseService->payerDepuisCompte($compte, $motif, $donnees['montant'], $request->user(), $donnees['beneficiaire'] ?? null);
+                } catch (SoldeTresorerieInsuffisantException|InvalidArgumentException $e) {
+                    return back()->withInput()->with('erreur', $e->getMessage());
+                }
+
+                return back()->with('succes', 'Dépense enregistrée.');
+            }
+        }
 
         try {
             if ($donnees['type'] === 'entree') {

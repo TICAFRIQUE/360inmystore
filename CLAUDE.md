@@ -573,6 +573,78 @@ qui achètent **à crédit** sur compte client, réglé plus tard.
 
 ---
 
+## Dépenses
+
+- **Une dépense = une sortie d'argent dont le motif est marqué « dépense »**
+  (`MotifMouvement.est_depense` : loyer, salaires, facture…). Il n'y a **qu'une seule
+  façon de sortir de l'argent** — la sortie de caisse (règle 19) ou de trésorerie — et
+  c'est le motif choisi qui décide si elle compte dans les dépenses : jamais deux
+  écrans concurrents qui feraient la même chose, jamais une sortie « à requalifier »
+  après coup. Un retrait du propriétaire, un appoint, un dépôt en banque restent des
+  sorties ordinaires (motif non marqué).
+- **Les motifs de départ qui sont des charges sont cochés d'office**
+  (`MotifMouvementSeeder::MOTIFS` : loyer, salaires, eau, électricité, transport,
+  entretien, frais bancaires…) ; pour un commerce déjà installé, la migration des
+  dépenses les coche une fois. Restent décochés ce qui ne fait que déplacer de
+  l'argent (appoint, dépôt en banque) et **« Paiement fournisseur en espèces »** : la
+  marchandise est déjà dans le coût des ventes, la compter en dépense la retirerait
+  deux fois du résultat. Un motif créé par le commerce n'est jamais coché à sa place,
+  et relancer le seeder ne revient pas sur ses réglages.
+- **`Depense`** : motif (libellé figé à la saisie, comme `motif` sur un mouvement),
+  montant, bénéficiaire (facultatif), magasin concerné (nul = toute l'entreprise),
+  source (`session_caisse_id` OU `compte_tresorerie_id`), auteur, photo du reçu
+  facultative (medialibrary, collection `recu`, réduite comme une image produit —
+  `ImageProduit::attacherA()`).
+- **Écrite uniquement par `DepenseService`**, dans la **même transaction** que le
+  `MouvementCaisse` (tiroir d'une session ouverte) ou l'`EcritureCompteTresorerie`
+  (Caisse Générale, compte) qui la paie, dont elle est la `reference`. Les plafonds
+  existants s'appliquent donc tels quels (`SoldeCaisseInsuffisantException`,
+  `SoldeTresorerieInsuffisantException`) : **pas de dépense à crédit**, pas de dépense
+  « à payer plus tard » — on n'enregistre que de l'argent réellement sorti.
+- **Trois points d'entrée, une seule règle** : l'écran « Dépenses → Nouvelle dépense »
+  (`DepenseController`), le formulaire de mouvement d'une session
+  (`SessionCaisseController::storeMouvement()`) et celui d'un compte de trésorerie
+  (`ComptabiliteController::storeMouvement()`). Le champ motif est partagé
+  (`partials/champ-motif-mouvement.blade.php`) : choisir un motif « dépense » propose
+  le bénéficiaire. Une **sortie** doit toujours prendre son motif dans la liste (le
+  bouton « + » en crée un à la volée, avec la case « C'est une dépense »).
+- **Permissions** : `depense.voir` (liste, exports), `depense.creer`, `depense.annuler`.
+  Un caissier **sans** `depense.creer` ne voit pas les motifs « dépense » dans son
+  formulaire de mouvement et se voit refuser (403) une sortie sous un tel motif ; avec
+  la permission, il paie depuis **sa propre session ouverte** uniquement. Payer depuis
+  la Caisse Générale ou un compte exige en plus `tresorerie.gerer`. Gérant : les trois
+  par défaut ; Caissier : aucune (à accorder au cas par cas).
+- **Annulation, jamais de modification ni de suppression** (`DepenseService::annuler()`,
+  raison obligatoire) : la dépense reste dans la liste, barrée, hors totaux
+  (`Depense::effectives()`), et l'argent revient par un **mouvement inverse** — dans le
+  tiroir si la session est encore ouverte, sinon à la Caisse Générale (une session
+  clôturée y a déjà déposé son contenu, règle 21) ou sur le compte d'origine.
+- **Journal de caisse** : la sortie liée à une dépense y est libellée « Dépense » (et
+  son retour « Annulation de dépense »), comme « Remboursement avoir » — c'est un vrai
+  `MouvementCaisse`, compté normalement dans les sorties et le solde théorique.
+- **Écran « Dépenses »** (`depenses.index`, menu Pilotage) : un récapitulatif **fin**
+  (`.recap-flux`, une seule carte basse), puis le détail filtrable (période, motif,
+  magasin, recherche) et paginé, exports comme toute liste. Le récapitulatif montre le
+  total à gauche et, à droite, les motifs en lignes serrées — **motif et montant
+  seulement**, ni barre ni pourcentage — avec la flèche et le rouge des sorties
+  d'argent (comme le « − » des journaux de caisse). Les 6 premiers postes, la suite
+  résumée sous « N autres motifs » et dépliable : sa hauteur ne dépend ni du nombre de
+  dépenses ni, repliée, du nombre de motifs.
+- **Jeu d'essai** (`DepenseTestSeeder`, refusé en production) : 30 dépenses du début du
+  mois à aujourd'hui, payées par `DepenseService` depuis la Caisse Générale après un
+  apport du même total (solde inchangé) ; cet apport sert de témoin, le relancer
+  n'ajoute rien.
+- **Carte « Résultat » du tableau de bord** (gérant et superadmin, même filtre de
+  période) : **marge brute** (ventes − coût des marchandises vendues, même calcul que
+  le rapport de marge) **− dépenses** (hors annulées) **− pertes de stock** (casse,
+  estimée au CMP **actuel** — le mouvement de casse ne fige pas le coût du jour) =
+  **bénéfice ou perte**. Un résultat simplifié, pas une comptabilité : les achats encore
+  en stock n'y figurent pas (comptés à la vente), un règlement fournisseur n'est pas
+  une dépense (déjà dans le coût des marchandises). Vue d'un magasin : ses dépenses
+  seulement ; une dépense « toute l'entreprise » n'apparaît que dans la vue consolidée.
+
+---
+
 ## Dépôts
 
 - Un **dépôt** est un lieu de stockage sans vente : même entité `Magasin`, différenciée
@@ -628,7 +700,8 @@ qui achètent **à crédit** sur compte client, réglé plus tard.
   `caisse.cloturer`, `caisse.mouvement`, `tresorerie.voir`, `tresorerie.gerer`,
   `client.gerer`, `client.reglement`, `client.depasser_limite`, `fournisseur.voir`,
   `fournisseur.gerer`, `fournisseur.reglement`, `taxe.gerer`, `typeclient.gerer`,
-  `motif.gerer`, `rapport.voir`, `utilisateur.gerer`, `role.gerer`, `parametre.gerer`.
+  `motif.gerer`, `depense.voir`, `depense.creer`, `depense.annuler`, `rapport.voir`,
+  `utilisateur.gerer`, `role.gerer`, `parametre.gerer`.
 - **Superadmin** : bypass total via `Gate::before` (ne reçoit pas de permissions).
 - **Noyau de permissions système protégé** : non attribuable aux rôles créés à la volée.
 - Rôles par défaut seedés : Superadmin, Gérant, Caissier — **modifiables**.
@@ -703,6 +776,14 @@ qui achètent **à crédit** sur compte client, réglé plus tard.
   auteur. Réservé aux mouvements manuels d'un caissier sur sa propre session — la part
   espèces d'un règlement fournisseur ou d'un remboursement d'avoir passe désormais par
   `EcritureCompteTresorerie` (Caisse Générale, règle 21), jamais par ici.
+- **MotifMouvement** : nom, actif, **est_depense** (une sortie sous ce motif est une
+  dépense — voir « Dépenses »). Référentiel des motifs proposés pour un mouvement de
+  caisse ou de trésorerie.
+- **Depense** : motif (figé) + `MotifMouvement` d'origine, montant, bénéficiaire
+  (nullable), magasin (nullable = toute l'entreprise), session de caisse **ou** compte
+  de trésorerie qui l'a payée, auteur ; annulable (date, auteur, raison), jamais
+  modifiable ni supprimable. Toujours créée avec la sortie d'argent qui la paie
+  (`DepenseService`).
 - **CompteTresorerie** : compte de trésorerie de l'entreprise (voir « Trésorerie ») ;
   nom, type (`caisse_generale` | `banque` | `autre`), actif. Un seul enregistrement
   `caisse_generale` (singleton), indépendant des `Caisse`/`SessionCaisse` des caissiers.
@@ -790,7 +871,7 @@ qui achètent **à crédit** sur compte client, réglé plus tard.
   (`partials/sidebar.blade.php`) est décrit par **un seul tableau** sections → entrées →
   sous-entrées : Tableau de bord ; *Opérations* (Vente, Achats, Stock, Catalogue) ;
   *Pilotage* (Trésorerie — Caisse Générale/Comptes, Gérant/Superadmin uniquement, voir
-  « Trésorerie » — et Rapports) ; *Configuration* (Administration). Un groupe ne
+  « Trésorerie » —, Dépenses et Rapports) ; *Configuration* (Administration). Un groupe ne
   s'affiche que si au moins une de ses sous-entrées est visible pour l'utilisateur, et
   son état actif se déduit d'elles — **jamais** une seconde liste de permissions/routes
   à maintenir sur le parent (c'était la source d'un menu « Stock » au HTML cassé pour un
@@ -1111,7 +1192,8 @@ déploiement) est la branche `mono_client`, dont celle-ci hérite tout le métie
 
 - **activitylog** sur entités sensibles (produits, prix, mouvements, ventes, sessions,
   utilisateurs, rôles, **clients, limites de crédit, règlements, devis, fournisseurs,
-  règlements fournisseurs, taxes, comptes de trésorerie**) : auteur, date, avant/après.
+  règlements fournisseurs, taxes, comptes de trésorerie, dépenses et leur annulation**) :
+  auteur, date, avant/après.
 - **Historique connexions** : login/logout, date, utilisateur, IP (écouter les événements d'auth).
 
 ---
@@ -1259,3 +1341,14 @@ entreprises, paiements, formules, activation manuelle, accès de maintenance) �
 « Plateforme SaaS ». L'idée initiale d'un interrupteur mono/multi dans un même code a
 été abandonnée au profit de deux branches. L'e-mail n'est volontairement pas demandé
 à l'inscription : le téléphone est l'identifiant de contact d'une entreprise.
+
+Nouvelle extension (dépenses) : les charges du commerce (loyer, salaires, factures…)
+n'étaient suivies nulle part — une sortie de caisse en portait bien le motif, mais rien
+ne les totalisait ni ne les rapprochait des ventes. Décision : **pas de second
+mécanisme de sortie d'argent**, c'est le motif qui est marqué « dépense »
+(`MotifMouvement.est_depense`) ; toute sortie sous un tel motif crée une `Depense`
+dans la même transaction (voir « Dépenses »). Un caissier n'en enregistre que sur
+permission (`depense.creer`) ; pas de dépense à crédit ; correction par annulation
+(mouvement inverse), jamais par modification. Le tableau de bord du gérant comme celui
+du propriétaire affichent un **résultat simplifié** (marge brute − dépenses − pertes de
+stock), sans prétendre à une comptabilité (toujours hors périmètre).

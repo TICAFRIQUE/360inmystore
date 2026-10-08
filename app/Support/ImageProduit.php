@@ -8,6 +8,7 @@ use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Spatie\Image\Enums\Fit;
 use Spatie\Image\Image;
+use Spatie\MediaLibrary\HasMedia;
 
 /**
  * Image d'un produit : jamais plus de 1 Mo enregistré, quelle que soit la
@@ -43,6 +44,17 @@ class ImageProduit
      */
     public static function attacher(Produit $produit, UploadedFile $fichier): void
     {
+        self::attacherA($produit, $fichier, 'image');
+    }
+
+    /**
+     * La même réduction pour n'importe quel modèle qui porte une image
+     * (le reçu d'une dépense, par exemple), dans la collection indiquée.
+     *
+     * @throws ValidationException si l'image dépasse 1 Mo et ne peut pas être réduite
+     */
+    public static function attacherA(HasMedia $modele, UploadedFile $fichier, string $collection): void
+    {
         $reduite = self::reduire($fichier);
 
         if ($reduite === null && $fichier->getSize() > self::POIDS_MAX) {
@@ -51,15 +63,15 @@ class ImageProduit
             ]);
         }
 
-        $nom = Str::slug(pathinfo($fichier->getClientOriginalName(), PATHINFO_FILENAME)) ?: 'produit';
+        $nom = Str::slug(pathinfo($fichier->getClientOriginalName(), PATHINFO_FILENAME)) ?: 'image';
 
         if ($reduite !== null) {
-            $produit->addMedia($reduite)->usingName($nom)->usingFileName($nom.'.jpg')->toMediaCollection('image');
+            $modele->addMedia($reduite)->usingName($nom)->usingFileName($nom.'.jpg')->toMediaCollection($collection);
 
             return;
         }
 
-        $produit->addMedia($fichier)->usingName($nom)->toMediaCollection('image');
+        $modele->addMedia($fichier)->usingName($nom)->toMediaCollection($collection);
     }
 
     /**

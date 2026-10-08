@@ -14,11 +14,17 @@ use Spatie\Activitylog\Traits\LogsActivity;
 /**
  * Référentiel des motifs proposés pour un mouvement d'entrée/sortie —
  * caisse de caissier (MouvementCaisse) ou trésorerie (EcritureCompteTresorerie).
- * N'est jamais une contrainte stricte : les deux modèles gardent leur propre
- * colonne `motif` en texte libre (règle 19 — "motif (libre, obligatoire)"),
- * ce référentiel ne fait que suggérer/harmoniser les libellés déjà utilisés.
+ * Les deux modèles gardent leur propre colonne `motif` en texte (règle 19) :
+ * ce référentiel harmonise les libellés proposés.
+ *
+ * est_depense : une SORTIE faite sous ce motif est une dépense de
+ * fonctionnement (loyer, salaires, électricité…) et laisse une Depense —
+ * voir DepenseService. C'est le motif, et lui seul, qui en décide : il n'y a
+ * pas deux saisies concurrentes, « sortie » d'un côté et « dépense » de
+ * l'autre. La nature est figée à la saisie : cocher ou décocher la case plus
+ * tard ne reclasse jamais les sorties passées.
  */
-#[Fillable(['nom', 'actif'])]
+#[Fillable(['nom', 'est_depense', 'actif'])]
 class MotifMouvement extends Model
 {
     use HasFactory, LogsActivity, SoftDeletes, MetEnFormePhrase;
@@ -26,6 +32,7 @@ class MotifMouvement extends Model
     protected function casts(): array
     {
         return [
+            'est_depense' => 'boolean',
             'actif' => 'boolean',
         ];
     }

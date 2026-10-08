@@ -10,6 +10,7 @@ use App\Http\Controllers\ClientController;
 use App\Http\Controllers\CommandeAchatController;
 use App\Http\Controllers\ComptabiliteController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\DepenseController;
 use App\Http\Controllers\DeviseController;
 use App\Http\Controllers\DevisController;
 use App\Http\Controllers\FournisseurController;
@@ -157,6 +158,19 @@ Route::middleware(['auth', 'abonnement.actif', 'espace.commerce'])->group(functi
             ->except(['show'])
             ->parameters(['categories' => 'categorie']);
     });
+
+    // Dépenses (voir DepenseController) : la liste et ses exports, la saisie,
+    // l'annulation — chacune sous sa permission.
+    Route::middleware('can:depense.voir')->group(function () {
+        Route::get('depenses', [DepenseController::class, 'index'])->name('depenses.index');
+        Route::get('depenses/pdf', [DepenseController::class, 'pdf'])->name('depenses.pdf');
+        Route::get('depenses/excel', [DepenseController::class, 'excel'])->name('depenses.excel');
+    });
+    Route::middleware('can:depense.creer')->group(function () {
+        Route::get('depenses/nouvelle', [DepenseController::class, 'create'])->name('depenses.create');
+        Route::post('depenses', [DepenseController::class, 'store'])->name('depenses.store');
+    });
+    Route::post('depenses/{depense}/annuler', [DepenseController::class, 'annuler'])->middleware('can:depense.annuler')->name('depenses.annuler');
 
     // Lecture ouverte à produit.voir ; les actions de mutation sont vérifiées
     // finement dans ProduitController (produit.creer/modifier/supprimer).
