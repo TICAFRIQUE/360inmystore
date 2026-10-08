@@ -12,6 +12,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DeviseController;
 use App\Http\Controllers\DevisController;
 use App\Http\Controllers\FournisseurController;
+use App\Http\Controllers\ImportProduitController;
 use App\Http\Controllers\InventaireController;
 use App\Http\Controllers\JournalActiviteController;
 use App\Http\Controllers\MagasinController;
@@ -91,6 +92,15 @@ Route::middleware(['auth', 'abonnement.actif'])->group(function () {
     Route::middleware('can:produit.voir')->group(function () {
         Route::get('produits/pdf', [ProduitController::class, 'pdf'])->name('produits.pdf');
         Route::get('produits/excel', [ProduitController::class, 'excel'])->name('produits.excel');
+
+        // Import du catalogue depuis Excel ou CSV — avant la ressource
+        // « produits », pour que « import » ne soit jamais pris pour un produit.
+        Route::middleware('can:produit.creer')->group(function () {
+            Route::get('produits/import', [ImportProduitController::class, 'create'])->name('produits.import');
+            Route::get('produits/import/modele', [ImportProduitController::class, 'modele'])->name('produits.import.modele');
+            Route::post('produits/import', [ImportProduitController::class, 'store'])->name('produits.import.store');
+        });
+
         Route::resource('produits', ProduitController::class)->except(['show']);
 
         Route::post('produits/{produit}/unite-ventes', [UniteVenteController::class, 'store'])->name('produits.unite-ventes.store');

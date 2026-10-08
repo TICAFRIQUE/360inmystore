@@ -121,8 +121,159 @@ window.dataTableFrLang = {
  * côté client pour griser en amont (voir CLAUDE.md), le serveur revalide tout
  * de toute façon dans VenteService avant d'écrire le moindre mouvement.
  */
-window.posApp = function (produits, panierInitial = [], libelleInitial = '', clientIdInitial = '', magasinCaisseId = null, magasinCaisseNom = '', clientSoldes = {}, taxes = []) {
+/**
+ * Rangée qui défile horizontalement (x-ref="rangee") : dit s'il reste du
+ * contenu caché à gauche ou à droite, pour n'afficher une flèche que du côté
+ * où elle sert — et aucune quand tout tient à l'écran.
+ */
+window.rangeeDefilante = function () {
     return {
+        auDebut: true,
+        aLaFin: true,
+
+        mesurer() {
+            const rangee = this.$refs.rangee;
+            if (!rangee) return;
+
+            // 1 px de tolérance : une position de défilement n'est pas
+            // toujours entière (zoom du navigateur, écran haute densité).
+            this.auDebut = rangee.scrollLeft <= 1;
+            this.aLaFin = rangee.scrollLeft + rangee.clientWidth >= rangee.scrollWidth - 1;
+        },
+
+        // Avance ou recule des trois quarts de la largeur visible : la
+        // dernière catégorie aperçue reste à l'écran, comme repère.
+        defiler(sens) {
+            const rangee = this.$refs.rangee;
+            rangee.scrollBy({ left: sens * rangee.clientWidth * 0.75 });
+        },
+    };
+};
+
+// Nombre de vignettes de produit dessinées d'un coup sur l'écran de caisse.
+const PRODUITS_PAR_PAGE = 36;
+
+// « Câble Électrique » → « cable electrique » : recherche insensible aux
+// accents et à la casse.
+const sansAccents = (texte) => String(texte ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
+
+/**
+ * Catalogue en vignettes, partagé par l'écran de caisse (posApp) et le devis
+ * (devisApp) — voir partials/catalogue-vignettes.blade.php : recherche,
+ * catégories, vignettes dessinées par paquets, ajout au panier.
+ *
+ * Posé sur l'objet du composant par ses descripteurs de propriétés : un
+ * simple « ...catalogue » figerait les accesseurs (get) à leur valeur du
+ * moment au lieu de les garder réactifs.
+ *
+ * options.disponible(produit) : le produit peut-il être ajouté ? À la caisse,
+ * non s'il est en rupture ; sur un devis, toujours.
+ */
+function avecCatalogue(composant, { disponible }) {
+    return Object.defineProperties(composant, Object.getOwnPropertyDescriptors({
+        recherche: '',
+        categorieChoisie: '',
+        limiteProduits: PRODUITS_PAR_PAGE,
+
+        get categories() {
+            return [...new Set(this.produits.map((p) => p.categorie).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'fr'));
+        },
+
+        // Tous les mots saisis doivent se retrouver dans le nom, la référence,
+        // le code-barres ou la catégorie — sans tenir compte des accents ni
+        // de la casse (« cable » trouve « Câble »).
+        get produitsFiltres() {
+            const mots = sansAccents(this.recherche).split(' ').filter(Boolean);
+
+            return this.produits.filter((p) => {
+                if (this.categorieChoisie && p.categorie !== this.categorieChoisie) return false;
+                if (!mots.length) return true;
+                const cible = sansAccents([p.libelle_affichage, p.sku, p.code_barre, p.categorie].filter(Boolean).join(' '));
+                return mots.every((mot) => cible.includes(mot));
+            });
+        },
+
+        // Jamais tout le catalogue à l'écran : seules les premières vignettes
+        // sont dessinées, le reste à la demande (« Afficher plus »).
+        get produitsAffiches() {
+            return this.produitsFiltres.slice(0, this.limiteProduits);
+        },
+
+        // Une nouvelle recherche ou une autre catégorie repart du début de la liste.
+        nouvelleRecherche() {
+            this.limiteProduits = PRODUITS_PAR_PAGE;
+        },
+
+        choisirCategorie(categorie) {
+            this.categorieChoisie = categorie;
+            this.limiteProduits = PRODUITS_PAR_PAGE;
+        },
+
+        afficherPlus() {
+            this.limiteProduits += PRODUITS_PAR_PAGE;
+        },
+
+        estDisponible(produit) {
+            return disponible(produit);
+        },
+
+        // Quantité déjà au panier pour ce produit, toutes lignes confondues —
+        // rappelée sur sa vignette.
+        quantiteAuPanier(produitId) {
+            return arrondirQuantite(this.panier.filter((l) => l.produit_id === produitId).reduce((somme, l) => somme + l.quantite, 0));
+        },
+
+        // Touche Entrée dans la recherche : une référence ou un code-barres
+        // exact (douchette), ou un seul produit restant à l'écran, s'ajoute
+        // directement — sans quitter le clavier.
+        validerRecherche() {
+            const saisie = this.recherche.trim().toLowerCase();
+            if (!saisie) return;
+
+            const exact = this.produits.find((p) => [p.sku, p.code_barre].some((code) => code && String(code).toLowerCase() === saisie));
+            const produit = exact || (this.produitsFiltres.length === 1 ? this.produitsFiltres[0] : null);
+            if (!produit || !this.estDisponible(produit)) return;
+
+            this.ajouterProduit(produit);
+            this.recherche = '';
+            this.nouvelleRecherche();
+        },
+
+        // Un clic sur une vignette. Un produit indisponible n'est jamais
+        // ajouté (vignette grisée, voir CLAUDE.md). Quand le produit n'a
+        // qu'une seule unité possible — son unité de base, sans unité de
+        // vente —, il n'y a rien à choisir : l'unité est posée d'office, et
+        // un nouveau clic augmente la quantité de la ligne au lieu d'en
+        // ouvrir une seconde. À la caisse, le lieu de prélèvement reste, lui,
+        // toujours un choix explicite (voir chargerSources).
+        ajouterProduit(produit) {
+            if (!this.estDisponible(produit)) return;
+
+            if (produit.unites.length > 0) {
+                this.ajouterLigneVierge(produit);
+                return;
+            }
+
+            const existante = this.panier.find((l) => l.produit_id === produit.id);
+            if (existante) {
+                this.changerQuantite(existante, 1);
+                return;
+            }
+
+            this.ajouterLigneVierge(produit);
+            this.changerVarianteDepuisSelect(this.panier[this.panier.length - 1], 'piece');
+        },
+
+        // Montant lisible (séparateur de milliers, devise) — affichage seul,
+        // jamais une valeur envoyée au serveur.
+        montant(valeur) {
+            return `${new Intl.NumberFormat('fr-FR').format(Number(valeur) || 0)} ${window.DEVISE_ABREVIATION}`;
+        },
+    }));
+}
+
+window.posApp = function (produits, panierInitial = [], libelleInitial = '', clientIdInitial = '', magasinCaisseId = null, magasinCaisseNom = '', clientSoldes = {}, taxes = []) {
+    return avecCatalogue({
         produits,
         taxes,
         panier: panierInitial,
@@ -295,22 +446,10 @@ window.posApp = function (produits, panierInitial = [], libelleInitial = '', cli
             return this.panier.some((l) => this.enRupture(l));
         },
 
-        // La barre du haut ajoute une ligne « vierge » (aucune variante choisie,
-        // aucun calcul) — l'utilisateur choisit ensuite pièce/lot directement
-        // sur la ligne (voir changerVarianteDepuisSelect), et c'est CE choix qui
-        // déclenche prix, réservation de stock et vérification de doublon.
-        ajouterDepuisSelect(event) {
-            const option = event.target.selectedOptions[0];
-            if (!option || !option.value) return;
-
-            const produit = this.produits.find((p) => p.id === Number(option.dataset.produitId));
-            if (produit) {
-                this.ajouterLigneVierge(produit);
-            }
-
-            window.jQuery(event.target).val('').trigger('change');
-        },
-
+        // Une ligne « vierge » (aucune variante choisie, aucun calcul) —
+        // l'utilisateur choisit ensuite pièce/lot directement sur la ligne
+        // (voir changerVarianteDepuisSelect), et c'est CE choix qui déclenche
+        // prix, réservation de stock et vérification de doublon.
         ajouterLigneVierge(produit) {
             // On ne fusionne que sur une ligne du même produit qui n'a pas
             // encore de variante choisie : une fois une variante assignée, une
@@ -643,7 +782,7 @@ window.posApp = function (produits, panierInitial = [], libelleInitial = '', cli
             }
             window.bootstrap.Modal.getOrCreateInstance(document.getElementById('confirmActionModal')).show(event.currentTarget);
         },
-    };
+    }, { disponible: (produit) => produit.stock >= 1 });
 };
 
 /**
@@ -653,7 +792,7 @@ window.posApp = function (produits, panierInitial = [], libelleInitial = '', cli
  * paiement — juste des montants indicatifs.
  */
 window.devisApp = function (produits, panierInitial = [], taxes = []) {
-    return {
+    return avecCatalogue({
         produits,
         taxes,
         panier: panierInitial,
@@ -676,18 +815,6 @@ window.devisApp = function (produits, panierInitial = [], taxes = []) {
             } catch {
                 // Silencieux : aucun badge ne s'affiche pour cette ligne.
             }
-        },
-
-        ajouterDepuisSelect(event) {
-            const option = event.target.selectedOptions[0];
-            if (!option || !option.value) return;
-
-            const produit = this.produits.find((p) => p.id === Number(option.dataset.produitId));
-            if (produit) {
-                this.ajouterLigneVierge(produit);
-            }
-
-            window.jQuery(event.target).val('').trigger('change');
         },
 
         ajouterLigneVierge(produit) {
@@ -841,7 +968,7 @@ window.devisApp = function (produits, panierInitial = [], taxes = []) {
             }
             window.bootstrap.Modal.getOrCreateInstance(document.getElementById('confirmActionModal')).show(event.currentTarget);
         },
-    };
+    }, { disponible: () => true });
 };
 
 // Validation Bootstrap générique : chaque formulaire de l'app s'appuie sur les

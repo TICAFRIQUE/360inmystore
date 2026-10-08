@@ -121,6 +121,12 @@
                             <x-champ-telephone nom="whatsapp" :valeur="old('whatsapp', $configuration->whatsapp)" />
                         </div>
                         <div class="mb-3">
+                            <label for="configuration-email" class="form-label">E-mail</label>
+                            <input type="email" name="email" id="configuration-email" class="form-control @error('email') is-invalid @enderror"
+                                   value="{{ old('email', $configuration->email) }}" maxlength="255">
+                            @error('email') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                        </div>
+                        <div class="mb-3">
                             <label class="form-label">Message personnalisé (optionnel)</label>
                             <textarea name="message" class="form-control" rows="3" maxlength="1000">{{ $configuration->message }}</textarea>
                         </div>

@@ -10,6 +10,19 @@
 
     <div class="row justify-content-center">
         <div class="col-12 col-xl-10">
+            {{-- Réapprovisionnement en un clic (voir CommandeAchatController::create). --}}
+            @if (request()->boolean('reappro'))
+                @if ($lignesReappro->isNotEmpty())
+                    <div class="alert alert-info">
+                        <i class="bi bi-magic me-2"></i><strong>{{ $lignesReappro->count() }} produit{{ $lignesReappro->count() > 1 ? 's' : '' }} sous {{ $lignesReappro->count() > 1 ? 'leur' : 'son' }} seuil</strong>
+                        {{ $lignesReappro->count() > 1 ? 'ont été ajoutés' : 'a été ajouté' }} à ce bon de commande. Les quantités proposées remontent le stock au double du seuil,
+                        et le prix est le dernier coût connu : ajustez-les, retirez les lignes qui ne viennent pas de ce fournisseur, puis choisissez-le.
+                    </div>
+                @else
+                    <div class="alert alert-success"><i class="bi bi-check2-circle me-2"></i>Aucun produit n'est sous son seuil d'alerte : rien à réapprovisionner pour le moment.</div>
+                @endif
+            @endif
+
             <div class="card">
                 <div class="card-body">
                     <form id="formCommandeAchat" method="POST" action="{{ route('commande-achats.store') }}" x-data="{
@@ -30,7 +43,7 @@
                             // sélectionner, et re-choisir manuellement était le seul
                             // moyen de repartir d'un état propre. On reconvertit donc
                             // systématiquement null en '' à la relecture.
-                            lignes: {{ Js::from(collect(old('lignes', [['produit_id' => '', 'unite_vente_id' => '', 'taxe_id' => '', 'magasin_destination_id' => '', 'quantite' => '', 'prix_achat' => '']]))->map(
+                            lignes: {{ Js::from(collect(old('lignes', $lignesReappro->isNotEmpty() ? $lignesReappro->all() : [['produit_id' => '', 'unite_vente_id' => '', 'taxe_id' => '', 'magasin_destination_id' => '', 'quantite' => '', 'prix_achat' => '']]))->map(
                                 fn (array $l) => collect($l)->map(fn ($valeur) => $valeur ?? '')->all()
                             )) }}.map((l, i) => ({ ...l, _cle: 'l' + i + '-' + Date.now() })),
                             unitesParProduit: {{ Js::from($unitesParProduit) }},

@@ -1005,77 +1005,274 @@ $reglement-end-hover: #5b21b6;
     }
 }
 
-// --- Page de connexion : bloc vitrine (présentation) + bloc formulaire ---
+// --- Page de connexion : présentation de l'application par ses écrans (voir
+// views/apercus) à gauche, formulaire à droite. La présentation est masquée
+// sous lg : sur téléphone et tablette, la connexion prime.
 
 .login-layout {
+    display: flex; // ordre du DOM = ordre visuel : présentation, puis formulaire
     min-height: 100vh;
-    display: flex; // ordre du DOM = ordre visuel : vitrine à gauche, formulaire à droite
 }
 
 .login-layout__vitrine {
-    flex: 1 1 55%;
-    display: none; // masqué sur mobile, la connexion prime
-    align-items: center;
-    justify-content: center;
-    padding: 3rem;
-    background: linear-gradient(160deg, var(--erp-ink) 0%, $primary 100%);
+    display: none;
+    flex: 1 1 56%;
+    flex-direction: column;
+    gap: 2rem;
+    min-width: 0;
+    padding: 2.5rem 3rem;
+    overflow: hidden;
+    color: #fff;
+    background:
+        radial-gradient(46rem 30rem at 0% 0%, rgba(var(--bs-primary-rgb), 0.55), transparent 62%),
+        radial-gradient(40rem 28rem at 100% 100%, rgba(var(--bs-primary-rgb), 0.3), transparent 62%),
+        var(--erp-ink);
 
     @include media-breakpoint-up(lg) {
         display: flex;
     }
-}
 
-.login-layout__vitrine-contenu {
-    max-width: 26rem;
-}
-
-.login-layout__illustration {
-    display: none;
-    width: 14rem;
-    flex-shrink: 0;
-    margin-left: 2rem;
-
-    @include media-breakpoint-up(xl) {
-        display: block;
+    @media (max-height: 820px) {
+        gap: 1.25rem;
+        padding: 1.5rem 3rem;
     }
 }
 
-.login-layout__atouts {
+.login-layout__marque {
     display: flex;
-    flex-direction: column;
-    gap: 1.25rem;
+    gap: 0.75rem;
+    align-items: center;
 
-    li {
-        display: flex;
-        align-items: flex-start;
-        gap: 0.85rem;
-        color: #fff;
+    strong {
+        font-size: 1.0625rem;
+        font-weight: 600;
     }
 
-    i {
-        font-size: 1.4rem;
-        color: tint-color($info, 55%);
-        margin-top: 0.15rem;
-        flex-shrink: 0;
+    span:not(.brand-logo-chip) {
+        display: block;
+        font-size: 0.8125rem;
+        color: rgba(#fff, 0.7);
+    }
+}
+
+.login-layout__presentation {
+    width: 100%;
+    max-width: 38rem;
+    margin: auto;
+}
+
+.login-layout__titre {
+    margin-bottom: 0.75rem;
+    font-size: clamp(1.5rem, 2.4vw, 2.125rem);
+    font-weight: 600;
+    line-height: 1.2;
+    color: #fff;
+    letter-spacing: -0.015em;
+    text-wrap: balance;
+}
+
+.login-layout__accroche {
+    margin-bottom: 1.5rem;
+    font-size: 1rem;
+    line-height: 1.6;
+    color: rgba(#fff, 0.75);
+}
+
+.login-layout__onglets {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 1.25rem;
+
+    button {
+        display: inline-flex;
+        gap: 0.4rem;
+        align-items: center;
+        padding: 0.35rem 0.8rem;
+        font-size: 0.8125rem;
+        font-weight: 500;
+        color: rgba(#fff, 0.82);
+        background-color: rgba(#fff, 0.08);
+        border: 1px solid rgba(#fff, 0.16);
+        border-radius: 2rem;
+        transition: background-color 0.15s ease, color 0.15s ease;
+
+        &:hover {
+            background-color: rgba(#fff, 0.16);
+        }
+
+        &:focus-visible {
+            outline: 2px solid #fff;
+            outline-offset: 2px;
+        }
+
+        &.est-actif {
+            color: $dark;
+            background-color: #fff;
+            border-color: #fff;
+        }
+    }
+}
+
+// Les écrans occupent la même case : passer de l'un à l'autre ne déplace
+// rien sur la page.
+.login-layout__ecrans {
+    display: grid;
+}
+
+.login-layout__ecran {
+    grid-area: 1 / 1;
+    min-width: 0;
+
+    // La hauteur de la fenêtre borne la largeur de l'aperçu (rapport
+    // 520 × 380, une fois retirée la place du titre, des onglets et de la
+    // légende) : la présentation tient sans défilement sur un portable de
+    // 768 px de haut.
+    .illu {
+        max-width: clamp(18rem, calc((100vh - 26rem) * 1.368), 38rem);
+    }
+}
+
+.login-layout__legende {
+    margin: 1rem 0 0;
+    font-size: 0.875rem;
+    line-height: 1.5;
+    color: rgba(#fff, 0.75);
+
+    strong {
+        margin-right: 0.5rem;
+        color: #fff;
     }
 }
 
 .login-layout__formulaire {
-    flex: 1 1 45%;
     display: flex;
+    flex: 1 1 44%;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
-    padding: 2rem;
+    padding: 2rem 1.25rem;
     background-color: $light;
 }
 
 .login-layout__carte {
     width: 100%;
-    max-width: 24rem;
+    max-width: 26rem;
+    padding: 1.75rem;
     background-color: #fff;
-    border-radius: $border-radius-lg;
-    box-shadow: 0 0.5rem 1.5rem rgba(15, 34, 27, 0.1);
-    padding: 2rem;
+    border: 1px solid var(--erp-border);
+    border-radius: 1rem;
+    box-shadow: $box-shadow;
+
+    @include media-breakpoint-up(sm) {
+        padding: 2.5rem;
+    }
+
+    .input-group-text {
+        color: $secondary;
+        background-color: #fff;
+    }
+
+    .input-group-lg > .form-control,
+    .input-group-lg > .input-group-text,
+    .input-group-lg > .btn {
+        font-size: 1rem;
+    }
+
+    // Bouton « afficher le mot de passe » : même bordure que le champ.
+    .input-group > .btn {
+        color: $secondary;
+        background-color: #fff;
+        border-color: $input-border-color;
+
+        &:hover {
+            color: $dark;
+            background-color: $light;
+        }
+    }
+}
+
+.login-layout__marque-mobile {
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+    padding-bottom: 1.5rem;
+    margin-bottom: 1.5rem;
+    border-bottom: 1px solid var(--erp-border);
+
+    @include media-breakpoint-up(lg) {
+        display: none;
+    }
+
+    img {
+        width: auto;
+        height: 2.5rem;
+    }
+
+    strong {
+        font-size: 1.0625rem;
+        font-weight: 600;
+        color: $dark;
+    }
+}
+
+.login-layout__carte-titre {
+    margin-bottom: 0.25rem;
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: $dark;
+    letter-spacing: -0.01em;
+}
+
+.login-layout__aide {
+    margin: 1.25rem 0 0;
+    font-size: 0.8125rem;
+    color: $secondary;
+    text-align: center;
+}
+
+// « Mot de passe oublié ? » : qui contacter, déplié à la demande.
+.login-layout__perdu {
+    padding: 0.875rem 1rem;
+    margin-top: 0.75rem;
+    line-height: 1.5;
+    text-align: left;
+    background-color: $light;
+    border-radius: $border-radius;
+
+    p {
+        margin-bottom: 0.5rem;
+    }
+
+    strong {
+        color: $dark;
+    }
+}
+
+.login-layout__contacts {
+    display: grid;
+    gap: 0.375rem;
+    padding: 0;
+    margin: 0.625rem 0 0;
+    list-style: none;
+
+    a {
+        display: inline-flex;
+        gap: 0.5rem;
+        align-items: center;
+        font-weight: 500;
+        text-decoration: none;
+
+        &:hover {
+            text-decoration: underline;
+        }
+    }
+}
+
+.login-layout__pied {
+    margin: 1.25rem 0 0;
+    font-size: 0.75rem;
+    color: $secondary;
 }
 
 // --- Reçu de caisse (impression POS) : seule la carte .recu-pos sort sur le
@@ -1292,4 +1489,1193 @@ $reglement-end-hover: #5b21b6;
 .formule-pricing-card__duree {
     color: $secondary;
     font-size: 0.9rem;
+}
+
+// --- Tableaux de bord (views/dashboard) : en-tête de page, cartes
+// d'indicateur « stacked » (x-kpi-card), titres de carte, classements en
+// barres (x-liste-barres), aperçu financier, états vides. Les couleurs
+// d'état (vert, ambre, rouge) y sont réservées à ce qui signale un état ;
+// tout le reste porte la couleur primaire ou un gris.
+
+.page-entete {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    align-items: flex-end;
+    justify-content: space-between;
+    margin-bottom: 1.5rem;
+}
+
+.page-entete__titre {
+    margin: 0;
+    font-size: 1.375rem;
+    font-weight: 600;
+    color: $dark;
+    letter-spacing: -0.01em;
+}
+
+.page-entete__aide {
+    margin: 0.25rem 0 0;
+    color: $secondary;
+}
+
+.page-entete__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.kpi-card {
+    --teinte: var(--bs-primary-rgb);
+
+    color: inherit;
+    text-decoration: none;
+}
+
+@each $ton in (primary, info, success, warning, danger, secondary) {
+    .kpi-card--#{$ton},
+    .liste-barres--#{$ton} {
+        --teinte: var(--bs-#{$ton}-rgb);
+    }
+}
+
+.kpi-card--lien {
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+
+    &:hover,
+    &:focus-visible {
+        box-shadow: $box-shadow !important;
+        transform: translateY(-2px);
+    }
+}
+
+.kpi-card__tete {
+    display: flex;
+    gap: 0.5rem;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: 0.5rem;
+}
+
+.kpi-card__libelle {
+    font-weight: 500;
+    color: $secondary;
+}
+
+.kpi-card__icone {
+    display: inline-flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    width: 2.125rem;
+    height: 2.125rem;
+    font-size: 1.05rem;
+    color: rgb(var(--teinte));
+    background-color: rgba(var(--teinte), 0.12);
+    border-radius: 0.625rem;
+}
+
+// Jamais tronquée : sur un téléphone, un grand montant passe sur deux lignes
+// plutôt que de perdre ses derniers chiffres.
+.kpi-card__valeur {
+    font-size: clamp(1.0625rem, 4.6vw, 1.5rem);
+    font-weight: 600;
+    line-height: 1.2;
+    color: $dark;
+    letter-spacing: -0.01em;
+}
+
+.kpi-card__pied {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem 0.5rem;
+    align-items: center;
+    margin-top: 0.5rem;
+    font-size: 0.8125rem;
+    color: $secondary;
+}
+
+.kpi-card__evolution {
+    display: inline-flex;
+    gap: 0.2rem;
+    align-items: center;
+    padding: 0.05rem 0.45rem;
+    font-weight: 500;
+    border-radius: 1rem;
+
+    &--hausse {
+        color: $success;
+        background-color: rgba($success, 0.1);
+    }
+
+    &--baisse {
+        color: $danger;
+        background-color: rgba($danger, 0.1);
+    }
+}
+
+.carte-titre {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem 1.5rem;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: 1.25rem;
+}
+
+.carte-titre__texte {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 600;
+    color: $dark;
+}
+
+.carte-titre__aide {
+    margin: 0.125rem 0 0;
+    font-size: 0.8125rem;
+    color: $secondary;
+}
+
+.carte-titre__chiffres {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem 1.75rem;
+    margin: 0;
+
+    dt {
+        font-size: 0.75rem;
+        font-weight: 400;
+        color: $secondary;
+    }
+
+    dd {
+        margin: 0;
+        font-weight: 600;
+        color: $dark;
+    }
+}
+
+.graphique {
+    position: relative;
+    height: 17rem;
+
+    &--court {
+        height: 13rem;
+    }
+}
+
+// Total en pied de carte, sous un classement.
+.carte-total {
+    display: flex;
+    gap: 1rem;
+    align-items: baseline;
+    justify-content: space-between;
+    padding-top: 1rem;
+    margin-top: 1.25rem;
+    color: $secondary;
+    border-top: 1px solid var(--erp-border);
+
+    strong {
+        font-size: 1.0625rem;
+        font-weight: 600;
+        color: $dark;
+    }
+}
+
+.liste-barres {
+    --teinte: var(--bs-primary-rgb);
+
+    display: grid;
+    gap: 1rem;
+    padding: 0;
+    margin: 0;
+    list-style: none;
+}
+
+.liste-barres__tete {
+    display: flex;
+    gap: 1rem;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: 0.375rem;
+}
+
+.liste-barres__libelle {
+    display: flex;
+    gap: 0.5rem;
+    align-items: baseline;
+    min-width: 0;
+    color: $body-color;
+}
+
+.liste-barres__rang {
+    flex-shrink: 0;
+    width: 1.25rem;
+    font-size: 0.8125rem;
+    color: $secondary;
+    font-variant-numeric: tabular-nums;
+}
+
+.liste-barres__detail {
+    flex-shrink: 0;
+    font-size: 0.8125rem;
+    color: $secondary;
+}
+
+.liste-barres__valeur {
+    flex-shrink: 0;
+    font-weight: 600;
+    color: $dark;
+    font-variant-numeric: tabular-nums;
+}
+
+.liste-barres__piste {
+    height: 0.5rem;
+    background-color: rgba(var(--teinte), 0.12);
+    border-radius: 0.25rem;
+}
+
+.liste-barres__barre {
+    height: 100%;
+    background-color: rgb(var(--teinte));
+    border-radius: 0.25rem;
+}
+
+// Chiffres côte à côte, séparés par un filet : une même carte pour montrer
+// qu'ils se lisent ensemble sans se confondre.
+.apercu-financier {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1.25rem;
+
+    @include media-breakpoint-up(sm) {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    @include media-breakpoint-up(xl) {
+        grid-template-columns: repeat(4, 1fr);
+        gap: 0;
+
+        &--trois {
+            grid-template-columns: repeat(3, 1fr);
+        }
+    }
+}
+
+.apercu-financier__bloc {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+
+    @include media-breakpoint-up(xl) {
+        padding: 0 1.5rem;
+        border-left: 1px solid var(--erp-border);
+
+        &:first-child {
+            padding-left: 0;
+            border-left: 0;
+        }
+
+        &:last-child {
+            padding-right: 0;
+        }
+    }
+}
+
+.apercu-financier__libelle {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+    font-weight: 500;
+    color: $secondary;
+
+    .bi {
+        font-size: 1.05rem;
+    }
+}
+
+.apercu-financier__valeur {
+    font-size: 1.375rem;
+    font-weight: 600;
+    line-height: 1.25;
+    color: $dark;
+    letter-spacing: -0.01em;
+}
+
+.apercu-financier__aide {
+    font-size: 0.8125rem;
+    line-height: 1.45;
+    color: $secondary;
+}
+
+.liste-simple {
+    display: grid;
+    gap: 0.875rem;
+    padding: 0;
+    margin: 0;
+    list-style: none;
+
+    li {
+        display: flex;
+        gap: 0.75rem;
+        align-items: center;
+    }
+}
+
+.liste-simple__pastille {
+    display: inline-flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    width: 2.125rem;
+    height: 2.125rem;
+    color: var(--bs-primary);
+    background-color: rgba(var(--bs-primary-rgb), 0.12);
+    border-radius: 0.625rem;
+}
+
+.liste-simple__texte {
+    min-width: 0;
+
+    strong,
+    span {
+        display: block;
+    }
+
+    strong {
+        font-weight: 500;
+        color: $dark;
+    }
+
+    span {
+        font-size: 0.8125rem;
+        color: $secondary;
+    }
+}
+
+.liste-simple__fin {
+    flex-shrink: 0;
+    margin-left: auto;
+    font-size: 0.8125rem;
+}
+
+.etat-vide {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    align-items: center;
+    padding: 1.5rem 1rem;
+    color: $secondary;
+    text-align: center;
+
+    > .bi {
+        font-size: 1.75rem;
+        color: rgba(var(--bs-secondary-rgb), 0.55);
+    }
+
+    p {
+        max-width: 26rem;
+        margin: 0;
+    }
+
+    &--grand {
+        padding: 3rem 1rem;
+
+        > .bi {
+            font-size: 2.75rem;
+        }
+
+        h3 {
+            margin: 0.5rem 0 0;
+            color: $dark;
+        }
+
+        .btn {
+            margin-top: 0.75rem;
+        }
+    }
+}
+
+// Période d'analyse du tableau de bord : une rangée au-dessus de ce qu'elle
+// filtre.
+.filtre-periode {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem 1rem;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.filtre-periode__libelle {
+    font-weight: 500;
+    color: $secondary;
+}
+
+.filtre-periode__choix {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.375rem;
+
+    .btn {
+        border-radius: 2rem;
+    }
+}
+
+// --- Import des produits (produits/import.blade.php) : étapes numérotées,
+// rappel des colonnes, liste des lignes à corriger.
+.import-etapes {
+    display: grid;
+    gap: 1.5rem;
+    padding: 0;
+    margin: 0;
+    list-style: none;
+    counter-reset: etape;
+
+    > li {
+        position: relative;
+        padding-left: 3rem;
+        counter-increment: etape;
+
+        &::before {
+            position: absolute;
+            top: 0;
+            left: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 2rem;
+            height: 2rem;
+            font-weight: 600;
+            color: #fff;
+            content: counter(etape);
+            background-color: var(--bs-primary);
+            border-radius: 50%;
+        }
+
+        > strong,
+        > span {
+            display: block;
+        }
+
+        > strong {
+            color: $dark;
+        }
+
+        > span {
+            margin-bottom: 0.625rem;
+            color: $secondary;
+        }
+    }
+}
+
+.import-colonnes {
+    margin: 0 0 1rem;
+
+    dt {
+        font-weight: 500;
+        color: $dark;
+    }
+
+    dd {
+        margin: 0 0 0.75rem;
+        font-size: 0.8125rem;
+        color: $secondary;
+    }
+}
+
+// Un fichier fautif peut l'être à des dizaines de lignes : la liste défile.
+.import-erreurs {
+    max-height: 18rem;
+    padding-left: 1.25rem;
+    overflow-y: auto;
+}
+
+// --- Mise en route (dashboard/_premiers-pas.blade.php) : les étapes avant
+// la première vente. Vert = faite, primaire = la prochaine (la seule à
+// porter un bouton), gris = en attente de la précédente.
+
+.premiers-pas__avancement {
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+    font-size: 0.8125rem;
+    color: $secondary;
+    white-space: nowrap;
+
+    .progress {
+        width: 8rem;
+        height: 0.375rem;
+    }
+}
+
+.premiers-pas__etapes {
+    padding: 0;
+    margin: 0;
+    list-style: none;
+}
+
+.premiers-pas__etape {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem 0.875rem;
+    align-items: center;
+    padding: 0.75rem 0;
+    border-top: 1px solid var(--erp-border);
+
+    &:first-child {
+        padding-top: 0;
+        border-top: 0;
+    }
+
+    &:last-child {
+        padding-bottom: 0;
+    }
+
+    &.est-faite {
+        .premiers-pas__pastille {
+            color: #fff;
+            background-color: $success;
+            border-color: $success;
+        }
+
+        .premiers-pas__texte strong {
+            color: $secondary;
+        }
+    }
+
+    &.est-prochaine .premiers-pas__pastille {
+        color: #fff;
+        background-color: var(--bs-primary);
+        border-color: var(--bs-primary);
+    }
+
+    // Sur téléphone, le bouton passe sous le texte, sur toute la largeur.
+    .btn {
+        @include media-breakpoint-down(sm) {
+            width: 100%;
+        }
+    }
+}
+
+.premiers-pas__pastille {
+    display: inline-flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    font-weight: 600;
+    color: $secondary;
+    background-color: $light;
+    border: 1px solid var(--erp-border);
+    border-radius: 50%;
+}
+
+.premiers-pas__texte {
+    flex: 1 1 14rem;
+    min-width: 0;
+
+    strong,
+    span {
+        display: block;
+    }
+
+    strong {
+        font-weight: 500;
+        color: $dark;
+    }
+
+    span {
+        font-size: 0.8125rem;
+        color: $secondary;
+    }
+}
+
+.premiers-pas__attente {
+    flex-shrink: 0;
+    font-size: 0.8125rem;
+    color: $secondary;
+}
+
+// --- Écran de caisse (ventes/create.blade.php) : produits en vignettes à
+// gauche, panier et encaissement à droite. À partir de lg, la colonne des
+// produits reste à l'écran (sa grille défile à l'intérieur) pendant que la
+// page défile avec le panier ; en dessous, les deux colonnes s'empilent.
+
+.caisse {
+    display: grid;
+    gap: 1rem;
+    align-items: start;
+    // Place du rappel du panier, fixé en bas d'écran sous lg.
+    padding-bottom: 4.5rem;
+
+    @include media-breakpoint-up(lg) {
+        grid-template-columns: minmax(0, 1fr) minmax(22rem, 27rem);
+        padding-bottom: 0;
+    }
+
+    @include media-breakpoint-up(xxl) {
+        grid-template-columns: minmax(0, 1fr) 31rem;
+    }
+}
+
+.caisse__type {
+    @include media-breakpoint-up(md) {
+        text-align: right;
+    }
+}
+
+.caisse__type-aide {
+    margin: 0.375rem 0 0;
+    font-size: 0.8125rem;
+    color: $secondary;
+}
+
+.caisse__catalogue {
+    min-width: 0;
+
+    @include media-breakpoint-up(lg) {
+        position: sticky;
+        top: calc(var(--erp-topbar-height) + 1rem);
+        display: flex;
+        flex-direction: column;
+        max-height: calc(100vh - var(--erp-topbar-height) - 2rem);
+    }
+}
+
+.caisse__recherche {
+    padding: 1rem 1rem 0.75rem;
+    border-bottom: 1px solid var(--erp-border);
+
+    .input-group-text {
+        color: $secondary;
+        background-color: #fff;
+    }
+
+    .form-control {
+        border-left: 0;
+    }
+}
+
+// Catégories sur une seule rangée, à faire défiler du doigt.
+.caisse__categories-zone {
+    position: relative;
+    margin-top: 0.75rem;
+}
+
+.caisse__categories {
+    display: flex;
+    gap: 0.375rem;
+    overflow-x: auto;
+    scroll-behavior: smooth;
+    scrollbar-width: none;
+
+    &::-webkit-scrollbar {
+        display: none;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        scroll-behavior: auto;
+    }
+}
+
+// Flèche de défilement, posée sur le bord de la rangée du côté où il reste
+// des catégories. Le dégradé blanc derrière elle estompe la catégorie
+// coupée : on voit qu'elle continue.
+.caisse__fleche {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    width: 3.25rem;
+    padding: 0;
+    color: $dark;
+    border: 0;
+
+    .bi {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 1.75rem;
+        height: 1.75rem;
+        font-size: 0.875rem;
+        background-color: #fff;
+        border: 1px solid var(--erp-border);
+        border-radius: 50%;
+        box-shadow: $box-shadow-sm;
+        transition: color 0.15s ease, border-color 0.15s ease;
+    }
+
+    &:hover .bi,
+    &:focus-visible .bi {
+        color: var(--bs-primary);
+        border-color: var(--bs-primary);
+    }
+
+    &--gauche {
+        left: 0;
+        justify-content: flex-start;
+        background: linear-gradient(to right, #fff 55%, rgba(#fff, 0));
+    }
+
+    &--droite {
+        right: 0;
+        justify-content: flex-end;
+        background: linear-gradient(to left, #fff 55%, rgba(#fff, 0));
+    }
+}
+
+.caisse__categorie {
+    flex-shrink: 0;
+    padding: 0.3rem 0.8rem;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: var(--erp-menu-color);
+    white-space: nowrap;
+    background-color: #fff;
+    border: 1px solid var(--erp-border);
+    border-radius: 2rem;
+    transition: color 0.15s ease, border-color 0.15s ease, background-color 0.15s ease;
+
+    &:hover {
+        color: var(--bs-primary);
+        border-color: var(--bs-primary);
+    }
+
+    &.est-active {
+        color: #fff;
+        background-color: var(--bs-primary);
+        border-color: var(--bs-primary);
+    }
+}
+
+.caisse__grille-zone {
+    padding: 0.75rem 1rem 1rem;
+
+    @include media-breakpoint-up(lg) {
+        flex: 1 1 auto;
+        min-height: 0;
+        overflow-y: auto;
+    }
+}
+
+.caisse__compte {
+    margin: 0 0 0.625rem;
+    font-size: 0.8125rem;
+    color: $secondary;
+}
+
+.caisse__grille {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(8.75rem, 1fr));
+    gap: 0.75rem;
+
+    @include media-breakpoint-down(sm) {
+        grid-template-columns: 1fr 1fr;
+    }
+}
+
+.produit-tuile {
+    display: flex;
+    flex-direction: column;
+    gap: 0.125rem;
+    min-width: 0;
+    padding: 0.5rem;
+    color: $body-color;
+    text-align: left;
+    background-color: #fff;
+    border: 1px solid var(--erp-border);
+    border-radius: $border-radius-lg;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+
+    &:hover:not(:disabled),
+    &:focus-visible {
+        border-color: var(--bs-primary);
+        box-shadow: 0 0.375rem 1rem rgba(var(--bs-primary-rgb), 0.16);
+        transform: translateY(-1px);
+    }
+
+    &:active:not(:disabled) {
+        transform: scale(0.98);
+    }
+
+    // Rupture de stock : grisée, non sélectionnable (voir CLAUDE.md).
+    &--rupture {
+        cursor: not-allowed;
+        background-color: $light;
+
+        .produit-tuile__visuel,
+        .produit-tuile__nom,
+        .produit-tuile__prix {
+            opacity: 0.5;
+        }
+
+        .produit-tuile__stock {
+            font-weight: 500;
+            color: $danger;
+        }
+    }
+}
+
+.produit-tuile__visuel {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    aspect-ratio: 4 / 3;
+    margin-bottom: 0.375rem;
+    overflow: hidden;
+    font-size: 1.75rem;
+    color: rgba(var(--bs-primary-rgb), 0.55);
+    background-color: rgba(var(--bs-primary-rgb), 0.08);
+    border-radius: $border-radius;
+
+    img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    // Produit sans image : un simple bandeau, pour ne pas dépenser la moitié
+    // de la vignette en vide (la plupart des catalogues n'ont pas de photos).
+    &--vide {
+        aspect-ratio: auto;
+        height: 2.75rem;
+        font-size: 1.25rem;
+    }
+}
+
+// Quantité déjà au panier.
+.produit-tuile__compteur {
+    position: absolute;
+    top: 0.3rem;
+    right: 0.3rem;
+    min-width: 1.5rem;
+    padding: 0.1rem 0.4rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    line-height: 1.3;
+    color: #fff;
+    text-align: center;
+    background-color: var(--bs-primary);
+    border-radius: 1rem;
+}
+
+.produit-tuile__nom {
+    display: -webkit-box;
+    min-height: 2.5em;
+    overflow: hidden;
+    font-weight: 500;
+    line-height: 1.25;
+    color: $dark;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    -webkit-box-orient: vertical;
+}
+
+.produit-tuile__prix {
+    font-weight: 600;
+    color: var(--bs-primary);
+}
+
+.produit-tuile__stock {
+    font-size: 0.75rem;
+    color: $secondary;
+}
+
+.caisse__panier {
+    min-width: 0;
+    // Ancre visée depuis le rappel du bas d'écran : ne pas passer sous la
+    // barre du haut.
+    scroll-margin-top: calc(var(--erp-topbar-height) + 1rem);
+}
+
+.panier-ligne {
+    padding: 0.875rem 0;
+    border-top: 1px solid var(--erp-border);
+
+    &:first-of-type {
+        padding-top: 0;
+        border-top: 0;
+    }
+}
+
+.panier-ligne__tete {
+    display: flex;
+    gap: 0.75rem;
+    align-items: flex-start;
+    margin-bottom: 0.5rem;
+}
+
+.panier-ligne__nom {
+    flex: 1 1 auto;
+    min-width: 0;
+
+    strong,
+    span {
+        display: block;
+    }
+
+    strong {
+        font-weight: 500;
+        line-height: 1.3;
+        color: $dark;
+    }
+
+    span {
+        font-size: 0.75rem;
+        color: $secondary;
+    }
+}
+
+.panier-ligne__total {
+    flex-shrink: 0;
+    padding-top: 0.1rem;
+    font-weight: 600;
+    color: $dark;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+}
+
+// Quantité, unité, lieu : sur une rangée quand la colonne est assez large,
+// sinon la quantité d'abord puis les deux listes côte à côte.
+.panier-ligne__reglages {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
+
+    @include media-breakpoint-up(sm) {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    @include media-breakpoint-up(xxl) {
+        grid-template-columns: auto minmax(0, 1fr) minmax(0, 1.15fr);
+    }
+}
+
+// Devis : pas de lieu de prélèvement, la quantité et l'unité tiennent sur une rangée.
+.panier-ligne__reglages--devis {
+    grid-template-columns: auto minmax(0, 1fr);
+
+    .panier-ligne__quantite {
+        grid-column: auto;
+    }
+}
+
+.panier-ligne__quantite {
+    display: flex;
+    grid-column: 1 / -1;
+    gap: 0.25rem;
+    align-items: center;
+
+    @include media-breakpoint-up(xxl) {
+        grid-column: auto;
+    }
+
+    .form-control {
+        width: 3.75rem;
+    }
+
+    .btn-icon {
+        width: 2rem;
+        height: 2rem;
+    }
+}
+
+.panier-ligne__bascule {
+    display: inline-flex;
+    gap: 0.25rem;
+    align-items: center;
+    padding: 0;
+    margin-top: 0.5rem;
+    font-size: 0.8125rem;
+    color: var(--bs-primary);
+    background: none;
+    border: 0;
+
+    &:hover {
+        text-decoration: underline;
+    }
+}
+
+.panier-ligne__options {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+}
+
+.panier-totaux {
+    padding-top: 1rem;
+    margin-top: 0.25rem;
+    border-top: 1px solid var(--erp-border);
+}
+
+.panier-totaux__remise {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
+    align-items: center;
+    margin-bottom: 0.75rem;
+
+    label {
+        grid-column: 1 / -1;
+        font-size: 0.8125rem;
+        color: $secondary;
+    }
+}
+
+.panier-totaux__lignes {
+    display: grid;
+    gap: 0.25rem;
+    margin: 0;
+
+    > div {
+        display: flex;
+        gap: 1rem;
+        align-items: baseline;
+        justify-content: space-between;
+    }
+
+    dt {
+        font-weight: 400;
+        color: $secondary;
+    }
+
+    dd {
+        margin: 0;
+        font-variant-numeric: tabular-nums;
+    }
+}
+
+.panier-totaux__net {
+    padding-top: 0.625rem;
+    margin-top: 0.375rem;
+    border-top: 1px solid var(--erp-border);
+
+    dt {
+        font-weight: 600;
+        color: $dark;
+    }
+
+    dd {
+        font-size: 1.5rem;
+        font-weight: 600;
+        line-height: 1.2;
+        color: var(--bs-primary);
+        letter-spacing: -0.01em;
+    }
+}
+
+.paiement-ligne {
+    display: grid;
+    grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr) auto auto;
+    gap: 0.5rem;
+    align-items: center;
+    margin-bottom: 0.5rem;
+}
+
+.caisse__monnaie {
+    padding: 0.5rem 0.75rem;
+    margin-top: 0.625rem;
+    color: var(--bs-primary-text-emphasis);
+    background-color: rgba(var(--bs-primary-rgb), 0.08);
+    border-radius: $border-radius;
+
+    strong {
+        font-size: 1.0625rem;
+    }
+}
+
+// Rappel du panier, fixé en bas d'écran sous lg (le panier y est sous les
+// produits).
+.caisse__rappel {
+    position: fixed;
+    right: 0.75rem;
+    bottom: 0.75rem;
+    left: 0.75rem;
+    z-index: $zindex-fixed;
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+    padding: 0.75rem 1rem;
+    color: #fff;
+    text-decoration: none;
+    background-color: $dark;
+    border-radius: $border-radius-lg;
+    box-shadow: $box-shadow;
+
+    @include media-breakpoint-up(lg) {
+        display: none !important;
+    }
+
+    strong {
+        font-weight: 600;
+    }
+}
+
+.caisse__rappel-lien {
+    margin-left: auto;
+    font-size: 0.8125rem;
+    color: rgba(#fff, 0.8);
+}
+
+// --- Aperçus d'écran (voir components/apercu-ecran.blade.php et
+// views/apercus) : écrans stylisés de l'application, dessinés en vectoriel,
+// montrés sur la page de connexion et sur le site vitrine. Toutes leurs
+// couleurs sont ici, par classe — f- : remplissage, s- : trait, t- : texte.
+.illu {
+    display: block;
+    width: 100%;
+    height: auto;
+    font-family: $font-family-sans-serif;
+    filter: drop-shadow(0 1.25rem 2rem rgba($dark, 0.14));
+
+    path,
+    circle,
+    rect,
+    polygon {
+        fill: none;
+    }
+
+    text {
+        fill: $body-color;
+    }
+
+    .t-fort {
+        font-weight: 600;
+        fill: $dark;
+    }
+
+    .t-doux { fill: $secondary; }
+    .t-blanc { fill: #fff; }
+    .t-primaire { fill: var(--bs-primary); }
+
+    .f-blanc { fill: #fff; }
+    .f-gris { fill: $light; }
+    .f-point { fill: $input-border-color; }
+    .f-ligne { fill: $border-color; }
+    .f-doux { fill: $secondary; }
+    .f-sombre { fill: $dark; }
+    .f-primaire { fill: var(--bs-primary); }
+    .f-primaire-moyen { fill: rgba(var(--bs-primary-rgb), 0.42); }
+    .f-primaire-doux { fill: rgba(var(--bs-primary-rgb), 0.12); }
+
+    .s-ligne { stroke: $border-color; }
+    .s-doux { stroke: $secondary; }
+    .s-blanc { stroke: #fff; }
+    .s-primaire { stroke: var(--bs-primary); }
+
+    @each $nom, $couleur in (succes: $success, info: $info, alerte: $warning, danger: $danger) {
+        .t-#{$nom} { fill: $couleur; }
+        .f-#{$nom} { fill: $couleur; }
+        .f-#{$nom}-doux { fill: rgba($couleur, 0.14); }
+        .s-#{$nom} { stroke: $couleur; }
+    }
+
+    .ombre {
+        filter: drop-shadow(0 0.4rem 0.75rem rgba($dark, 0.16));
+    }
 }

@@ -14,6 +14,7 @@ use App\Models\SessionCaisse;
 use App\Models\Stock;
 use App\Models\User;
 use App\Models\Vente;
+use App\Support\PremiersPas;
 use Carbon\Carbon;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\Request;
@@ -21,6 +22,20 @@ use Illuminate\Support\Facades\DB;
 
 class DashboardController extends Controller
 {
+    /**
+     * Périodes d'analyse proposées sur le tableau de bord (clé d'URL =>
+     * libellé). Elles portent sur la courbe, les moyens de paiement, l'aperçu
+     * financier, les meilleures ventes et le comparatif par magasin — pas sur
+     * les trois chiffres du haut (jour, semaine, mois), qui ont chacun la leur.
+     */
+    private const PERIODES = [
+        'jour' => "Aujourd'hui",
+        '7j' => '7 derniers jours',
+        '30j' => '30 derniers jours',
+        'mois' => 'Ce mois',
+        'mois_dernier' => 'Mois dernier',
+    ];
+
     public function __invoke(Request $request): View
     {
         $utilisateur = $request->user();
@@ -35,13 +50,46 @@ class DashboardController extends Controller
             return view('dashboard.caissier', ['utilisateur' => $utilisateur] + $this->donneesCaissier($utilisateur));
         }
 
+        // Guide de mise en route, tant qu'il reste une étape avant la première
+        // vente (null ensuite) — voir App\Support\PremiersPas.
+        $premiersPas = ['premiersPas' => PremiersPas::pour($utilisateur)];
+
+        $periode = $this->periode($request);
+
         if ($utilisateur->magasin_id) {
-            return view('dashboard.gerant', ['utilisateur' => $utilisateur] + $this->donneesMagasin($utilisateur->magasin_id));
+            return view('dashboard.gerant', ['utilisateur' => $utilisateur] + $premiersPas + $this->donneesMagasin($utilisateur->magasin_id, $periode));
         }
 
         return view('dashboard.superadmin', ['utilisateur' => $utilisateur]
-            + $this->donneesMagasin(null)
-            + ['comparatifMagasins' => $this->comparatifMagasins()]);
+            + $premiersPas
+            + $this->donneesMagasin(null, $periode)
+            + ['comparatifMagasins' => $this->comparatifMagasins($periode['debut'], $periode['fin'])]);
+    }
+
+    /**
+     * Période demandée (?periode=…), « ce mois » par défaut ou si la valeur
+     * est inconnue.
+     *
+     * @return array{cle: string, libelle: string, debut: Carbon, fin: Carbon}
+     */
+    private function periode(Request $request): array
+    {
+        $cle = (string) $request->query('periode');
+        $cle = array_key_exists($cle, self::PERIODES) ? $cle : 'mois';
+        $maintenant = Carbon::now();
+
+        [$debut, $fin] = match ($cle) {
+            'jour' => [Carbon::today(), $maintenant],
+            '7j' => [Carbon::today()->subDays(6), $maintenant],
+            '30j' => [Carbon::today()->subDays(29), $maintenant],
+            'mois_dernier' => [
+                $maintenant->copy()->startOfMonth()->subMonthNoOverflow(),
+                $maintenant->copy()->startOfMonth()->subSecond(),
+            ],
+            default => [$maintenant->copy()->startOfMonth(), $maintenant],
+        };
+
+        return ['cle' => $cle, 'libelle' => self::PERIODES[$cle], 'debut' => $debut, 'fin' => $fin];
     }
 
     private function donneesCaissier(User $utilisateur): array
@@ -112,8 +160,17 @@ class DashboardController extends Controller
         ];
     }
 
-    private function donneesMagasin(?int $magasinId): array
+    /**
+     * @param  array{cle: string, libelle: string, debut: Carbon, fin: Carbon}  $periode
+     */
+    private function donneesMagasin(?int $magasinId, array $periode): array
     {
+        [$debut, $fin] = [$periode['debut'], $periode['fin']];
+
+        $ventesPeriode = Vente::query()
+            ->when($magasinId, fn ($q) => $q->where('magasin_id', $magasinId))
+            ->whereBetween('created_at', [$debut, $fin]);
+
         $debutJour = Carbon::today();
         $debutSemaine = Carbon::now()->startOfWeek();
         $debutMois = Carbon::now()->startOfMonth();
@@ -129,12 +186,37 @@ class DashboardController extends Controller
 
         $nombreVentesMois = (clone $ventesMois)->count();
 
+        // Évolution par rapport à la période précédente, arrêtée au même
+        // point (même jour et même heure, une semaine ou un mois plus tôt) :
+        // comparer une période en cours à une période entière la ferait
+        // toujours paraître en baisse. null quand il n'y a rien à comparer.
+        $caEntre = fn (Carbon $du, Carbon $au) => (int) Vente::query()
+            ->when($magasinId, fn ($q) => $q->where('magasin_id', $magasinId))
+            ->whereBetween('created_at', [$du, $au])
+            ->sum('total_net');
+        $evolution = fn (int $actuel, int $precedent) => $precedent > 0
+            ? (int) round(($actuel - $precedent) / $precedent * 100)
+            : null;
+
+        $caSemaine = $caVentes($debutSemaine);
+        $caMois = $caVentes($debutMois);
+
         return [
+            'periode' => $periode,
+            'periodes' => self::PERIODES,
+            'caPeriode' => (int) (clone $ventesPeriode)->sum('total_net'),
             'caJour' => $caVentes($debutJour),
-            'caSemaine' => $caVentes($debutSemaine),
-            'caMois' => $caVentes($debutMois),
+            'nombreVentesJour' => Vente::query()
+                ->when($magasinId, fn ($q) => $q->where('magasin_id', $magasinId))
+                ->where('created_at', '>=', $debutJour)
+                ->count(),
+            'caSemaine' => $caSemaine,
+            'evolutionSemaine' => $evolution($caSemaine, $caEntre($debutSemaine->copy()->subWeek(), Carbon::now()->subWeek())),
+            'caMois' => $caMois,
+            'evolutionMois' => $evolution($caMois, $caEntre($debutMois->copy()->subMonthNoOverflow(), Carbon::now()->subMonthNoOverflow())),
+            'nombreVentesMois' => $nombreVentesMois,
             'panierMoyenMois' => $nombreVentesMois > 0 ? (int) round((clone $ventesMois)->sum('total_net') / $nombreVentesMois) : 0,
-            'topProduits' => $this->topProduits($magasinId, $debutMois),
+            'topProduits' => $this->topProduits($magasinId, $debut, $fin),
             'produitsSousSeuil' => $this->produitsSousSeuil($magasinId),
             'produitsSousSeuilCount' => $this->produitsSousSeuilCount($magasinId),
             'valeurStock' => $this->valeurStock($magasinId),
@@ -147,8 +229,8 @@ class DashboardController extends Controller
             // Solde par client, jamais net entre clients — l'avoir de l'un ne
             // doit jamais compenser la dette d'un autre (règle 12).
             'creancesClients' => $this->creancesClients(),
-            'avoirAppliqueMois' => (int) (clone $ventesMois)->sum('avoir_applique'),
-            'totalEspecesMois' => $this->totalEspecesMois($magasinId, $debutMois),
+            'avoirAppliquePeriode' => (int) (clone $ventesPeriode)->sum('avoir_applique'),
+            'totalEspecesPeriode' => $this->totalEspeces($magasinId, $debut, $fin),
             'ecartsCaisse' => $this->ecartsCaisseRecents($magasinId),
             'caissesOuvertes' => $caissesOuvertes = $this->caissesOuvertes($magasinId),
             // Rappel non bloquant (voir x-alerte-sessions-anciennes) : contrairement
@@ -160,8 +242,8 @@ class DashboardController extends Controller
                 ->map(fn (Caisse $c) => $c->sessionCaisses->first())
                 ->filter(fn (?SessionCaisse $s) => $s?->estOuverteDepuisJourPrecedent())
                 ->values(),
-            'evolutionVentes' => $this->evolutionVentes($magasinId),
-            'repartitionMoyens' => $this->repartitionMoyensPaiement($magasinId, $debutMois),
+            'evolutionVentes' => $this->evolutionVentes($magasinId, $debut, $fin),
+            'repartitionMoyens' => $this->repartitionMoyensPaiement($magasinId, $debut, $fin),
             'mouvementsCaisseJour' => $this->mouvementsCaisseParMotif($magasinId, $debutJour),
         ];
     }
@@ -183,18 +265,18 @@ class DashboardController extends Controller
     }
 
     /**
-     * Espèces réellement encaissées ce mois (paiements à la vente + règlements
+     * Espèces réellement encaissées sur la période (paiements à la vente + règlements
      * clients) — la seule chose qui alimente vraiment un tiroir (règle 10),
      * contrairement au CA (total_net) qui inclut aussi le crédit et l'avoir.
      */
-    private function totalEspecesMois(?int $magasinId, Carbon $depuis): int
+    private function totalEspeces(?int $magasinId, Carbon $debut, Carbon $fin): int
     {
         $ventes = (int) Paiement::query()
             ->join('ventes', 'ventes.id', '=', 'paiements.vente_id')
             ->join('moyen_paiements', 'moyen_paiements.id', '=', 'paiements.moyen_paiement_id')
             ->where('moyen_paiements.est_espece', true)
             ->when($magasinId, fn ($q) => $q->where('ventes.magasin_id', $magasinId))
-            ->where('ventes.created_at', '>=', $depuis)
+            ->whereBetween('ventes.created_at', [$debut, $fin])
             ->whereNull('ventes.deleted_at')
             ->sum('paiements.montant');
 
@@ -205,7 +287,7 @@ class DashboardController extends Controller
             ->join('moyen_paiements', 'moyen_paiements.id', '=', 'reglement_paiements.moyen_paiement_id')
             ->where('moyen_paiements.est_espece', true)
             ->when($magasinId, fn ($q) => $q->where('caisses.magasin_id', $magasinId))
-            ->where('reglement_clients.created_at', '>=', $depuis)
+            ->whereBetween('reglement_clients.created_at', [$debut, $fin])
             ->sum('reglement_paiements.montant');
 
         return $ventes + $reglements;
@@ -239,13 +321,13 @@ class DashboardController extends Controller
             ]);
     }
 
-    private function topProduits(?int $magasinId, Carbon $depuis, int $limite = 5)
+    private function topProduits(?int $magasinId, Carbon $debut, Carbon $fin, int $limite = 5)
     {
         return DB::table('ligne_ventes')
             ->join('ventes', 'ventes.id', '=', 'ligne_ventes.vente_id')
             ->join('produits', 'produits.id', '=', 'ligne_ventes.produit_id')
             ->when($magasinId, fn ($q) => $q->where('ventes.magasin_id', $magasinId))
-            ->where('ventes.created_at', '>=', $depuis)
+            ->whereBetween('ventes.created_at', [$debut, $fin])
             ->whereNull('ventes.deleted_at')
             ->selectRaw('produits.nom as nom, produits.libelle_distinctif as libelle_distinctif, produits.sku as sku, SUM(ligne_ventes.quantite_pieces) as pieces_vendues, SUM(ligne_ventes.total_ligne) as total')
             ->groupBy('produits.id', 'produits.nom', 'produits.libelle_distinctif', 'produits.sku')
@@ -316,41 +398,56 @@ class DashboardController extends Controller
             ->get();
     }
 
-    private function evolutionVentes(?int $magasinId, int $jours = 14): array
+    /**
+     * Ventes de la période, jour par jour — ou heure par heure quand la
+     * période tient en une seule journée (un seul point ne dirait rien).
+     *
+     * @return array{labels: list<string>, valeurs: list<int>, unite: string}
+     */
+    private function evolutionVentes(?int $magasinId, Carbon $debut, Carbon $fin): array
     {
-        $depuis = Carbon::today()->subDays($jours - 1);
+        $parHeure = $debut->isSameDay($fin);
 
-        $parJour = Vente::query()
+        $totaux = Vente::query()
             ->when($magasinId, fn ($q) => $q->where('magasin_id', $magasinId))
-            ->where('created_at', '>=', $depuis)
-            ->selectRaw('DATE(created_at) as jour, SUM(total_net) as total')
-            ->groupBy('jour')
-            ->pluck('total', 'jour');
+            ->whereBetween('created_at', [$debut, $fin])
+            ->selectRaw(($parHeure ? 'HOUR(created_at)' : 'DATE(created_at)').' as tranche, SUM(total_net) as total')
+            ->groupBy('tranche')
+            ->pluck('total', 'tranche');
 
         $labels = [];
         $valeurs = [];
 
-        for ($i = 0; $i < $jours; $i++) {
-            $date = $depuis->copy()->addDays($i);
-            $labels[] = $date->format('d/m');
-            $valeurs[] = (int) ($parJour[$date->toDateString()] ?? 0);
+        if ($parHeure) {
+            // De 8 h (ou de la première vente, si elle est plus tôt) à l'heure en cours.
+            $premiere = min(8, (int) ($totaux->keys()->min() ?? 8));
+
+            for ($heure = $premiere; $heure <= max($fin->hour, $premiere); $heure++) {
+                $labels[] = $heure.' h';
+                $valeurs[] = (int) ($totaux[$heure] ?? 0);
+            }
+        } else {
+            for ($date = $debut->copy()->startOfDay(); $date->lte($fin); $date->addDay()) {
+                $labels[] = $date->format('d/m');
+                $valeurs[] = (int) ($totaux[$date->toDateString()] ?? 0);
+            }
         }
 
-        return ['labels' => $labels, 'valeurs' => $valeurs];
+        return ['labels' => $labels, 'valeurs' => $valeurs, 'unite' => $parHeure ? 'heure' : 'jour'];
     }
 
     /**
-     * Répartition espèces/mobile money/… du mois — deux sources, comme
+     * Répartition espèces/mobile money/… de la période — deux sources, comme
      * SessionCaisseController::paiementsParMoyen() : les paiements encaissés
      * à la vente ET les règlements clients encaissés séparément (règle 10),
      * sinon la ventilation sous-comptait tout règlement hors vente.
      */
-    private function repartitionMoyensPaiement(?int $magasinId, Carbon $depuis)
+    private function repartitionMoyensPaiement(?int $magasinId, Carbon $debut, Carbon $fin)
     {
         $parVente = Paiement::query()
             ->join('ventes', 'ventes.id', '=', 'paiements.vente_id')
             ->when($magasinId, fn ($q) => $q->where('ventes.magasin_id', $magasinId))
-            ->where('ventes.created_at', '>=', $depuis)
+            ->whereBetween('ventes.created_at', [$debut, $fin])
             ->whereNull('ventes.deleted_at')
             ->selectRaw('paiements.moyen_paiement_id, SUM(paiements.montant) as total')
             ->groupBy('paiements.moyen_paiement_id')
@@ -361,7 +458,7 @@ class DashboardController extends Controller
             ->join('session_caisses', 'session_caisses.id', '=', 'reglement_clients.session_caisse_id')
             ->join('caisses', 'caisses.id', '=', 'session_caisses.caisse_id')
             ->when($magasinId, fn ($q) => $q->where('caisses.magasin_id', $magasinId))
-            ->where('reglement_clients.created_at', '>=', $depuis)
+            ->whereBetween('reglement_clients.created_at', [$debut, $fin])
             ->selectRaw('reglement_paiements.moyen_paiement_id, SUM(reglement_paiements.montant) as total')
             ->groupBy('reglement_paiements.moyen_paiement_id')
             ->pluck('total', 'moyen_paiement_id');
@@ -381,12 +478,13 @@ class DashboardController extends Controller
         ])->values();
     }
 
-    private function comparatifMagasins()
+    private function comparatifMagasins(Carbon $debut, Carbon $fin)
     {
-        $debutMois = Carbon::now()->startOfMonth();
-
+        // Un dépôt ne vend jamais (aucune caisse) : il n'a rien à faire dans
+        // un comparatif de ventes.
         return Magasin::query()
-            ->withSum(['ventes' => fn ($q) => $q->where('created_at', '>=', $debutMois)], 'total_net')
+            ->magasins()
+            ->withSum(['ventes' => fn ($q) => $q->whereBetween('created_at', [$debut, $fin])], 'total_net')
             ->orderByDesc('ventes_sum_total_net')
             ->get();
     }

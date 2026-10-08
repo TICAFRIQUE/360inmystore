@@ -135,6 +135,7 @@ class AbonnementController extends Controller
         $donnees = $request->validate([
             'telephone' => ['nullable', 'string', 'max:50', new TelephoneValide],
             'whatsapp' => ['nullable', 'string', 'max:50', new TelephoneValide],
+            'email' => ['nullable', 'email', 'max:255'],
             'message' => ['nullable', 'string', 'max:1000'],
         ]);
 

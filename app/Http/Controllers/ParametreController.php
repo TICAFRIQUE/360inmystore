@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Devise;
 use App\Models\Parametre;
 use App\Rules\TelephoneValide;
+use App\Services\SauvegardeBase;
 use App\Support\Telephone;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -237,36 +238,9 @@ class ParametreController extends Controller
             ? rtrim($dossier, '\\/').DIRECTORY_SEPARATOR.$nomFichier
             : tempnam(sys_get_temp_dir(), 'backup_');
 
-        $commande = [
-            $this->resoudreCheminBinaire('mysqldump', config('database.mysqldump_path')),
-            '-h', (string) $connexion['host'],
-            '-P', (string) $connexion['port'],
-            '-u', (string) $connexion['username'],
-            '--single-transaction',
-            '--routines',
-            (string) $connexion['database'],
-        ];
-
-        // Symfony Process remplace tout l'environnement du sous-processus quand
-        // $env est fourni : sans PATH/SystemRoot hérités, mysqldump.exe échoue
-        // à initialiser Winsock sous Windows. On fusionne donc avec l'environnement
-        // courant plutôt que de le remplacer.
-        $env = getenv() + ['MYSQL_PWD' => (string) $connexion['password']];
-        $process = new Process($commande, env: $env);
-        $process->setTimeout(null);
-
-        $handle = fopen($cheminFichier, 'w');
-        $process->run(function (string $type, string $buffer) use ($handle) {
-            if ($type === Process::OUT) {
-                fwrite($handle, $buffer);
-            }
-        });
-        fclose($handle);
-
-        if (! $process->isSuccessful()) {
-            @unlink($cheminFichier);
-            throw new \RuntimeException($process->getErrorOutput() ?: 'mysqldump a échoué sans message d\'erreur.');
-        }
+        // La commande elle-même est construite par SauvegardeBase, partagée
+        // avec la sauvegarde automatique de chaque soir.
+        app(SauvegardeBase::class)->exporter($connexion, $cheminFichier);
 
         return $cheminFichier;
     }
@@ -309,21 +283,7 @@ class ParametreController extends Controller
      */
     private function resoudreCheminBinaire(string $executable, ?string $configure): string
     {
-        if ($configure) {
-            return $configure;
-        }
-
-        if (PHP_OS_FAMILY === 'Windows') {
-            $trouves = glob("C:\\laragon\\bin\\mysql\\*\\bin\\{$executable}.exe");
-            if (! empty($trouves)) {
-                // Le plus récent en cas de plusieurs versions installées côte
-                // à côte (mise à jour Laragon sans suppression de l'ancienne).
-                rsort($trouves);
-
-                return $trouves[0];
-            }
-        }
-
-        return $executable;
+        // Voir SauvegardeBase::cheminBinaire(), qui lit la même configuration.
+        return app(SauvegardeBase::class)->cheminBinaire($executable);
     }
 }

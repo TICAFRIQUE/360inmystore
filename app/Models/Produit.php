@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Models\Concerns\MetEnFormePhrase;
 use App\Support\Arrondi;
+use App\Support\ImageProduit;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -15,7 +16,9 @@ use Illuminate\Support\Facades\Cache;
 use Spatie\Activitylog\LogOptions;
 use Spatie\Activitylog\Traits\LogsActivity;
 use Spatie\MediaLibrary\HasMedia;
+use Spatie\Image\Enums\Fit;
 use Spatie\MediaLibrary\InteractsWithMedia;
+use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
 #[Fillable([
     'sku', 'nom', 'libelle_distinctif', 'code_barre', 'categorie_id',
@@ -30,7 +33,10 @@ class Produit extends Model implements HasMedia
      * pour que UniteVente puisse invalider la même entrée sans dupliquer la
      * clé (le catalogue en cache embarque les unités de vente).
      */
-    public const CACHE_CATALOGUE_VENTE = 'produits:catalogue-vente';
+    // « v2 » : le catalogue porte désormais catégorie, code-barres et image
+    // (vignettes de l'écran de caisse) — changer de clé évite de servir une
+    // ancienne entrée, mise en cache sans limite de durée, qui ne les a pas.
+    public const CACHE_CATALOGUE_VENTE = 'produits:catalogue-vente:v2';
 
     protected function casts(): array
     {
@@ -142,6 +148,24 @@ class Produit extends Model implements HasMedia
     public function registerMediaCollections(): void
     {
         $this->addMediaCollection('image')->singleFile();
+    }
+
+    /**
+     * Miniature affichée par l'écran de caisse (des dizaines de vignettes à
+     * la fois : jamais l'image d'origine). Produite tout de suite, à
+     * l'enregistrement — et seulement si le serveur sait traiter une image,
+     * sinon l'envoi lui-même échouerait.
+     */
+    public function registerMediaConversions(?Media $media = null): void
+    {
+        if (! ImageProduit::traitementDisponible()) {
+            return;
+        }
+
+        $this->addMediaConversion('vignette')
+            ->fit(Fit::Crop, 320, 240)
+            ->performOnCollections('image')
+            ->nonQueued();
     }
 
     /**
@@ -259,6 +283,8 @@ class Produit extends Model implements HasMedia
         $catalogue = Cache::rememberForever(self::CACHE_CATALOGUE_VENTE, function () {
             return static::where('actif', true)
                 ->with([
+                    'categorie',
+                    'media',
                     'uniteBase',
                     'uniteVentes' => fn ($q) => $q->where('actif', true)->orderBy('facteur'),
                     'uniteVentes.unite',
@@ -271,6 +297,13 @@ class Produit extends Model implements HasMedia
                     'nom' => $p->nom,
                     'libelle_distinctif' => $p->libelle_distinctif,
                     'libelle_affichage' => $p->libelle_affichage,
+                    // Pour l'écran de caisse : filtre par catégorie, recherche
+                    // par code-barres (douchette) et vignette du produit.
+                    'categorie' => $p->categorie?->nom,
+                    'code_barre' => $p->code_barre,
+                    // La miniature si elle existe, sinon l'image d'origine
+                    // (produit enregistré avant les miniatures).
+                    'image' => $p->getFirstMedia('image')?->getAvailableUrl(['vignette']),
                     'prix_piece' => $p->prix_piece,
                     'unite_base_libelle' => $p->unite_base_libelle,
                     // Nom complet + abréviation (ex. « Kilogramme (kg) ») pour

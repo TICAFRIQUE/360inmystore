@@ -12,13 +12,15 @@
             <p class="text-secondary small mb-0 ms-5 ps-1">Client : {{ $devis->client->nom }}</p>
         </div>
 
-        <div class="row g-3 align-items-start">
-            <div class="col-12 col-lg-8">
-                @include('devis._panier')
-            </div>
+        {{-- Même disposition que l'écran de caisse : les produits à gauche,
+             le devis et ses informations à droite. --}}
+        <div class="caisse">
+            @include('partials.catalogue-vignettes')
 
-            <div class="col-12 col-lg-4">
-                <div class="card">
+            <aside class="caisse__panier" id="panier">
+                @include('devis._panier')
+
+                <div class="card border-0 shadow-sm">
                     <div class="card-body">
                         <form id="formDevis" method="POST" action="{{ route('devis.update', $devis) }}">
                             @csrf
@@ -46,15 +48,7 @@
                         </form>
                     </div>
                 </div>
-            </div>
+            </aside>
         </div>
     </div>
 @endsection
-
-@push('scripts')
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            window.initSelect2('#produit-picker', { placeholder: '— Rechercher un produit à ajouter —' });
-        });
-    </script>
-@endpush

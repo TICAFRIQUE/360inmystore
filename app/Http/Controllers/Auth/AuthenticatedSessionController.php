@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Models\ConfigurationAbonnement;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -38,7 +39,9 @@ class AuthenticatedSessionController extends Controller
 
     public function create(): View
     {
-        return view('auth.login');
+        // Coordonnées du support, pour qui a perdu son accès (voir le bloc
+        // « Accès perdu » de la page de connexion).
+        return view('auth.login', ['support' => ConfigurationAbonnement::actuel()]);
     }
 
     public function store(Request $request): RedirectResponse

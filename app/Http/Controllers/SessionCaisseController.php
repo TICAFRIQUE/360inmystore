@@ -11,6 +11,7 @@ use App\Http\Controllers\Concerns\AutoriseMagasin;
 use App\Http\Controllers\Concerns\ExporteListe;
 use App\Http\Controllers\Concerns\TrieListe;
 use App\Models\Caisse;
+use App\Models\Magasin;
 use App\Models\MotifMouvement;
 use App\Models\MouvementCaisse;
 use App\Models\MoyenPaiement;
@@ -54,6 +55,9 @@ class SessionCaisseController extends Controller
             'caissesOccupees' => $caissesOccupees,
             'caissesLibres' => $caissesLibres,
             'sessionCaissierOuverte' => $sessionCaissierOuverte,
+            // Aucune caisse à l'écran : la vue dit quoi faire selon ce qui
+            // manque (un magasin d'abord, ou seulement une caisse).
+            'aucunMagasin' => $caisses->isEmpty() && Magasin::magasins()->where('actif', true)->doesntExist(),
             // Rappel non bloquant (voir x-alerte-sessions-anciennes, même
             // logique que DashboardController::donneesMagasin()) : cette page
             // liste déjà l'occupation de toutes les caisses du périmètre

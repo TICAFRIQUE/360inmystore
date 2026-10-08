@@ -10,3 +10,6 @@ Artisan::command('inspire', function () {
 
 Schedule::command('app:alerter-sessions-ouvertes-trop-longtemps')->hourly();
 Schedule::command('app:alerter-stock-sous-seuil')->hourly();
+
+// Sauvegarde de la base chaque soir, 10 gardées (voir app:sauvegarder).
+Schedule::command('app:sauvegarder')->dailyAt('23:30');

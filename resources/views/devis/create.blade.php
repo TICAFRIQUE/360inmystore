@@ -9,15 +9,17 @@
             <h2 class="h4 mb-0">Nouveau devis</h2>
         </div>
 
-        <div class="row g-3 align-items-start">
-            <div class="col-12 col-lg-8">
-                @include('devis._panier')
-            </div>
+        {{-- Même disposition que l'écran de caisse : les produits à gauche,
+             le devis et ses informations à droite. --}}
+        <div class="caisse">
+            @include('partials.catalogue-vignettes')
 
-            <div class="col-12 col-lg-4">
-                <div class="card">
+            <aside class="caisse__panier" id="panier">
+                @include('devis._panier')
+
+                <div class="card border-0 shadow-sm">
                     <div class="card-body">
-                        <h3 class="h6">Informations</h3>
+                        <h3 class="carte-titre__texte mb-3">Informations</h3>
 
                         <form id="formDevis" method="POST" action="{{ route('devis.store') }}">
                             @csrf
@@ -64,7 +66,7 @@
                         </form>
                     </div>
                 </div>
-            </div>
+            </aside>
         </div>
 
         @can('client.gerer')
@@ -76,7 +78,6 @@
 @push('scripts')
     <script>
         document.addEventListener('DOMContentLoaded', () => {
-            window.initSelect2('#produit-picker', { placeholder: '— Rechercher un produit à ajouter —' });
             window.initSelect2('#client_id', { placeholder: '— Choisir un client —' });
         });
     </script>

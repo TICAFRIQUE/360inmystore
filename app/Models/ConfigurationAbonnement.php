@@ -13,7 +13,7 @@ use Spatie\Activitylog\Traits\LogsActivity;
  * sur "Mon abonnement" quand l'abonnement a expiré. Toujours passer par
  * actuel(), jamais un ::find(1) direct — même principe que Parametre::actuel().
  */
-#[Fillable(['telephone', 'whatsapp', 'message'])]
+#[Fillable(['telephone', 'whatsapp', 'email', 'message'])]
 class ConfigurationAbonnement extends Model
 {
     use LogsActivity;
@@ -28,7 +28,10 @@ class ConfigurationAbonnement extends Model
     public static function actuel(): self
     {
         $attributs = Cache::rememberForever(self::CACHE_KEY, function () {
-            return self::query()->firstOrCreate(['id' => 1])->getAttributes();
+            // La table n'a qu'une ligne : la première, quel que soit son
+            // numéro (chercher « id = 1 » en recréait une vide dès que la
+            // ligne existante en portait un autre).
+            return (self::query()->orderBy('id')->first() ?? self::query()->create())->getAttributes();
         });
 
         return (new self)->newFromBuilder($attributs);

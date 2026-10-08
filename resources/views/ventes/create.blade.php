@@ -1,3 +1,8 @@
+{{-- Écran de caisse : les produits à gauche (recherche, catégories,
+     vignettes), le panier et l'encaissement à droite. Sous lg, les deux
+     colonnes s'empilent et une barre fixée en bas rappelle le panier. Toute
+     la logique est dans posApp (resources/js/app.js) ; les champs envoyés au
+     serveur sont ceux des deux formulaires en bas de page, et eux seuls. --}}
 @extends('layouts.app')
 
 @section('title', 'Facture')
@@ -13,13 +18,13 @@
         {{ \Illuminate\Support\Js::from($clientSoldes) }},
         {{ \Illuminate\Support\Js::from($taxes->map(fn ($t) => ['id' => $t->id, 'libelle' => $t->nom, 'taux' => $t->taux])) }}
     )">
-        <div class="d-flex flex-column flex-md-row justify-content-between align-items-start gap-2 mb-3">
+        <div class="page-entete">
             <div>
                 <div class="d-flex align-items-center gap-2">
                     <x-bouton-retour :route="$devisTransformation ? route('devis.show', $devisTransformation) : route('sessions.show', $session)" />
-                    <h2 class="h4 mb-0">Facture — {{ $session->caisse->nom }}</h2>
+                    <h2 class="page-entete__titre">Facture — {{ $session->caisse->nom }}</h2>
                 </div>
-                <p class="text-secondary small mb-0 ms-5 ps-1">
+                <p class="page-entete__aide ms-5 ps-1">
                     {{ $session->caisse->magasin->nom }}
                     @if ($venteEnAttente)
                         <span class="badge text-bg-warning ms-2">
@@ -33,232 +38,180 @@
                     @endif
                 </p>
             </div>
+
+            @unless ($devisTransformation)
+                @can('vente.bon_livraison')
+                    <div class="caisse__type">
+                        <div class="btn-group" role="radiogroup" aria-label="Type de document">
+                            <input type="radio" class="btn-check" name="typeDocument" id="typeDocumentFacture" value="facture" x-model="type" autocomplete="off">
+                            <label class="btn btn-outline-primary" for="typeDocumentFacture"><i class="bi bi-receipt me-2"></i>Facture</label>
+                            <input type="radio" class="btn-check" name="typeDocument" id="typeDocumentBonLivraison" value="bon_livraison" x-model="type" autocomplete="off">
+                            <label class="btn btn-outline-primary" for="typeDocumentBonLivraison"><i class="bi bi-truck me-2"></i>Bon de livraison</label>
+                        </div>
+                        <p class="caisse__type-aide"
+                           x-text="type === 'bon_livraison' ? 'Marchandise livrée tout de suite : la vente sera considérée comme entièrement livrée.' : 'Livraison organisée plus tard.'"></p>
+                    </div>
+                @endcan
+            @endunless
         </div>
 
-        <div class="row g-3 align-items-start">
-            <div class="col-12 col-lg-9">
-                @unless ($devisTransformation)
-                    @can('vente.bon_livraison')
-                        <div class="card border-info-subtle mb-3">
-                            <div class="card-body py-2">
-                                <div class="fw-semibold small mb-2">
-                                    <i class="bi bi-question-circle me-1"></i>Quel type de document ?
-                                </div>
-                                <div class="row g-2" role="radiogroup" aria-label="Type de document">
-                                    <div class="col-6">
-                                        <input type="radio" class="btn-check" name="typeDocument" id="typeDocumentFacture" value="facture" x-model="type" autocomplete="off">
-                                        <label class="btn btn-outline-info w-100 h-100 py-2 text-start d-flex align-items-center gap-2" for="typeDocumentFacture">
-                                            <i class="bi bi-receipt fs-4 flex-shrink-0"></i>
-                                            <span>
-                                                <span class="d-block fw-semibold">Facture</span>
-                                                <span class="d-block small opacity-75">Livraison organisée plus tard</span>
-                                            </span>
-                                        </label>
-                                    </div>
-                                    <div class="col-6">
-                                        <input type="radio" class="btn-check" name="typeDocument" id="typeDocumentBonLivraison" value="bon_livraison" x-model="type" autocomplete="off">
-                                        <label class="btn btn-outline-info w-100 h-100 py-2 text-start d-flex align-items-center gap-2" for="typeDocumentBonLivraison">
-                                            <i class="bi bi-truck fs-4 flex-shrink-0"></i>
-                                            <span>
-                                                <span class="d-block fw-semibold">Bon de livraison</span>
-                                                <span class="d-block small opacity-75">Marchandise livrée tout de suite</span>
-                                            </span>
-                                        </label>
-                                    </div>
-                                </div>
-                                <div class="small text-secondary mt-2 mb-0" x-show="type === 'bon_livraison'" x-cloak>
-                                    <i class="bi bi-info-circle me-1"></i>Enregistrée comme un bon de livraison, cette vente sera automatiquement considérée comme entièrement livrée.
-                                </div>
+        <div class="caisse">
+            {{-- Produits --}}
+            @include('partials.catalogue-vignettes')
+
+            {{-- Panier et encaissement --}}
+            <aside class="caisse__panier" id="panier">
+                <div>
+                    <div class="card border-0 shadow-sm mb-3">
+                        <div class="card-body">
+                            <div class="carte-titre mb-3">
+                                <h3 class="carte-titre__texte">
+                                    Panier
+                                    <span class="badge rounded-pill text-bg-primary ms-1" x-show="panier.length > 0" x-text="panier.length" x-cloak></span>
+                                </h3>
                             </div>
-                        </div>
-                    @endcan
-                @endunless
 
-                <div class="mb-3">
-                    <select id="produit-picker" class="form-select" @change="ajouterDepuisSelect($event)">
-                        <option value="">— Rechercher un produit à ajouter —</option>
-                        @foreach ($produits as $produit)
-                            <option value="{{ $produit['id'] }}"
-                                    data-produit-id="{{ $produit['id'] }}"
-                                    @if ($produit['stock'] < 1) disabled @endif>
-                                {{ $produit['libelle_affichage'] }} (Stock : {{ $produit['stock'] }})
-                                @if ($produit['stock'] < 1) — rupture de stock @endif
-                            </option>
-                        @endforeach
-                    </select>
-                </div>
+                            <div class="etat-vide" x-show="panier.length === 0">
+                                <i class="bi bi-cart3"></i>
+                                <p>Le panier est vide. Choisissez un produit pour commencer.</p>
+                            </div>
 
-                <div class="card">
-                    <div class="card-body">
-                        <h3 class="h6">Panier</h3>
+                            <template x-for="(ligne, index) in panier" :key="index">
+                                <div class="panier-ligne">
+                                    <div class="panier-ligne__tete">
+                                        <div class="panier-ligne__nom">
+                                            <strong x-text="ligne.produitLibelle"></strong>
+                                            <span x-show="stockDisponible(ligne) !== null" x-text="'Stock à ce lieu : ' + stockDisponible(ligne)"></span>
+                                        </div>
+                                        <span class="panier-ligne__total" x-text="montant(totalLigne(ligne))"></span>
+                                        <button type="button" class="btn btn-sm btn-icon btn-outline-danger flex-shrink-0" @click="retirerLigne(index)" title="Retirer du panier">
+                                            <i class="bi bi-x-lg"></i>
+                                            <span class="visually-hidden">Retirer du panier</span>
+                                        </button>
+                                    </div>
 
-                        <div class="table-responsive" style="max-height: 65vh; overflow-y: auto;">
-                            @php $colonnesPanier = 4 + (auth()->user()->can('vente.remise') ? 1 : 0) + ($taxes->isNotEmpty() ? 1 : 0); @endphp
-                            <table class="table table-sm align-middle mb-0">
-                                <thead>
-                                    <tr>
-                                        <th>Désignation</th>
-                                        <th>Qté</th>
-                                        <th>Unité</th>
-                                        @can('vente.remise')
-                                            <th>Remise</th>
-                                        @endcan
-                                        @if ($taxes->isNotEmpty())
-                                            <th>Taxe</th>
-                                        @endif
-                                        <th class="text-end">Total</th>
-                                        <th></th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <template x-if="panier.length === 0">
-                                        <tr>
-                                            <td colspan="{{ $colonnesPanier }}" class="text-secondary fst-italic small text-center py-3">Le panier est vide. Sélectionnez un produit ci-dessus.</td>
-                                        </tr>
-                                    </template>
-                                    <template x-for="(ligne, index) in panier" :key="index">
-                                        <tr>
-                                            <td class="small">
-                                                <div x-text="ligne.produitLibelle + (stockDisponible(ligne) !== null ? ' (Stock : ' + stockDisponible(ligne) + ')' : '')"></div>
-                                                <select class="form-select form-select-sm mt-1"
-                                                        :class="ligne.magasin_source_id === undefined ? 'is-invalid' : 'text-secondary'"
-                                                        style="min-width: 150px; font-size: .75rem;"
-                                                        @focus="chargerSources(ligne)"
-                                                        @change="choisirSource(ligne, $event.target.value)" required>
-                                                    <option value="" :selected="ligne.magasin_source_id === undefined">— Choisir un lieu —</option>
-                                                    <template x-for="source in sourcesDisponibles(ligne)" :key="source.id">
-                                                        <option :value="source.id" :selected="source.id === ligne.magasin_source_id"
-                                                                x-text="(source.id === magasinCaisseId ? '📍 ' : 'Depuis : ') + source.nom + ' — ' + source.quantite + ' dispo'"></option>
-                                                    </template>
-                                                </select>
-                                                <div class="text-danger small mt-1" x-show="enRupture(ligne)" x-cloak>
-                                                    <i class="bi bi-exclamation-triangle-fill me-1"></i>Stock insuffisant à ce lieu.
-                                                </div>
-                                            </td>
-                                            <td>
-                                                <div class="d-flex align-items-center gap-1">
-                                                    <button type="button" class="btn btn-sm btn-outline-secondary btn-icon" :disabled="atteintMin(ligne)" @click="changerQuantite(ligne, -1)">−</button>
-                                                    <input type="number" class="form-control form-control-sm text-center p-1" style="width: 3.5rem;" min="1"
-                                                           :value="ligne.quantite" @input="definirQuantite(ligne, $event.target.value, $event.target)"
-                                                           @blur="validerQuantite(ligne, $event.target.value, $event.target)">
-                                                    <button type="button" class="btn btn-sm btn-outline-secondary btn-icon" :disabled="atteintMaxStock(ligne)" @click="changerQuantite(ligne, 1)">+</button>
-                                                </div>
-                                            </td>
-                                            <td>
-                                                <select class="form-select form-select-sm" style="min-width: 130px;"
-                                                        :class="{ 'is-invalid': estDoublon(index) || ligne.unite_vente_id === undefined }"
-                                                        @change="changerVarianteDepuisSelect(ligne, $event.target.value)" required>
-                                                    <option value="" :selected="ligne.unite_vente_id === undefined">— Choisir —</option>
-                                                    <option value="piece" :selected="ligne.unite_vente_id === null" x-text="produitDe(ligne).unite_base_libelle_complet + ' — ' + produitDe(ligne).prix_piece + ' ' + window.DEVISE_ABREVIATION"></option>
-                                                    <template x-for="unite in produitDe(ligne).unites" :key="unite.id">
-                                                        <option :value="unite.id" :selected="unite.id === ligne.unite_vente_id" x-text="unite.libelle + ' — ' + unite.prix + ' ' + window.DEVISE_ABREVIATION"></option>
-                                                    </template>
-                                                </select>
-                                                <div class="text-danger small mt-1" x-show="estDoublon(index)" x-cloak>Déjà dans le panier avec la même unité et la même source.</div>
-                                            </td>
+                                    <div class="panier-ligne__reglages">
+                                        <div class="panier-ligne__quantite">
+                                            <button type="button" class="btn btn-sm btn-outline-secondary btn-icon" :disabled="atteintMin(ligne)" @click="changerQuantite(ligne, -1)" aria-label="Diminuer la quantité">−</button>
+                                            <input type="number" class="form-control form-control-sm text-center p-1" min="1" aria-label="Quantité"
+                                                   :value="ligne.quantite" @input="definirQuantite(ligne, $event.target.value, $event.target)"
+                                                   @blur="validerQuantite(ligne, $event.target.value, $event.target)">
+                                            <button type="button" class="btn btn-sm btn-outline-secondary btn-icon" :disabled="atteintMaxStock(ligne)" @click="changerQuantite(ligne, 1)" aria-label="Augmenter la quantité">+</button>
+                                        </div>
+
+                                        <select class="form-select form-select-sm" aria-label="Unité"
+                                                :class="{ 'is-invalid': estDoublon(index) || ligne.unite_vente_id === undefined }"
+                                                @change="changerVarianteDepuisSelect(ligne, $event.target.value)" required>
+                                            <option value="" :selected="ligne.unite_vente_id === undefined">— Unité —</option>
+                                            <option value="piece" :selected="ligne.unite_vente_id === null" x-text="produitDe(ligne).unite_base_libelle_complet + ' — ' + montant(produitDe(ligne).prix_piece)"></option>
+                                            <template x-for="unite in produitDe(ligne).unites" :key="unite.id">
+                                                <option :value="unite.id" :selected="unite.id === ligne.unite_vente_id" x-text="unite.libelle + ' — ' + montant(unite.prix)"></option>
+                                            </template>
+                                        </select>
+
+                                        <select class="form-select form-select-sm" aria-label="Lieu de prélèvement"
+                                                :class="{ 'is-invalid': ligne.magasin_source_id === undefined }"
+                                                @focus="chargerSources(ligne)"
+                                                @change="choisirSource(ligne, $event.target.value)" required>
+                                            <option value="" :selected="ligne.magasin_source_id === undefined">— Lieu de prélèvement —</option>
+                                            <template x-for="source in sourcesDisponibles(ligne)" :key="source.id">
+                                                <option :value="source.id" :selected="source.id === ligne.magasin_source_id"
+                                                        x-text="(source.id === magasinCaisseId ? '📍 ' : 'Depuis : ') + source.nom + ' — ' + source.quantite + ' dispo'"></option>
+                                            </template>
+                                        </select>
+                                    </div>
+
+                                    <div class="text-danger small mt-1" x-show="enRupture(ligne)" x-cloak>
+                                        <i class="bi bi-exclamation-triangle-fill me-1"></i>Stock insuffisant à ce lieu.
+                                    </div>
+                                    <div class="text-danger small mt-1" x-show="estDoublon(index)" x-cloak>Déjà dans le panier avec la même unité et la même source.</div>
+
+                                    @if (auth()->user()->can('vente.remise') || $taxes->isNotEmpty())
+                                        {{-- Remise et taxe : repliées tant qu'elles ne servent pas, pour
+                                             garder une ligne courte ; toujours dépliées dès qu'une valeur
+                                             est posée, pour ne jamais la cacher. --}}
+                                        <button type="button" class="panier-ligne__bascule" @click="ligne.optionsOuvertes = ! ligne.optionsOuvertes"
+                                                x-show="! (ligne.remise_type || ligne.prixPersonnalise || ligne.taxe_id)">
+                                            <i class="bi" :class="ligne.optionsOuvertes ? 'bi-chevron-up' : 'bi-plus-lg'"></i>
+                                            {{ auth()->user()->can('vente.remise') ? ($taxes->isNotEmpty() ? 'Remise, taxe' : 'Remise') : 'Taxe' }}
+                                        </button>
+
+                                        <div class="panier-ligne__options" x-show="ligne.optionsOuvertes || ligne.remise_type || ligne.prixPersonnalise || ligne.taxe_id" x-cloak>
                                             @can('vente.remise')
-                                                <td>
-                                                    <div class="d-flex flex-column gap-1" style="min-width: 110px;">
-                                                        <select :value="ligne.prixPersonnalise ? 'prix' : ligne.remise_type"
-                                                                @change="choisirTypeRemise(ligne, $event.target.value)" class="form-select form-select-sm">
-                                                            <option value="">Sans remise</option>
-                                                            <option value="montant">Remise ({{ App\Models\Devise::abreviationActuelle() }})</option>
-                                                            <option value="pourcentage">Remise (%)</option>
-                                                            <option value="prix">Prix personnalisé</option>
-                                                        </select>
-                                                        <input type="number" x-model.number="ligne.remise_valeur"
-                                                               @input="if (ligne.remise_type === 'pourcentage' && ligne.remise_valeur > 100) ligne.remise_valeur = 100"
-                                                               x-show="ligne.remise_type && !ligne.prixPersonnalise" min="0" :max="ligne.remise_type === 'pourcentage' ? 100 : null" class="form-control form-control-sm" placeholder="Valeur">
-                                                        <template x-if="ligne.prixPersonnalise">
-                                                            <div>
-                                                                <input type="number" x-model.number="ligne.prixSaisi"
-                                                                       min="0" class="form-control form-control-sm" placeholder="Prix">
-                                                                <div class="text-secondary" style="font-size: .7rem;">
-                                                                    Catalogue : <span x-text="ligne.prixUnitaire"></span> F
-                                                                </div>
-                                                            </div>
-                                                        </template>
+                                                <select :value="ligne.prixPersonnalise ? 'prix' : ligne.remise_type" aria-label="Remise"
+                                                        @change="choisirTypeRemise(ligne, $event.target.value)" class="form-select form-select-sm">
+                                                    <option value="">Sans remise</option>
+                                                    <option value="montant">Remise ({{ App\Models\Devise::abreviationActuelle() }})</option>
+                                                    <option value="pourcentage">Remise (%)</option>
+                                                    <option value="prix">Prix personnalisé</option>
+                                                </select>
+                                                <input type="number" x-model.number="ligne.remise_valeur" aria-label="Valeur de la remise"
+                                                       @input="if (ligne.remise_type === 'pourcentage' && ligne.remise_valeur > 100) ligne.remise_valeur = 100"
+                                                       x-show="ligne.remise_type && !ligne.prixPersonnalise" min="0" :max="ligne.remise_type === 'pourcentage' ? 100 : null" class="form-control form-control-sm" placeholder="Valeur">
+                                                <template x-if="ligne.prixPersonnalise">
+                                                    <div>
+                                                        <input type="number" x-model.number="ligne.prixSaisi" aria-label="Prix personnalisé"
+                                                               min="0" class="form-control form-control-sm" placeholder="Prix">
+                                                        <div class="form-text mt-0">Catalogue : <span x-text="montant(ligne.prixUnitaire)"></span></div>
                                                     </div>
-                                                </td>
+                                                </template>
                                             @endcan
                                             @if ($taxes->isNotEmpty())
-                                                <td>
-                                                    <select x-model="ligne.taxe_id" class="form-select form-select-sm" style="min-width: 120px;">
-                                                        <option value="">Aucune</option>
-                                                        @foreach ($taxes as $taxe)
-                                                            <option value="{{ $taxe->id }}">{{ $taxe->nom }} ({{ $taxe->taux }}%)</option>
-                                                        @endforeach
-                                                    </select>
-                                                </td>
+                                                <select x-model="ligne.taxe_id" class="form-select form-select-sm" aria-label="Taxe">
+                                                    <option value="">Aucune taxe</option>
+                                                    @foreach ($taxes as $taxe)
+                                                        <option value="{{ $taxe->id }}">{{ $taxe->nom }} ({{ $taxe->taux }}%)</option>
+                                                    @endforeach
+                                                </select>
                                             @endif
-                                            <td class="text-end fw-medium" x-text="totalLigne(ligne) + ' ' + window.DEVISE_ABREVIATION"></td>
-                                            <td>
-                                                <button type="button" class="btn btn-sm btn-icon btn-outline-danger" @click="retirerLigne(index)">
-                                                    <i class="bi bi-x-lg"></i>
-                                                </button>
-                                            </td>
-                                        </tr>
-                                    </template>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="col-12 col-lg-3">
-                <div style="position: sticky; top: calc(var(--erp-topbar-height) + 1rem);">
-                    <div class="card mb-3">
-                        <div class="card-body">
-                            <h3 class="h6">Récapitulatif</h3>
-
-                            @can('vente.remise')
-                                <div class="mb-2">
-                                    <label class="form-label small">Remise sur le total</label>
-                                    <div class="row g-1">
-                                        <div class="col-6">
-                                            <select x-model="remiseTotaleType" class="form-select form-select-sm">
-                                                <option value="">Sans remise</option>
-                                                <option value="montant">Remise ({{ App\Models\Devise::abreviationActuelle() }})</option>
-                                                <option value="pourcentage">Remise (%)</option>
-                                            </select>
                                         </div>
-                                        <div class="col-6">
-                                            <input type="number" x-model.number="remiseTotaleValeur"
-                                                   @input="if (remiseTotaleType === 'pourcentage' && remiseTotaleValeur > 100) remiseTotaleValeur = 100"
-                                                   x-show="remiseTotaleType" min="0" :max="remiseTotaleType === 'pourcentage' ? 100 : null" class="form-control form-control-sm" placeholder="Valeur">
-                                        </div>
-                                    </div>
+                                    @endif
                                 </div>
-                            @endcan
+                            </template>
 
-                            <table class="table table-sm mt-3 mb-0">
-                                <tr>
-                                    <td>Sous-total (HT)</td>
-                                    <td class="text-end" x-text="sousTotal + ' ' + window.DEVISE_ABREVIATION"></td>
-                                </tr>
-                                <tr x-show="totalTaxes > 0" x-cloak>
-                                    <td>Total taxes</td>
-                                    <td class="text-end" x-text="totalTaxes + ' ' + window.DEVISE_ABREVIATION"></td>
-                                </tr>
+                            <div class="panier-totaux">
                                 @can('vente.remise')
-                                    <tr>
-                                        <td>Remise totale</td>
-                                        <td class="text-end" x-text="'− ' + remiseTotaleMontant + ' ' + window.DEVISE_ABREVIATION"></td>
-                                    </tr>
+                                    <div class="panier-totaux__remise">
+                                        <label class="form-label mb-0" for="remise-totale-type">Remise sur le total</label>
+                                        <select id="remise-totale-type" x-model="remiseTotaleType" class="form-select form-select-sm">
+                                            <option value="">Sans remise</option>
+                                            <option value="montant">Remise ({{ App\Models\Devise::abreviationActuelle() }})</option>
+                                            <option value="pourcentage">Remise (%)</option>
+                                        </select>
+                                        <input type="number" x-model.number="remiseTotaleValeur" aria-label="Valeur de la remise sur le total"
+                                               @input="if (remiseTotaleType === 'pourcentage' && remiseTotaleValeur > 100) remiseTotaleValeur = 100"
+                                               x-show="remiseTotaleType" min="0" :max="remiseTotaleType === 'pourcentage' ? 100 : null" class="form-control form-control-sm" placeholder="Valeur">
+                                    </div>
                                 @endcan
-                                <tr class="fw-bold">
-                                    <td>Net à payer</td>
-                                    <td class="text-end" x-text="totalNet + ' ' + window.DEVISE_ABREVIATION"></td>
-                                </tr>
-                            </table>
+
+                                <dl class="panier-totaux__lignes">
+                                    <div>
+                                        <dt>Sous-total (HT)</dt>
+                                        <dd x-text="montant(sousTotal)"></dd>
+                                    </div>
+                                    <div x-show="totalTaxes > 0" x-cloak>
+                                        <dt>Total taxes</dt>
+                                        <dd x-text="montant(totalTaxes)"></dd>
+                                    </div>
+                                    @can('vente.remise')
+                                        <div x-show="remiseTotaleMontant > 0" x-cloak>
+                                            <dt>Remise totale</dt>
+                                            <dd x-text="'− ' + montant(remiseTotaleMontant)"></dd>
+                                        </div>
+                                    @endcan
+                                    <div class="panier-totaux__net">
+                                        <dt>Net à payer</dt>
+                                        <dd x-text="montant(totalNet)"></dd>
+                                    </div>
+                                </dl>
+                            </div>
                         </div>
                     </div>
 
                     @if ($devisTransformation)
-                        <div class="card mb-3">
+                        <div class="card border-0 shadow-sm mb-3">
                             <div class="card-body">
-                                <h3 class="h6">Client</h3>
+                                <h3 class="carte-titre__texte mb-3">Client</h3>
                                 <p class="mb-0">
                                     <a href="{{ route('clients.show', $devisTransformation->client) }}">{{ $devisTransformation->client->nom }}</a>
                                 </p>
@@ -271,9 +224,9 @@
                             </div>
                         </div>
                     @elseif (auth()->user()->can('vente.credit'))
-                        <div class="card mb-3">
+                        <div class="card border-0 shadow-sm mb-3">
                             <div class="card-body">
-                                <h3 class="h6">Client (vente à crédit)</h3>
+                                <h3 class="carte-titre__texte mb-3">Client (vente à crédit)</h3>
                                 <div class="d-flex gap-1">
                                     <select id="client-picker" class="form-select form-select-sm" x-model="clientId">
                                         <option value="">— Vente comptant (aucun client) —</option>
@@ -313,45 +266,43 @@
                         </div>
                     @endif
 
-                    <div class="card mb-3">
+                    <div class="card border-0 shadow-sm mb-3">
                         <div class="card-body">
-                            <h3 class="h6">Paiement</h3>
+                            <div class="carte-titre mb-3">
+                                <h3 class="carte-titre__texte">Paiement</h3>
+                            </div>
+
                             <template x-for="(paiement, index) in paiements" :key="index">
-                                <div class="row g-1 align-items-center mb-2">
-                                    <div class="col-5">
-                                        <select x-model="paiement.moyen_paiement_id" class="form-select form-select-sm"
-                                                :class="{ 'is-invalid': (Number(paiement.montant) || 0) > 0 && !paiement.moyen_paiement_id }">
-                                            <option value="">Moyen…</option>
-                                            @foreach ($moyensPaiement as $moyen)
-                                                <option value="{{ $moyen->id }}">{{ $moyen->nom }}</option>
-                                            @endforeach
-                                        </select>
-                                    </div>
-                                    <div class="col-4">
-                                        <input type="number" x-model.number="paiement.montant" min="0" class="form-control form-control-sm" placeholder="Montant">
-                                    </div>
-                                    <div class="col-2">
-                                        <button type="button" class="btn btn-sm btn-outline-secondary" @click="completerPaiement(index)" title="Compléter le solde restant">
-                                            <i class="bi bi-magic"></i>
-                                        </button>
-                                    </div>
-                                    <div class="col-1">
-                                        <button type="button" class="btn btn-sm btn-icon btn-outline-danger" @click="retirerPaiement(index)">
-                                            <i class="bi bi-x-lg"></i>
-                                        </button>
-                                    </div>
+                                <div class="paiement-ligne">
+                                    <select x-model="paiement.moyen_paiement_id" class="form-select" aria-label="Moyen de paiement"
+                                            :class="{ 'is-invalid': (Number(paiement.montant) || 0) > 0 && !paiement.moyen_paiement_id }">
+                                        <option value="">Moyen de paiement…</option>
+                                        @foreach ($moyensPaiement as $moyen)
+                                            <option value="{{ $moyen->id }}">{{ $moyen->nom }}</option>
+                                        @endforeach
+                                    </select>
+                                    <input type="number" x-model.number="paiement.montant" min="0" class="form-control" placeholder="Montant" aria-label="Montant">
+                                    <button type="button" class="btn btn-outline-secondary btn-icon" @click="completerPaiement(index)" title="Compléter le solde restant">
+                                        <i class="bi bi-magic"></i>
+                                        <span class="visually-hidden">Compléter le solde restant</span>
+                                    </button>
+                                    <button type="button" class="btn btn-icon btn-outline-danger" @click="retirerPaiement(index)" title="Retirer ce moyen de paiement"
+                                            x-show="paiements.length > 1">
+                                        <i class="bi bi-x-lg"></i>
+                                        <span class="visually-hidden">Retirer ce moyen de paiement</span>
+                                    </button>
                                 </div>
                             </template>
                             <button type="button" class="btn btn-sm btn-outline-primary" @click="ajouterPaiement()">
                                 <i class="bi bi-plus-lg"></i> Ajouter un moyen de paiement
                             </button>
 
-                            <div class="mt-2 small" :class="totalPaiements >= totalNet ? 'text-success' : (clientId ? 'text-warning' : 'text-danger')">
-                                Total réglé : <span x-text="totalPaiements"></span> F
-                                <span x-show="totalPaiements < totalNet"> (net à payer : <span x-text="totalNet"></span> F)</span>
+                            <div class="mt-3 fw-medium" :class="totalPaiements >= totalNet ? 'text-success' : (clientId ? 'text-warning' : 'text-danger')">
+                                Total réglé : <span x-text="montant(totalPaiements)"></span>
+                                <span x-show="totalPaiements < totalNet"> (net à payer : <span x-text="montant(totalNet)"></span>)</span>
                             </div>
                             <div class="mt-1 small fw-medium text-warning" x-show="clientId && totalPaiements < totalNet && !avoirDisponible" x-cloak>
-                                <i class="bi bi-credit-card me-1"></i>Solde à crédit : <span x-text="totalNet - totalPaiements"></span> F sur le compte du client.
+                                <i class="bi bi-credit-card me-1"></i>Solde à crédit : <span x-text="montant(totalNet - totalPaiements)"></span> sur le compte du client.
                             </div>
                             <div class="mt-1 small fw-medium" :class="resteApresAvoir > 0 ? 'text-warning' : 'text-success'"
                                  x-show="clientId && avoirDisponible > 0 && totalPaiements < totalNet" x-cloak>
@@ -363,8 +314,8 @@
                                     <span>Couvert par l'avoir du client (<span x-text="avoirUtiliseSurCetteVente + ' ' + window.DEVISE_ABREVIATION"></span>) — aucune dette ne sera créée.</span>
                                 </template>
                             </div>
-                            <div class="mt-1 small fw-medium text-primary" x-show="monnaieARendre > 0" x-cloak>
-                                <i class="bi bi-cash-coin me-1"></i>Monnaie à rendre : <span x-text="monnaieARendre"></span> F
+                            <div class="caisse__monnaie" x-show="monnaieARendre > 0" x-cloak>
+                                <i class="bi bi-cash-coin me-2"></i>Monnaie à rendre : <strong x-text="montant(monnaieARendre)"></strong>
                             </div>
                             <div class="mt-1 small text-danger" x-show="aUnPaiementSansMoyen" x-cloak>
                                 <i class="bi bi-exclamation-triangle-fill me-1"></i>Choisissez un moyen de paiement pour chaque montant saisi.
@@ -422,7 +373,7 @@
                                 // page).
                                 $gardeCredit = $devisTransformation ? \Illuminate\Support\Js::from(auth()->user()->can('vente.credit')) : 'clientId';
                             @endphp
-                            <button type="button" class="btn btn-primary w-100"
+                            <button type="button" class="btn btn-primary btn-lg w-100"
                                     :disabled="panier.length === 0 || (totalPaiements < totalNet && !({{ $gardeCredit }})) || aUnDoublon || aUneLigneNonChoisie || aUneSourceNonChoisie || aUneLigneEnRupture || aUnPaiementSansMoyen"
                                     @click="declencherFinalisation($event)"
                                     data-form-id="formVente"
@@ -463,8 +414,16 @@
                     @endcan
                     @endunless
                 </div>
-            </div>
+            </aside>
         </div>
+
+        {{-- Téléphone et tablette : le panier est sous les produits. Ce rappel
+             fixé en bas d'écran dit où il en est et y conduit. --}}
+        <a href="#panier" class="caisse__rappel" x-show="panier.length > 0" x-cloak>
+            <span><i class="bi bi-cart3 me-2"></i><span x-text="panier.length + (panier.length > 1 ? ' lignes' : ' ligne')"></span></span>
+            <strong x-text="montant(totalNet)"></strong>
+            <span class="caisse__rappel-lien">Voir le panier<i class="bi bi-arrow-down ms-1"></i></span>
+        </a>
     </div>
 
     @can('client.gerer')
@@ -475,7 +434,6 @@
 @push('scripts')
     <script>
         document.addEventListener('DOMContentLoaded', () => {
-            window.initSelect2('#produit-picker', { placeholder: '— Rechercher un produit à ajouter —' });
             if (document.getElementById('client-picker')) {
                 window.initSelect2('#client-picker', { placeholder: '— Vente comptant (aucun client) —', allowClear: true });
             }
