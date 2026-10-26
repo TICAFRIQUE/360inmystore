@@ -70,6 +70,30 @@ $dropdown-border-color: $border-color;
 $dropdown-link-hover-bg: #f2f4f7;
 $dropdown-item-padding-y: 0.4rem;
 
+// Couleurs « douces » (fond teinté, bordure, texte foncé) des alertes et des
+// badges : la couleur dit le sens du message — vert, c'est fait ; ambre, il
+// faut agir ; rouge, c'est refusé ou bloquant ; cyan, une information.
+// Bootstrap les déduit de la couleur pleine en l'éclaircissant : avec un ambre
+// et un rouge foncés, cela donnait un beige et un rose grisés, tous presque
+// pareils. Chaque teinte est donc fixée ici, franche et lisible (texte ≥ 7:1
+// sur son fond). La primaire n'y figure pas : elle est personnalisable (voir
+// partials/couleur-primaire.blade.php).
+$success-bg-subtle: #dcfce7;
+$success-border-subtle: #86efac;
+$success-text-emphasis: #14532d;
+$info-bg-subtle: #cffafe;
+$info-border-subtle: #67e8f9;
+$info-text-emphasis: #164e63;
+$warning-bg-subtle: #fef3c7;
+$warning-border-subtle: #fcd34d;
+$warning-text-emphasis: #78350f;
+$danger-bg-subtle: #fee2e2;
+$danger-border-subtle: #fca5a5;
+$danger-text-emphasis: #7f1d1d;
+$secondary-bg-subtle: #f1f5f9;
+$secondary-border-subtle: #cbd5e1;
+$secondary-text-emphasis: #334155;
+
 @import 'bootstrap/scss/bootstrap';
 @import 'bootstrap-icons/font/bootstrap-icons.css';
 
@@ -2813,4 +2837,134 @@ $reglement-end-hover: #5b21b6;
     width: 1px;
     height: 1px;
     overflow: hidden;
+
+// Badge « doux » (badge-doux-success, -warning…) : fond teinté, bordure et
+// texte foncé de la même couleur que le sens du statut — se lit mieux qu'un
+// badge plein, et ne crie pas plus fort que le contenu de la page.
+@each $ton in (primary, secondary, success, info, warning, danger) {
+    .badge-doux-#{$ton} {
+        color: var(--bs-#{$ton}-text-emphasis);
+        background-color: var(--bs-#{$ton}-bg-subtle);
+        border: 1px solid var(--bs-#{$ton}-border-subtle);
+    }
+}
+
+// Détail d'un devis : titre et statut à gauche, actions à droite — une seule
+// rangée de boutons de même taille, qui passe sous le titre sur téléphone
+// avec l'action principale en pleine largeur.
+.devis-entete {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem 1rem;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: 1rem;
+}
+
+.devis-entete__titre {
+    display: flex;
+    gap: 0.75rem;
+    align-items: flex-start;
+}
+
+.devis-entete__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    align-items: center;
+
+    @include media-breakpoint-down(sm) {
+        width: 100%;
+
+        // L'action principale (transformer en vente) prend toute la ligne.
+        .devis-entete__principale,
+        .devis-entete__principale > .btn {
+            flex: 1 1 100%;
+            width: 100%;
+        }
+    }
+}
+
+// Client, création, validité, total : une carte basse en colonnes.
+.devis-infos {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem 1.5rem;
+
+    @include media-breakpoint-up(md) {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+}
+
+.devis-infos__libelle {
+    margin-bottom: 0.125rem;
+    font-size: 0.8125rem;
+    color: $secondary;
+}
+
+// Écran de vente : le bloc de validation (ce qui reste à corriger, « Vendre »,
+// « Mettre en attente ») reste collé en bas de la fenêtre dès que le panier
+// est à l'écran, pour que le bouton principal soit toujours visible, quelle
+// que soit la longueur du panier. Sur téléphone, le rappel du panier fixé en
+// bas s'efface alors (voir ventes/create) pour ne pas le recouvrir.
+.caisse__validation {
+    position: sticky;
+    bottom: 0;
+    z-index: 2;
+    padding: 0.75rem 0 1rem;
+    margin-top: -0.25rem;
+    background: linear-gradient(to bottom, rgba($body-bg, 0) 0, $body-bg 0.75rem);
+}
+
+// « Vendre » : le bouton principal de l'écran — vert (encaisser), plus haut
+// que tous les autres, avec le montant à payer écrit dessus.
+.btn-vendre {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+    // Centré tant que le panier est vide ; le libellé à gauche et le montant
+    // à droite dès qu'il y a un montant (voir :class dans ventes/create).
+    justify-content: center;
+    min-height: 3.5rem;
+    padding: 0.75rem 1.25rem;
+    font-size: 1.0625rem;
+    font-weight: 600;
+    box-shadow: 0 0.5rem 1.25rem rgba($success, 0.28);
+
+    &:disabled {
+        box-shadow: none;
+    }
+}
+
+.btn-vendre__montant {
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+// « Mettre en attente » : action secondaire de l'écran de vente — ambre doux
+// (une pause, pas une validation), assez grand pour se viser facilement mais
+// nettement plus discret que « Vendre ».
+.attente-groupe {
+    > .form-control,
+    > .btn {
+        min-height: 2.75rem;
+    }
+}
+
+.btn-attente {
+    --bs-btn-color: #{$warning-text-emphasis};
+    --bs-btn-bg: #{$warning-bg-subtle};
+    --bs-btn-border-color: #{$warning-border-subtle};
+    --bs-btn-hover-color: #{$warning-text-emphasis};
+    --bs-btn-hover-bg: #fde68a;
+    --bs-btn-hover-border-color: #fbbf24;
+    --bs-btn-active-color: #{$warning-text-emphasis};
+    --bs-btn-active-bg: #fcd34d;
+    --bs-btn-active-border-color: #f59e0b;
+    --bs-btn-disabled-color: #{$warning-text-emphasis};
+    --bs-btn-disabled-bg: #{$warning-bg-subtle};
+    --bs-btn-disabled-border-color: #{$warning-border-subtle};
+    padding-inline: 1rem;
+    font-weight: 500;
+    white-space: nowrap;
 }

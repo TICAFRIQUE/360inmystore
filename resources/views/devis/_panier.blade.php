@@ -29,7 +29,7 @@
                     </div>
                     <span class="panier-ligne__total" x-text="montant(totalLigne(ligne))"></span>
                     <button type="button" class="btn btn-sm btn-icon btn-outline-danger flex-shrink-0" @click="retirerLigne(index)" title="Retirer du devis">
-                        <i class="bi bi-x-lg"></i>
+                        <i class="bi bi-trash"></i>
                         <span class="visually-hidden">Retirer du devis</span>
                     </button>
                 </div>

@@ -1,5 +1,5 @@
 {{-- Catalogue en vignettes, partagé par l'écran de caisse et le devis :
-     recherche (nom, référence, code-barres), catégories à flèches de
+     recherche « commence par » (nom, référence, code-barres), catégories à flèches de
      défilement, vignettes dessinées par paquets. La logique est dans
      avecCatalogue (resources/js/app.js) ; le composant Alpine parent fournit
      produits, panier et ce qui ajoute une ligne. $produits : le catalogue,

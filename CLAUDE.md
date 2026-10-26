@@ -961,6 +961,23 @@ qui achètent **à crédit** sur compte client, réglé plus tard.
   sort par `ExporteListe::telechargerTableur()`, y compris ceux qui construisent leur
   propre classeur.
 - Feedback explicite (toasts), sentence case, responsive (menu coulissant sur mobile).
+- **Alertes et badges : la couleur dit le sens** — vert, c'est fait ; ambre, il faut
+  agir ; rouge, c'est refusé ou bloquant ; cyan, une information. Les teintes douces
+  (fond, bordure, texte foncé) sont fixées dans `resources/sass/app.scss`
+  (`$success-bg-subtle`… avant l'import de Bootstrap) plutôt que déduites de la
+  couleur pleine, qui donnait des beiges et roses grisés indistincts. Un statut
+  s'affiche en **badge doux** (`badge-doux-{success|warning|danger|info|secondary}`),
+  comme ceux des devis (`DevisStatut::classeBadge()`).
+- **Détail d'un devis** (`devis/show.blade.php`) : une seule rangée de boutons de même
+  taille, de la moins engageante à la principale — menu « Document » (imprimer, PDF,
+  Excel), « Modifier », menu « … » qui range « Refuser / annuler » (irréversible, avec
+  confirmation), puis « Transformer en vente », pleine largeur sur téléphone. Ce bouton
+  n'est **jamais désactivé pour un manque de stock** : la transformation ouvre l'écran
+  de vente avec le panier du devis, où les quantités se corrigent avant d'encaisser —
+  l'alerte « Stock insuffisant » dit seulement quelles lignes ajuster. Une alerte par
+  état (expiré, refusé, transformé, validité qui s'achève sous 3 jours, stock
+  insuffisant). Un devis déjà refusé ne se
+  refuse plus (`Devis::peutEtreAnnule()` : brouillon uniquement).
 - **Jamais d'impasse sur une page vide.** Un commerce qui démarre n'a ni magasin, ni
   caisse, ni produit. Tant qu'il reste une étape avant la première vente, le tableau
   de bord affiche le guide « Mise en route » (`App\Support\PremiersPas`, étapes
@@ -975,12 +992,22 @@ qui achètent **à crédit** sur compte client, réglé plus tard.
   **un seul morceau de JavaScript** (`avecCatalogue`, posé sur les deux composants) —
   jamais une copie par écran. Sur un devis, aucune vignette n'est bloquée par le stock
   (un devis ne mouvemente rien) et la ligne rappelle le stock de chaque lieu. À la
-  caisse : produits en **vignettes** à gauche (recherche sans accents
-  sur nom, référence et code-barres ; filtre par catégorie, sur une rangée à flèches
+  caisse : produits en **vignettes** à gauche (recherche **« commence par »**, jamais
+  « contient », sans accents ni casse — taper « b » montre tous les produits dont le
+  nom commence par B, puis ceux dont le libellé distinctif commence par B ; la
+  référence et le code-barres ne comptent que si la saisie contient un chiffre ;
+  même règle que les sélecteurs de produit, `matcherCommencePar` ; filtre par
+  catégorie, sur une rangée à flèches
   de défilement — `rangeeDefilante`, une flèche seulement du côté où il reste des
   catégories ; au plus 36 vignettes
   dessinées d'un coup, la suite à la demande), panier et encaissement à droite ; sous
-  lg les colonnes s'empilent et un rappel du panier reste fixé en bas d'écran. La
+  lg les colonnes s'empilent et un rappel du panier reste fixé en bas d'écran.
+  **« Vendre » est le bouton principal** : vert, plus haut que tous les autres, le
+  montant à payer écrit dessus, dans un bloc de validation (`.caisse__validation`,
+  avec ce qui reste à corriger et la ligne compacte « Mettre en attente ») collé en
+  bas de la fenêtre dès que le panier est à l'écran — jamais à chercher en bas d'un
+  long panier. Le rappel mobile s'efface quand ce bloc est visible, pour ne pas le
+  couvrir. En transformation de devis, le même bouton dit « Transformer en vente ». La
   touche Entrée ajoute directement une référence ou un code-barres exact (douchette).
   Un produit qui n'a **qu'une seule unité possible** (son unité de base) reçoit cette
   unité d'office et un second clic augmente sa quantité ; le **lieu de prélèvement
