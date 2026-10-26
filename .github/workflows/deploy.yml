@@ -3,7 +3,7 @@ name: Tests et déploiement
 # Les tests tournent à chaque push, sur toutes les branches. La mise en
 # production, elle, ne part JAMAIS d'un push : uniquement à la demande, depuis
 # GitHub (Actions → « Tests et déploiement » → « Run workflow »), et seulement
-# pour une branche de la version installée (voir le job « deploy »).
+# depuis la branche mono_client (voir le job « deploy »).
 on:
   push:
   workflow_dispatch: {}
@@ -57,9 +57,13 @@ jobs:
     needs: test
     runs-on: ubuntu-latest
     environment: PRODUCTION
-    # Lancement manuel uniquement, et jamais depuis la branche SaaS
-    # (multi-tenant) : cet hébergement accueille la version installée.
-    if: github.event_name == 'workflow_dispatch' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/mono_client')
+    # Lancement manuel uniquement, et seulement depuis mono_client : cet
+    # hébergement accueille la version installée. Ni multi-tenant (la
+    # plateforme SaaS, mise à jour à la main sur son serveur, voir
+    # PLATEFORME.md), ni main, restée sur une ancienne version — la déployer
+    # remettrait du vieux code en production. Lancé depuis une autre branche,
+    # le workflow ne fait que les tests (job « deploy » ignoré).
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/mono_client'
     steps:
       # ── 1. Récupérer le code ─────────────────────────────────────────
       - name: Checkout
