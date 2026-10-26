@@ -28,13 +28,18 @@ enum DevisStatut: string
         };
     }
 
+    /**
+     * La couleur dit le sens : en cours (cyan), transformé (vert), refusé
+     * (rouge), expiré — il faut en refaire un (ambre). Badge « doux », voir
+     * .badge-doux-* dans resources/sass/app.scss.
+     */
     public function classeBadge(): string
     {
         return match ($this) {
-            self::Brouillon => 'text-bg-secondary',
-            self::Refuse => 'text-bg-danger',
-            self::Transforme => 'text-bg-success',
-            self::Expire => 'text-bg-dark',
+            self::Brouillon => 'badge-doux-info',
+            self::Refuse => 'badge-doux-danger',
+            self::Transforme => 'badge-doux-success',
+            self::Expire => 'badge-doux-warning',
         };
     }
 }

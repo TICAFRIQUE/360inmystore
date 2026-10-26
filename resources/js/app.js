@@ -179,18 +179,35 @@ function avecCatalogue(composant, { disponible }) {
             return [...new Set(this.produits.map((p) => p.categorie).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'fr'));
         },
 
-        // Tous les mots saisis doivent se retrouver dans le nom, la référence,
-        // le code-barres ou la catégorie — sans tenir compte des accents ni
-        // de la casse (« cable » trouve « Câble »).
+        // « Commence par », pas « contient » — comme les sélecteurs de produit
+        // (matcherCommencePar) : taper « b » montre tous les produits dont le
+        // nom commence par B, puis ceux dont seul le libellé distinctif
+        // commence par B. La référence et le code-barres ne comptent que si la
+        // saisie contient un chiffre : sinon taper « p » ramènerait tout le
+        // catalogue par ses références « PRD-… ». Sans tenir compte des
+        // accents ni de la casse (« cable » trouve « Câble »). Dans chaque
+        // groupe, l'ordre du catalogue (alphabétique) est gardé.
         get produitsFiltres() {
-            const mots = sansAccents(this.recherche).split(' ').filter(Boolean);
+            const saisie = sansAccents(this.recherche).replace(/\s+/g, ' ');
+            const produits = this.categorieChoisie
+                ? this.produits.filter((p) => p.categorie === this.categorieChoisie)
+                : this.produits;
 
-            return this.produits.filter((p) => {
-                if (this.categorieChoisie && p.categorie !== this.categorieChoisie) return false;
-                if (!mots.length) return true;
-                const cible = sansAccents([p.libelle_affichage, p.sku, p.code_barre, p.categorie].filter(Boolean).join(' '));
-                return mots.every((mot) => cible.includes(mot));
-            });
+            if (!saisie) return produits;
+
+            const chercheUnCode = /\d/.test(saisie);
+            const rang = (p) => {
+                if (sansAccents(p.nom).startsWith(saisie)) return 0;
+                if (sansAccents(p.libelle_distinctif).startsWith(saisie)) return 1;
+                if (chercheUnCode && [p.sku, p.code_barre].some((code) => sansAccents(code).startsWith(saisie))) return 2;
+                return null;
+            };
+
+            return produits
+                .map((p) => ({ p, rang: rang(p) }))
+                .filter(({ rang }) => rang !== null)
+                .sort((a, b) => a.rang - b.rang)
+                .map(({ p }) => p);
         },
 
         // Jamais tout le catalogue à l'écran : seules les premières vignettes
@@ -343,14 +360,14 @@ window.posApp = function (produits, panierInitial = [], libelleInitial = '', cli
 
         get messageConfirmationVente() {
             if (!this.clientId || this.totalPaiements >= this.totalNet) {
-                return 'Finaliser cette vente ? Le stock sera mis à jour et le paiement enregistré. Cette action est irréversible.';
+                return 'Enregistrer cette vente ? Le stock sera mis à jour et le paiement enregistré. Cette action est irréversible.';
             }
             if (this.avoirUtiliseSurCetteVente > 0) {
                 return this.resteApresAvoir > 0
-                    ? `Finaliser cette vente à crédit ? ${this.avoirUtiliseSurCetteVente} F seront couverts par l'avoir du client, il restera ${this.resteApresAvoir} F de solde à crédit sur son compte. Cette action est irréversible.`
-                    : `Finaliser cette vente ? Elle sera entièrement couverte par l'avoir du client (${this.avoirUtiliseSurCetteVente} F), aucune dette ne sera créée. Cette action est irréversible.`;
+                    ? `Enregistrer cette vente à crédit ? ${this.avoirUtiliseSurCetteVente} F seront couverts par l'avoir du client, il restera ${this.resteApresAvoir} F de solde à crédit sur son compte. Cette action est irréversible.`
+                    : `Enregistrer cette vente ? Elle sera entièrement couverte par l'avoir du client (${this.avoirUtiliseSurCetteVente} F), aucune dette ne sera créée. Cette action est irréversible.`;
             }
-            return 'Finaliser cette vente à crédit ? Le stock sera mis à jour et le solde restant sera porté au compte du client. Cette action est irréversible.';
+            return 'Enregistrer cette vente à crédit ? Le stock sera mis à jour et le solde restant sera porté au compte du client. Cette action est irréversible.';
         },
 
         // Lieu de prélèvement du stock, par ligne (voir CLAUDE.md — un

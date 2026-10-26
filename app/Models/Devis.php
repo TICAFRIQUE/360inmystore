@@ -87,9 +87,14 @@ class Devis extends Model
         return $this->statutEffectif() === DevisStatut::Brouillon;
     }
 
+    /**
+     * Un devis encore en brouillon (expiré compris) peut être refusé ; un
+     * devis transformé reste intouchable, et un devis déjà refusé n'a plus
+     * rien à refuser.
+     */
     public function peutEtreAnnule(): bool
     {
-        return $this->statut !== DevisStatut::Transforme;
+        return $this->statut === DevisStatut::Brouillon;
     }
 
     /**

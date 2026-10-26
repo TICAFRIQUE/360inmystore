@@ -85,7 +85,7 @@
                                         </div>
                                         <span class="panier-ligne__total" x-text="montant(totalLigne(ligne))"></span>
                                         <button type="button" class="btn btn-sm btn-icon btn-outline-danger flex-shrink-0" @click="retirerLigne(index)" title="Retirer du panier">
-                                            <i class="bi bi-x-lg"></i>
+                                            <i class="bi bi-trash"></i>
                                             <span class="visually-hidden">Retirer du panier</span>
                                         </button>
                                     </div>
@@ -288,7 +288,7 @@
                                     </button>
                                     <button type="button" class="btn btn-icon btn-outline-danger" @click="retirerPaiement(index)" title="Retirer ce moyen de paiement"
                                             x-show="paiements.length > 1">
-                                        <i class="bi bi-x-lg"></i>
+                                        <i class="bi bi-trash"></i>
                                         <span class="visually-hidden">Retirer ce moyen de paiement</span>
                                     </button>
                                 </div>
@@ -323,6 +323,11 @@
                         </div>
                     </div>
 
+                    {{-- Validation : ce qui reste à corriger, puis « Vendre », le
+                         bouton principal de l'écran. Sur grand écran ce bloc reste
+                         collé en bas de la fenêtre, visible quelle que soit la
+                         longueur du panier. --}}
+                    <div class="caisse__validation">
                     <div class="text-danger small mb-2" x-show="aUneLigneNonChoisie" x-cloak>
                         <i class="bi bi-exclamation-triangle-fill me-1"></i>Choisissez une unité pour chaque ligne du panier.
                     </div>
@@ -373,13 +378,15 @@
                                 // page).
                                 $gardeCredit = $devisTransformation ? \Illuminate\Support\Js::from(auth()->user()->can('vente.credit')) : 'clientId';
                             @endphp
-                            <button type="button" class="btn btn-primary btn-lg w-100"
+                            <button type="button" class="btn btn-success btn-vendre w-100"
+                                    :class="{ 'justify-content-between': panier.length > 0 }"
                                     :disabled="panier.length === 0 || (totalPaiements < totalNet && !({{ $gardeCredit }})) || aUnDoublon || aUneLigneNonChoisie || aUneSourceNonChoisie || aUneLigneEnRupture || aUnPaiementSansMoyen"
                                     @click="declencherFinalisation($event)"
                                     data-form-id="formVente"
                                     :data-message="messageConfirmationVente"
-                                    data-button-label="Finaliser la vente" data-button-class="btn-primary">
-                                <i class="bi bi-check-circle me-1"></i>{{ $devisTransformation ? 'Transformer en vente' : 'Finaliser la vente' }}
+                                    data-button-label="{{ $devisTransformation ? 'Transformer en vente' : 'Vendre' }}" data-button-class="btn-success">
+                                <span><i class="bi bi-check-circle me-2"></i>{{ $devisTransformation ? 'Transformer en vente' : 'Vendre' }}</span>
+                                <span class="btn-vendre__montant" x-show="panier.length > 0" x-text="montant(totalNet)"></span>
                             </button>
                         </form>
                     </div>
@@ -400,26 +407,33 @@
                                     </span>
                                 </template>
                                 <input type="hidden" name="client_id" :value="clientId">
-                                <input type="text" name="libelle" x-model="libelleAttente" class="form-control form-control-sm mb-2" placeholder="Note (optionnel, ex. « Client au téléphone »)">
-                                <button type="button" class="btn btn-outline-secondary w-100"
+                                <div class="input-group attente-groupe">
+                                <input type="text" name="libelle" x-model="libelleAttente" class="form-control" placeholder="Note (optionnel)" aria-label="Note de la vente en attente">
+                                <button type="button" class="btn btn-attente"
                                         :disabled="panier.length === 0 || aUnDoublon || aUneLigneNonChoisie"
                                         @click="declencherMiseEnAttente($event)"
                                         data-form-id="formAttente"
                                         data-message="Mettre ce panier en attente ? Vous pourrez le reprendre plus tard depuis « Ventes en attente »."
-                                        data-button-label="Mettre en attente" data-button-class="btn-outline-secondary">
+                                        data-button-label="Mettre en attente" data-button-class="btn-attente">
                                     <i class="bi bi-hourglass-split me-1"></i>Mettre en attente
                                 </button>
+                                </div>
                             </form>
                         </div>
                     @endcan
                     @endunless
+                    </div>
                 </div>
             </aside>
         </div>
 
         {{-- Téléphone et tablette : le panier est sous les produits. Ce rappel
-             fixé en bas d'écran dit où il en est et y conduit. --}}
-        <a href="#panier" class="caisse__rappel" x-show="panier.length > 0" x-cloak>
+             fixé en bas d'écran dit où il en est et y conduit ; il s'efface
+             quand le bouton « Vendre » est à l'écran, pour ne pas le couvrir. --}}
+        <a href="#panier" class="caisse__rappel" x-cloak
+           x-data="{ validationVisible: false }"
+           x-init="new IntersectionObserver(([entree]) => validationVisible = entree.isIntersecting).observe(document.querySelector('.caisse__validation'))"
+           x-show="panier.length > 0 && ! validationVisible">
             <span><i class="bi bi-cart3 me-2"></i><span x-text="panier.length + (panier.length > 1 ? ' lignes' : ' ligne')"></span></span>
             <strong x-text="montant(totalNet)"></strong>
             <span class="caisse__rappel-lien">Voir le panier<i class="bi bi-arrow-down ms-1"></i></span>

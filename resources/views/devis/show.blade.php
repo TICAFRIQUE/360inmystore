@@ -3,26 +3,36 @@
 @section('title', "Devis {$devis->numero}")
 
 @section('content')
-    <div class="d-flex flex-column flex-md-row justify-content-between align-items-start gap-2 mb-3 d-print-none">
-        <div>
-            <div class="d-flex align-items-center gap-2">
-                <x-bouton-retour :route="route('devis.index')" />
-                <h2 class="h4 mb-0">Devis <code>{{ $devis->numero }}</code></h2>
+    @php
+        $statut = $devis->statutEffectif();
+        $joursRestants = (int) now()->startOfDay()->diffInDays($devis->date_validite->copy()->startOfDay(), false);
+        $peutTransformer = $devis->peutEtreTransforme();
+        $stockManquant = $lignesEnRupture->isNotEmpty();
+    @endphp
+
+    {{-- En-tête : le titre et son statut à gauche ; à droite les actions,
+         de la moins engageante à la principale — documents (un seul menu),
+         modifier, puis transformer en vente. Refuser / annuler, irréversible,
+         est rangé dans le menu « Plus » pour ne pas être cliqué par erreur. --}}
+    <div class="devis-entete d-print-none">
+        <div class="devis-entete__titre">
+            <x-bouton-retour :route="route('devis.index')" />
+            <div>
+                <h2 class="h4 mb-1">Devis {{ $devis->numero }}</h2>
+                <span class="badge {{ $statut->classeBadge() }}">{{ $statut->libelle() }}</span>
             </div>
-            <span class="badge {{ $devis->statutEffectif()->classeBadge() }}">{{ $devis->statutEffectif()->libelle() }}</span>
         </div>
 
-        <div class="d-flex flex-wrap gap-2">
-            <div class="btn-group">
-                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="imprimerDevis()">
-                    <i class="bi bi-printer me-1"></i>Imprimer
+        <div class="devis-entete__actions">
+            <div class="dropdown">
+                <button type="button" class="btn btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                    <i class="bi bi-file-earmark-text me-1"></i>Document
                 </button>
-                <a href="{{ route('devis.pdf', $devis) }}" class="btn btn-sm btn-outline-secondary">
-                    <i class="bi bi-file-earmark-pdf me-1"></i>PDF
-                </a>
-                <a href="{{ route('devis.excel', $devis) }}" class="btn btn-sm btn-outline-secondary">
-                    <i class="bi bi-file-earmark-excel me-1"></i>Excel
-                </a>
+                <ul class="dropdown-menu dropdown-menu-end">
+                    <li><x-bouton-imprimer :pdf-route="route('devis.pdf', $devis)" dans-menu /></li>
+                    <li><a href="{{ route('devis.pdf', $devis) }}" class="dropdown-item"><i class="bi bi-file-earmark-pdf me-2"></i>Télécharger en PDF</a></li>
+                    <li><a href="{{ route('devis.excel', $devis) }}" class="dropdown-item"><i class="bi bi-file-earmark-excel me-2"></i>Télécharger en Excel</a></li>
+                </ul>
             </div>
 
             @can('devis.gerer')
@@ -32,21 +42,38 @@
                     </a>
                 @endif
                 @if ($devis->peutEtreAnnule())
-                    <x-confirm-button :action="route('devis.annuler', $devis)"
-                        message="Refuser / annuler ce devis ? Il ne pourra plus être transformé en vente."
-                        button-label="Refuser / annuler" button-class="btn-outline-danger" icon="bi-x-circle" />
+                    <div class="dropdown">
+                        <button type="button" class="btn btn-outline-secondary" data-bs-toggle="dropdown" aria-expanded="false" title="Plus d'actions">
+                            <i class="bi bi-three-dots"></i><span class="visually-hidden">Plus d'actions</span>
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <li>
+                                <button type="button" class="dropdown-item text-danger"
+                                        data-bs-toggle="modal" data-bs-target="#confirmActionModal"
+                                        data-form-id="form-annuler-devis"
+                                        data-message="Refuser / annuler ce devis ? Il ne pourra plus être modifié ni transformé en vente."
+                                        data-button-label="Refuser / annuler" data-button-class="btn-danger">
+                                    <i class="bi bi-x-circle me-2"></i>Refuser / annuler le devis
+                                </button>
+                            </li>
+                        </ul>
+                    </div>
                 @endif
             @endcan
 
             @can('devis.transformer')
-                @if ($devis->peutEtreTransforme())
+                @if ($peutTransformer)
+                    {{-- Jamais désactivé, même si du stock manque : la
+                         transformation ouvre l'écran de vente avec le panier
+                         du devis, où les quantités se corrigent avant
+                         d'encaisser (l'alerte ci-dessous dit lesquelles). --}}
                     @if ($sessionOuverte)
-                        <a href="{{ route('devis.transformer.form', [$sessionOuverte, $devis]) }}" class="btn btn-success">
+                        <a href="{{ route('devis.transformer.form', [$sessionOuverte, $devis]) }}" class="btn btn-primary devis-entete__principale">
                             <i class="bi bi-arrow-repeat me-1"></i>Transformer en vente
                         </a>
                     @else
-                        <a href="{{ route('sessions.index') }}" class="btn btn-outline-success" title="Ouvrez une session de caisse pour transformer ce devis">
-                            <i class="bi bi-arrow-repeat me-1"></i>Ouvrir une caisse pour transformer
+                        <a href="{{ route('sessions.index') }}" class="btn btn-outline-primary devis-entete__principale">
+                            <i class="bi bi-cash-coin me-1"></i>Ouvrir une caisse pour transformer
                         </a>
                     @endif
                 @endif
@@ -54,60 +81,90 @@
         </div>
     </div>
 
-    @if ($devis->statutEffectif() === \App\Enums\DevisStatut::Expire)
-        <div class="alert alert-dark d-print-none">
-            <i class="bi bi-clock-history me-1"></i>
-            Ce devis a expiré le {{ $devis->date_validite->format('d/m/Y') }} et ne peut plus être transformé. Dupliquez-en un nouveau si besoin.
-        </div>
+    @if ($devis->peutEtreAnnule())
+        <form id="form-annuler-devis" method="POST" action="{{ route('devis.annuler', $devis) }}" class="d-none">@csrf</form>
     @endif
 
-    @if ($devis->statut === \App\Enums\DevisStatut::Transforme && $devis->vente)
-        <div class="alert alert-success d-print-none">
-            <i class="bi bi-check-circle-fill me-1"></i>
-            Transformé en vente le {{ $devis->transforme_at->format('d/m/Y à H:i') }} —
-            <a href="{{ route('ventes.ticket', $devis->vente) }}">voir le ticket {{ $devis->vente->numero }}</a>.
-        </div>
-    @endif
-
-    @if ($lignesEnRupture->isNotEmpty())
-        <div class="alert alert-warning d-print-none">
-            <i class="bi bi-exclamation-triangle-fill me-1"></i>
-            Stock insuffisant pour {{ $lignesEnRupture->count() > 1 ? 'ces produits' : 'ce produit' }} (toutes localisations confondues) —
-            le devis ne peut pas être transformé en vente en l'état.
-            <ul class="mb-0 mt-1">
-                @foreach ($lignesEnRupture as $etat)
-                    <li>
-                        {{ $etat['ligne']->produit->libelle_affichage }} :
-                        {{ $etat['demande'] }} pièce(s) demandée(s), {{ $etat['disponible'] }} disponible(s)
-                    </li>
-                @endforeach
-            </ul>
-        </div>
-    @endif
-
-    <div class="row g-3 mb-3 d-print-none">
-        <div class="col-md-4">
-            <div class="card h-100">
-                <div class="card-body">
-                    <div class="text-secondary small">Client</div>
-                    <div class="fw-medium"><a href="{{ route('clients.show', $devis->client) }}">{{ $devis->client->nom }}</a></div>
-                </div>
+    {{-- Alertes : la couleur dit le sens — vert, c'est fait ; ambre, il faut
+         agir ; rouge, c'est terminé sans suite ; bleu, une information. --}}
+    @if ($statut === \App\Enums\DevisStatut::Expire)
+        <div class="alert alert-warning d-flex gap-2 align-items-start d-print-none">
+            <i class="bi bi-clock-history fs-5 lh-1"></i>
+            <div>
+                <strong>Devis expiré</strong> depuis le {{ $devis->date_validite->format('d/m/Y') }} : il ne peut plus être transformé en vente.
+                @can('devis.gerer')
+                    <a href="{{ route('devis.create') }}" class="alert-link ms-1">Créer un nouveau devis</a>
+                @endcan
             </div>
         </div>
-        <div class="col-md-4">
-            <div class="card h-100">
-                <div class="card-body">
-                    <div class="text-secondary small">Créé le</div>
-                    <div class="fw-medium">{{ $devis->created_at->format('d/m/Y') }} par {{ $devis->auteur->name }}</div>
-                </div>
+    @elseif ($statut === \App\Enums\DevisStatut::Refuse)
+        <div class="alert alert-danger d-flex gap-2 align-items-start d-print-none">
+            <i class="bi bi-x-circle fs-5 lh-1"></i>
+            <div><strong>Devis refusé / annulé</strong> : il ne peut plus être modifié ni transformé en vente.</div>
+        </div>
+    @elseif ($statut === \App\Enums\DevisStatut::Transforme && $devis->vente)
+        <div class="alert alert-success d-flex gap-2 align-items-start d-print-none">
+            <i class="bi bi-check-circle fs-5 lh-1"></i>
+            <div>
+                <strong>Transformé en vente</strong> le {{ $devis->transforme_at->format('d/m/Y à H:i') }} —
+                <a href="{{ route('ventes.ticket', $devis->vente) }}" class="alert-link">voir le ticket {{ $devis->vente->numero }}</a>
             </div>
         </div>
-        <div class="col-md-4">
-            <div class="card h-100">
-                <div class="card-body">
-                    <div class="text-secondary small">Valide jusqu'au</div>
-                    <div class="fw-medium">{{ $devis->date_validite->format('d/m/Y') }}</div>
-                </div>
+    @elseif ($peutTransformer && $joursRestants <= 3)
+        <div class="alert alert-info d-flex gap-2 align-items-start d-print-none">
+            <i class="bi bi-hourglass-split fs-5 lh-1"></i>
+            <div>
+                <strong>{{ $joursRestants <= 0 ? 'Dernier jour de validité' : 'Plus que '.$joursRestants.' jour'.($joursRestants > 1 ? 's' : '').' de validité' }}</strong> :
+                après le {{ $devis->date_validite->format('d/m/Y') }}, ce devis ne pourra plus être transformé en vente.
+            </div>
+        </div>
+    @endif
+
+    @if ($stockManquant)
+        <div class="alert alert-warning d-flex gap-2 align-items-start d-print-none">
+            <i class="bi bi-exclamation-triangle fs-5 lh-1"></i>
+            <div>
+                <strong>Stock insuffisant</strong> pour {{ $lignesEnRupture->count() > 1 ? 'ces produits' : 'ce produit' }}, tous lieux confondus :
+                le devis ne peut pas être vendu tel quel. En le transformant, ajustez ou retirez
+                {{ $lignesEnRupture->count() > 1 ? 'ces lignes' : 'cette ligne' }} sur l'écran de vente avant d'encaisser.
+                <ul class="mb-0 mt-1 ps-3">
+                    @foreach ($lignesEnRupture as $etat)
+                        <li>
+                            {{ $etat['ligne']->produit->libelle_affichage }} :
+                            {{ $etat['demande'] }} demandé{{ $etat['demande'] > 1 ? 's' : '' }}, {{ $etat['disponible'] }} disponible{{ $etat['disponible'] > 1 ? 's' : '' }}
+                        </li>
+                    @endforeach
+                </ul>
+            </div>
+        </div>
+    @endif
+
+    {{-- Client, création, validité, total : une seule carte basse plutôt que trois. --}}
+    <div class="card mb-3 d-print-none">
+        <div class="card-body devis-infos">
+            <div>
+                <div class="devis-infos__libelle">Client</div>
+                <a href="{{ route('clients.show', $devis->client) }}" class="fw-medium">{{ $devis->client->nom }}</a>
+                @if ($devis->client->telephone)
+                    <div class="small text-secondary">{{ telephone($devis->client->telephone) }}</div>
+                @endif
+            </div>
+            <div>
+                <div class="devis-infos__libelle">Créé le</div>
+                <div class="fw-medium">{{ $devis->created_at->format('d/m/Y') }}</div>
+                <div class="small text-secondary">par {{ $devis->auteur->name }}</div>
+            </div>
+            <div>
+                <div class="devis-infos__libelle">Valide jusqu'au</div>
+                <div class="fw-medium">{{ $devis->date_validite->format('d/m/Y') }}</div>
+                @if ($peutTransformer)
+                    <div class="small text-secondary">{{ $joursRestants <= 0 ? "Aujourd'hui" : 'Encore '.$joursRestants.' jour'.($joursRestants > 1 ? 's' : '') }}</div>
+                @endif
+            </div>
+            <div>
+                <div class="devis-infos__libelle">Total indicatif</div>
+                <div class="fw-medium">{{ montant($montants['total_net']) }}</div>
+                <div class="small text-secondary">{{ $devis->lignes->count() }} ligne{{ $devis->lignes->count() > 1 ? 's' : '' }}</div>
             </div>
         </div>
     </div>
@@ -144,7 +201,7 @@
                                 {{ $ligne->produit->libelle_affichage }}
                                 <span class="text-secondary small">({{ $ligne->uniteVente?->libelle ?? $ligne->produit->unite_base_libelle }})</span>
                                 @if ($enRupture)
-                                    <span class="badge bg-warning text-dark ms-1" title="Stock insuffisant : {{ $enRupture['disponible'] }} disponible(s) sur {{ $enRupture['demande'] }} demandé(s)">
+                                    <span class="badge badge-doux-warning ms-1" title="Stock insuffisant : {{ $enRupture['disponible'] }} disponible(s) sur {{ $enRupture['demande'] }} demandé(s)">
                                         <i class="bi bi-exclamation-triangle"></i> Stock insuffisant
                                     </span>
                                 @endif
@@ -189,9 +246,9 @@
         </div>
     </div>
 
-    {{-- Contenu au format devis, masqué à l'écran : le bouton "Imprimer"
-         imprime ce bloc en place (voir imprimerDevis() ci-dessous), sans
-         redirection ni nouvel onglet — même geste que le ticket de vente. --}}
+    {{-- Contenu au format devis, masqué à l'écran (même gabarit que le PDF).
+         « Imprimer » (menu Document) imprime le PDF réel, voir
+         x-bouton-imprimer. --}}
     <div id="factureImprimable" class="d-none">
         <table class="entete">
             <tr>
@@ -264,34 +321,3 @@
         </div>
     </div>
 @endsection
-
-@push('scripts')
-    <script>
-        // Imprime le PDF réel (dompdf, route devis.pdf), plutôt que de
-        // basculer l'affichage sur #factureImprimable et d'imprimer cette
-        // page HTML : rendu garanti identique à "Télécharger en PDF" (dompdf
-        // a un support CSS différent d'un navigateur/Electron — voir
-        // x-bouton-imprimer pour le même mécanisme).
-        function imprimerDevis() {
-            const url = '{{ route('devis.pdf', $devis) }}?imprimer=1';
-            if (window.inmystore && window.inmystore.printPdfUrl) {
-                window.inmystore.printPdfUrl(url);
-                return;
-            }
-            let iframe = document.getElementById('__iframeDevisPdf');
-            if (! iframe) {
-                iframe = document.createElement('iframe');
-                iframe.id = '__iframeDevisPdf';
-                iframe.style.display = 'none';
-                document.body.appendChild(iframe);
-            }
-            iframe.onload = function () {
-                setTimeout(() => {
-                    iframe.contentWindow.focus();
-                    iframe.contentWindow.print();
-                }, 200);
-            };
-            iframe.src = url;
-        }
-    </script>
-@endpush
