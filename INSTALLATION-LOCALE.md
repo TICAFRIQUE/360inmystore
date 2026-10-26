@@ -95,6 +95,36 @@ navigateur s'ouvre directement sur l'application.
 pour déboguer depuis le Terminal Laragon si jamais ça ne s'ouvre pas — c'est
 la version que `demarrer-silencieux.vbs` exécute en coulisses.
 
+### Mettre à jour vers une nouvelle version
+
+**Jamais `installer.bat`** sur une installation qui tourne : il réécrit le
+`.env`, change la clé de l'application (tout le monde est déconnecté, ce qui
+était chiffré devient illisible) et fait créer un nouveau superadmin. Depuis le
+Terminal Laragon :
+
+```
+cd C:\laragon\www\360_inmystore
+scripts\mettre-a-jour.bat
+```
+
+Le script s'arrête de lui-même si l'application n'est pas encore installée. Il :
+
+1. récupère la nouvelle version (`git pull` ; si le dossier n'est pas un dépôt
+   git, il demande de confirmer que la nouvelle version a déjà été copiée
+   par-dessus — sans écraser `.env` ni `storage`) ;
+2. **sauvegarde la base** avant toute modification (s'il n'y arrive pas, il
+   demande s'il faut continuer sans) ;
+3. met l'application en maintenance, efface les caches de l'ancienne version ;
+4. installe les dépendances, compile les styles ;
+5. passe les migrations, puis `app:apres-mise-a-jour` (permissions nouvelles,
+   miniatures de photos) ;
+6. remet les caches et rouvre l'application.
+
+En cas d'erreur après l'étape 3, l'application reste en maintenance (rien n'est
+à moitié servi) : corriger, puis relancer le script, ou `php artisan up` pour
+simplement la rouvrir. Il se relance sans risque : une étape déjà faite ne
+change plus rien.
+
 ### Alternative : application desktop native (multi-poste réseau)
 
 Pour donner une vraie icône/fenêtre d'application (au lieu d'un raccourci

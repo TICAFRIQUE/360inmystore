@@ -1259,7 +1259,10 @@ PAR-DESSUS `mono_client`. Toute correction du métier (vente, stock, caisse, com
 se fait dans `mono_client`, puis `mono_client` est fusionnée dans `multi-tenant` —
 jamais l'inverse : aucun code de plateforme ne doit arriver dans la version installée.
 **Déploiement** : un push ne met plus rien en production ; le déploiement se lance à
-la main depuis GitHub (voir `.github/workflows/deploy.yml`).
+la main depuis GitHub (voir `.github/workflows/deploy.yml`), **uniquement depuis
+`mono_client`** — `main` est restée sur une ancienne version et `multi-tenant` se met
+à jour à la main sur son serveur (voir `PLATEFORME.md`). Sur un poste client Laragon,
+la mise à jour passe par `scripts\mettre-a-jour.bat`, jamais par `installer.bat`.
 
 Nouvelle extension (dépenses) : les charges du commerce (loyer, salaires, factures…)
 n'étaient suivies nulle part — une sortie de caisse en portait bien le motif, mais rien
