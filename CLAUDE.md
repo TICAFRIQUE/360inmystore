@@ -702,6 +702,16 @@ qui achètent **à crédit** sur compte client, réglé plus tard.
   `fournisseur.gerer`, `fournisseur.reglement`, `taxe.gerer`, `typeclient.gerer`,
   `motif.gerer`, `depense.voir`, `depense.creer`, `depense.annuler`, `rapport.voir`,
   `utilisateur.gerer`, `role.gerer`, `parametre.gerer`.
+- **Ajouter une permission** = l'ajouter à `config/permissions.php` : chaque
+  déploiement la crée en base (`php artisan app:apres-mise-a-jour`, qui relance
+  `RolePermissionSeeder` puis vide le cache des permissions) sans jamais toucher aux
+  réglages des rôles existants. Elle n'est donc donnée à personne d'office : pour
+  qu'un rôle par défaut déjà installé la reçoive (ex. le Gérant), une migration doit
+  le faire, comme celle des dépenses.
+- **Après chaque mise à jour du code** : `php artisan migrate --force` puis
+  `php artisan app:apres-mise-a-jour` (permissions, cache des permissions, miniatures
+  de photos manquantes) — déjà dans `.github/workflows/deploy.yml` ; sur la
+  plateforme, pour chaque entreprise via `entreprises:executer --toutes --`.
 - **Superadmin** : bypass total via `Gate::before` (ne reçoit pas de permissions).
 - **Noyau de permissions système protégé** : non attribuable aux rôles créés à la volée.
 - Rôles par défaut seedés : Superadmin, Gérant, Caissier — **modifiables**.
