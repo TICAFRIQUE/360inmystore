@@ -38,19 +38,24 @@ class ImageProduitTest extends TestCase
     }
 
     /**
-     * Photo « de téléphone » : 3000 × 2250 pixels de bruit, incompressible —
-     * plusieurs Mo en JPEG, bien au-delà de la limite.
+     * Photo « de téléphone » : 2400 × 1800 pixels de bruit, incompressible —
+     * environ 3,5 Mo en JPEG : bien au-delà de la limite d'enregistrement
+     * (1 Mo), et nettement sous la limite d'envoi (8 Mo). Le poids exact
+     * dépend de la bibliothèque JPEG du poste : une photo plus grande
+     * (3000 × 2250, 7,3 Mo ici) dépassait 8 Mo sur l'intégration continue et
+     * se faisait refuser par la validation, avant même d'être réduite.
      */
     private function photoLourde(): UploadedFile
     {
-        $image = imagecreatetruecolor(3000, 2250);
-        for ($y = 0; $y < 2250; $y += 3) {
-            for ($x = 0; $x < 3000; $x += 3) {
+        $image = imagecreatetruecolor(2400, 1800);
+        for ($y = 0; $y < 1800; $y += 3) {
+            for ($x = 0; $x < 2400; $x += 3) {
                 imagefilledrectangle($image, $x, $y, $x + 2, $y + 2, imagecolorallocate($image, random_int(0, 255), random_int(0, 255), random_int(0, 255)));
             }
         }
         $chemin = tempnam(sys_get_temp_dir(), 'photo').'.jpg';
-        imagejpeg($image, $chemin, 95);
+        imagejpeg($image, $chemin, 90);
+        imagedestroy($image);
 
         return new UploadedFile($chemin, 'Photo du Produit.jpg', 'image/jpeg', null, true);
     }
@@ -67,6 +72,7 @@ class ImageProduitTest extends TestCase
     {
         $photo = $this->photoLourde();
         $this->assertGreaterThan(ImageProduit::POIDS_MAX, $photo->getSize(), 'La photo de test doit dépasser 1 Mo.');
+        $this->assertLessThan(ImageProduit::ENVOI_MAX_KO * 1024, $photo->getSize(), 'La photo de test doit rester sous la limite d\'envoi, sinon la validation la refuse avant toute réduction.');
 
         $this->actingAs($this->proprietaire)
             ->post(route('produits.store'), $this->donnees(['image' => $photo]))
