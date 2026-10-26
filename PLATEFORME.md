@@ -133,12 +133,30 @@ plateforme ne doivent pas être la même.
 
 ## 7. Mises à jour
 
-Les migrations doivent passer sur la plateforme **et** sur chaque entreprise :
+Le déploiement automatisé ne vise pas cette branche : la mise à jour se fait à la
+main sur le serveur. Les migrations, puis `app:apres-mise-a-jour` (permissions
+ajoutées au catalogue, cache des permissions, miniatures de photos manquantes),
+doivent passer sur la plateforme **et** sur chaque entreprise :
 
 ```
+git pull origin multi-tenant
+composer install --no-dev --optimize-autoloader --no-interaction
+npm ci && npm run build
+
+php artisan down
 php artisan migrate --force
-php artisan entreprises:executer -- migrate --force
+php artisan entreprises:executer --toutes -- migrate --force
+php artisan app:apres-mise-a-jour
+php artisan entreprises:executer --toutes -- app:apres-mise-a-jour
+php artisan config:cache
+php artisan route:cache
+php artisan view:cache
+php artisan up
 ```
+
+`--toutes` inclut les entreprises suspendues : sans lui, un espace suspendu
+resterait sur l'ancienne structure et casserait à sa réouverture. Le `--` sépare
+les options de `entreprises:executer` de celles de la commande lancée.
 
 `entreprises:executer` lance la commande pour chaque entreprise active, l'une
 après l'autre, et se termine en erreur si une seule échoue (`--toutes` avant

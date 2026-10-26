@@ -112,7 +112,7 @@ jobs:
             ./ ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:${{ secrets.SERVER_PATH }}/
 
       # ── 5. Commandes post-déploiement ────────────────────────────────
-      - name: Post-deploy (migrate + cache + storage link)
+      - name: Post-deploy (migrate + permissions + miniatures + cache + storage link)
         run: |
           ssh -i ~/.ssh/deploy_key \
               -p ${{ secrets.SSH_PORT || 22 }} \
@@ -126,6 +126,9 @@ jobs:
             mkdir -p storage/framework/sessions storage/framework/views storage/framework/cache/data storage/framework/testing storage/app/public storage/logs
             php artisan down || true
             php artisan migrate --force
+            # Permissions nouvelles du catalogue, cache des permissions,
+            # miniatures de photos manquantes (voir App\Console\Commands\ApresMiseAJour).
+            php artisan app:apres-mise-a-jour
             php artisan config:cache
             php artisan route:cache
             php artisan view:cache
